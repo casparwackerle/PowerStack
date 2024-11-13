@@ -1,0 +1,8 @@
+---
+- name: Install and configure Rancher
+  hosts: server
+  become: true
+  vars_files:
+    - vault.yml
+  roles:
+    - role: rancher

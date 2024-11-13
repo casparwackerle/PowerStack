@@ -1,0 +1,4 @@
+---
+rancher_hostname: "rancher.local"
+bootstrapPassword: "admin"
+
