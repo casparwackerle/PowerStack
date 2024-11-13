@@ -1,0 +1,6 @@
+[submodule "ansible/k3s-ansible"]
+	path = ansible/k3s-ansible
+	url = git@github.com:casparwackerle/k3s-ansible.git
+[submodule "ansible/rancher-ansible"]
+	path = ansible/rancher-ansible
+	url = git@github.com:casparwackerle/rancher-ansible.git
