@@ -2,16 +2,8 @@ k3s_cluster:
   children:
     server:
       hosts:
-        160.85.30.104:  # This is the public IP of the control plane node
-           internal_ip: 192.168.0.104  # Internal IP for the control plane
-           external_ip: 160.85.30.104  # External IP for the control plane
-           racher_hostname: 160.85.30.104 # Using the public IP as the hostname
     agent:
       hosts:
-        160.85.30.105:  # Public IP of worker node 1
-           internal_ip: 192.168.0.105  # Internal IP of worker node 1
-        160.85.30.106:  # Public IP of worker node 2
-           internal_ip: 192.168.0.106  # Internal IP of worker node 2
 
   # Required Vars
   vars:
