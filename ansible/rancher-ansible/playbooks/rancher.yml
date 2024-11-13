@@ -3,6 +3,6 @@
   hosts: server
   become: true
   vars_files:
-    - vault.yml
+    - ../../configs/vault.yml
   roles:
     - role: rancher
