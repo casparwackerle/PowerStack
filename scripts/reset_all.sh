@@ -23,7 +23,7 @@ mkdir -p "$REPO_PATH/logs"
 
 # Add a timestamp to the log file name
 TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
-LOG_FILE="$REPO_PATH/logs/installation_k3s_$TIMESTAMP.log"
+LOG_FILE="$REPO_PATH/logs/reset_all_$TIMESTAMP.log"
 
 # Redirect script output to a timestamped log file
 exec > >(tee -i "$LOG_FILE") 2>&1
@@ -34,9 +34,9 @@ echo "Log file created: $LOG_FILE"
 cd "$REPO_PATH/ansible/k3s-ansible" || { echo "Error: 'ansible' directory not found in $REPO_PATH"; exit 1; }
 
 # Run the Ansible playbook with the inventory file and ask for vault password
-ansible-playbook playbooks/site.yml -i inventory.yml -i ../configs/inventory.yml --ask-vault-pass
+ansible-playbook playbooks/reset.yml -i inventory.yml -i ../configs/inventory.yml
 
-echo "k3s installation complete!"
+echo "reset complete!"
 
 # Return to the original directory
 cd "$ORIGINAL_DIR" || { echo "Error: Unable to return to the original directory: $ORIGINAL_DIR"; exit 1; }
