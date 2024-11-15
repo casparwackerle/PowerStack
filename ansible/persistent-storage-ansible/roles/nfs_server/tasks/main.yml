@@ -1,0 +1,15 @@
+- name: Install NFS server
+  apt:
+    name: nfs-kernel-server
+    state: present
+
+- name: Configure NFS export
+  lineinfile:
+    path: /etc/exports
+    line: "/mnt/data 192.168.0.0/24(rw,sync,no_root_squash)"
+    state: present
+
+- name: Restart NFS service
+  service:
+    name: nfs-kernel-server
+    state: restarted

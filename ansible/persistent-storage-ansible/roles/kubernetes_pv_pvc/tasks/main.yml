@@ -1,0 +1,30 @@
+- name: Create PV and PVC manifests
+  copy:
+    content: |
+      apiVersion: v1
+      kind: PersistentVolume
+      metadata:
+        name: nfs-pv
+      spec:
+        capacity:
+          storage: 200Gi
+        accessModes:
+          - ReadWriteMany
+        nfs:
+          server: "{{ nfs_server_ip }}"
+          path: /mnt/data
+      ---
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: nfs-pvc
+      spec:
+        accessModes:
+          - ReadWriteMany
+        resources:
+          requests:
+            storage: 200Gi
+    dest: /tmp/nfs-pv-pvc.yaml
+
+- name: Apply PV and PVC
+  command: kubectl apply -f /tmp/nfs-pv-pvc.yaml

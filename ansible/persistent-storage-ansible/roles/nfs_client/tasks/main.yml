@@ -1,0 +1,11 @@
+- name: Install NFS client
+  apt:
+    name: nfs-common
+    state: present
+
+- name: Mount NFS share
+  mount:
+    path: /mnt/data
+    src: "{{ nfs_server_ip }}:/mnt/data"
+    fstype: nfs
+    state: mounted

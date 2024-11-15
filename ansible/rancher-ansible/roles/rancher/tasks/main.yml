@@ -13,12 +13,12 @@
 - name: Check if cattle-system namespace exists
   command: kubectl get namespace cattle-system
   register: namespace_check
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Create cattle-system namespace if necessary
   when: namespace_check.rc != 0
   command: kubectl create namespace cattle-system
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Check if cert-manager is already installed
   stat:

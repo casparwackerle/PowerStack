@@ -1,0 +1,14 @@
+- name: Partition and format SSD
+  block:
+    - name: Create partition on /dev/sdd
+      command: parted -s /dev/sdd mklabel gpt mkpart primary ext4 0% 100%
+    - name: Format partition as ext4
+      filesystem:
+        fstype: ext4
+        dev: /dev/sdd1
+    - name: Mount SSD
+      mount:
+        path: /mnt/data
+        src: /dev/sdd1
+        fstype: ext4
+        state: mounted
