@@ -1,11 +1,63 @@
-- name: Install NFS client
+---
+- name: Ensure NFS server IP variable is defined
+  fail:
+    msg: "The variable 'nfs_server_ip' is not defined in the inventory."
+  when: nfs_server_ip is not defined
+
+- name: Ensure NFS export path variable is defined
+  fail:
+    msg: "The variable 'export_path' is not defined in the inventory."
+  when: export_path is not defined
+
+- name: Ensure NFS client mount point variable is defined
+  fail:
+    msg: "The variable 'nfs_client_mount' is not defined in the inventory."
+  when: nfs_client_mount is not defined
+
+- name: Install NFS client utilities
   apt:
     name: nfs-common
     state: present
+  become: true
 
-- name: Mount NFS share
+- name: Ensure the mount point exists
+  file:
+    path: "{{ nfs_client_mount }}"
+    state: directory
+  become: true
+
+- name: Check if the NFS share is already mounted
+  shell: mount | grep "{{ nfs_client_mount }}"
+  register: mount_check
+  changed_when: false
+
+- name: Mount the NFS share if not already mounted
   mount:
-    path: /mnt/data
-    src: "{{ nfs_server_ip }}:/mnt/data"
+    path: "{{ nfs_client_mount }}"
+    src: "{{ nfs_server_ip }}:{{ export_path }}"
     fstype: nfs
+    opts: defaults
     state: mounted
+  when: mount_check.rc != 0
+  become: true
+
+- name: Ensure /etc/fstab entry for the NFS share (ensure remount after reboot)
+  lineinfile:
+    path: /etc/fstab
+    line: "{{ nfs_server_ip }}:{{ export_path }} {{ nfs_client_mount }} nfs defaults 0 0"
+    state: present
+  become: true
+
+- name: Verify the NFS share is accessible
+  shell: ls "{{ nfs_client_mount }}"
+  register: share_access
+  changed_when: false
+
+- name: Fail if the NFS share is not accessible
+  fail:
+    msg: "The NFS share {{ nfs_server_ip }}:{{ export_path }} could not be accessed from {{ nfs_client_mount }}."
+  when: share_access.rc != 0
+
+- name: Confirm the NFS share is successfully mounted
+  debug:
+    msg: "The NFS share {{ nfs_server_ip }}:{{ export_path }} is successfully mounted on {{ nfs_client_mount }}."

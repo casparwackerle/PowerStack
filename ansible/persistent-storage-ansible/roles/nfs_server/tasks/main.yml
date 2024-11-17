@@ -1,15 +1,67 @@
+---
+- name: Ensure the specified disk variable is defined
+  fail:
+    msg: "The variable 'disk_to_format' is not defined in the inventory."
+  when: disk_to_format is not defined
+
+- name: Ensure the export path variable is defined
+  fail:
+    msg: "The variable 'export_path' is not defined in the inventory."
+  when: export_path is not defined
+
+- name: Ensure the NFS network variable is defined
+  fail:
+    msg: "The variable 'nfs_network' is not defined in the inventory."
+  when: nfs_network is not defined
+
+- name: Ensure the mount point exists
+  file:
+    path: "{{ export_path }}"
+    state: directory
+
+- name: Check if the disk is mounted
+  command: mount | grep "{{ export_path }}"
+  register: mount_check
+  changed_when: false
+
+- name: Mount the disk if not already mounted
+  mount:
+    path: "{{ export_path }}"
+    src: "{{ disk_to_format }}1"
+    fstype: btrfs
+    opts: defaults
+    state: mounted
+  when: mount_check.rc != 0
+
+- name: Ensure /etc/fstab entry for the disk (ensure remount after reboot)
+  lineinfile:
+    path: /etc/fstab
+    line: "{{ disk_to_format }}1 {{ export_path }} btrfs defaults 0 0"
+    state: present
+
 - name: Install NFS server
   apt:
     name: nfs-kernel-server
     state: present
+  become: true
 
 - name: Configure NFS export
   lineinfile:
     path: /etc/exports
-    line: "/mnt/data 192.168.0.0/24(rw,sync,no_root_squash)"
+    line: "{{ export_path }} {{ nfs_network }}(rw,sync,no_root_squash)"
     state: present
 
 - name: Restart NFS service
   service:
     name: nfs-kernel-server
     state: restarted
+    enabled: true
+
+- name: Verify the NFS export
+  command: exportfs -v
+  register: exportfs_output
+  changed_when: false
+
+- name: Display NFS export confirmation
+  debug:
+    msg: "NFS export configured: {{ exportfs_output.stdout }}"

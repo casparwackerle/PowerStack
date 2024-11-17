@@ -1,16 +1,7 @@
 ---
-- name: Format server SSD with NFS and set up as kubernetes pv/pvc
-  hosts: server
-  become: true
-  vars_files:
-    - ../../configs/vault.yml
-  roles:
-    - role: rancher
-
-
----
 - name: Prepare SSD on master server
   hosts: server
+  become: true
   vars_files:
     - ../../configs/vault.yml
   roles:

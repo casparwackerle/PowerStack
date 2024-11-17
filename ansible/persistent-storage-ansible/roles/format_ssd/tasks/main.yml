@@ -1,14 +1,51 @@
-- name: Partition and format SSD
+---
+- name: Ensure the specified disk variable is defined
+  fail:
+    msg: "The variable 'disk_to_format' is not defined in the inventory."
+  when: disk_to_format is not defined
+
+- name: Check if the specified disk exists
+  command: lsblk -o NAME -d -n
+  register: available_disks
+  changed_when: false
+
+- name: Fail if the specified disk does not exist
+  fail:
+    msg: "The specified disk {{ disk_to_format }} does not exist."
+  when: "'{{ disk_to_format | basename }}' not in available_disks.stdout_lines"
+
+- name: Gather information about the specified disk
+  command: lsblk -o NAME,FSTYPE,MOUNTPOINT -d -n {{ disk_to_format }}
+  register: disk_info
+  changed_when: false
+
+- name: Skip formatting if the disk is already formatted
+  debug:
+    msg: "The disk {{ disk_to_format }} is already formatted as {{ disk_info.stdout.split()[1] }}."
+  when: disk_info.stdout.split()[1] != ''
+
+- name: Partition and format the disk if unformatted
   block:
-    - name: Create partition on /dev/sdd
-      command: parted -s /dev/sdd mklabel gpt mkpart primary ext4 0% 100%
-    - name: Format partition as ext4
+    - name: Create a GPT partition table
+      command: parted -s {{ disk_to_format }} mklabel gpt
+      when: disk_info.stdout.split()[1] == ''
+
+    - name: Create a primary partition
+      command: parted -s {{ disk_to_format }} mkpart primary btrfs 0% 100%
+      when: disk_info.stdout.split()[1] == ''
+
+    - name: Install btrfs utilities
+      apt:
+        name: btrfs-progs
+        state: present
+      become: true
+
+    - name: Format the partition as btrfs
       filesystem:
-        fstype: ext4
-        dev: /dev/sdd1
-    - name: Mount SSD
-      mount:
-        path: /mnt/data
-        src: /dev/sdd1
-        fstype: ext4
-        state: mounted
+        fstype: btrfs
+        dev: "{{ disk_to_format }}1"
+      when: disk_info.stdout.split()[1] == ''
+
+- name: Ensure the disk is ready
+  debug:
+    msg: "The disk {{ disk_to_format }} has been successfully prepared for use."
