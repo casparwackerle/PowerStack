@@ -37,7 +37,7 @@ In the [Ansible Inventory File](../ansible/configs/inventory.yml), make the nece
 - NFS network, path and disk to be used. It is assumed that the used disk is part of the control node to allow the dynamic shutoff of worker nodes.
 - Size of kubernetes PV and PVC, must fit on the NFS disk
 
-**DISCLAIMER**: The selected NFS disk will be reformatted, resulting in the loss of any data on it.
+**Disclaimer**: The disk selected for NFS will be reformatted, resulting in the loss of any data on it.
 
 #### Ansible Vault
 ```bash
@@ -55,6 +55,6 @@ The [Deploy All Script](../scripts/deploy_all.sh) will take care of the entire i
 ```bash
 . scripts/deploy_all.sh
 ```
-**DISCLAIMER**: During the installation process, the user will be prompted *multiple* times for the ansible vault password.
+**Disclaimer**: During the installation process, the user will be prompted *multiple* times for the ansible vault password.
 
 **NOTE**: In the event of failure, all logs can be found in `/logs`
