@@ -35,7 +35,7 @@ k3s_cluster:
     # kubernetes pv and pvc
     pv_name: nfs-pv
     pvc_name: nfs-pvc
-    storage_size: 10Gi
+    storage_size: 150Gi
 
     # Optional vars
 
