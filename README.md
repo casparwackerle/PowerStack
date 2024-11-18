@@ -18,6 +18,7 @@ Here, a description of Powerstack is missing.
 2. Change the variables in the [ansible inventory](ansible/configs/inventory.yml) to suit your infrastructure.
 3. Copy the [vault template](ansible/configs/vault-template.yml) to vault.yml in the same directory. Change the tokens. Encrypt the vault using ansible-vault.
 4. Run [deploy_all.sh](scripts/deploy_all.sh)
+
 **Disclaimer**: This deployment script will reformat a disk, causing potential data loss. Please read the installation guide.
 
 ## Documentation
