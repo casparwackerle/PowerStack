@@ -55,5 +55,6 @@ The [Deploy All Script](../scripts/deploy_all.sh) will take care of the entire i
 ```bash
 . scripts/deploy_all.sh
 ```
-**DISCLAIMER**: During the installation process, the user will be prompted multiple times for the ansible vault password.
-**NOTE**: In the event of failure, all logs can be found in /logs
+**DISCLAIMER**: During the installation process, the user will be prompted *multiple* times for the ansible vault password.
+
+**NOTE**: In the event of failure, all logs can be found in `/logs`
