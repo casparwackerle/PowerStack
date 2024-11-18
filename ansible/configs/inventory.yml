@@ -5,7 +5,6 @@ k3s_cluster:
         160.85.30.104:  # This is the public IP of the control plane node
            internal_ip: 192.168.0.104  # Internal IP for the control plane
            external_ip: 160.85.30.104  # External IP for the control plane
-           racher_hostname: 160.85.30.104 # Using the public IP as the hostname
            disk_for_persistent_storage: /dev/sdd
     agent:
       hosts:
@@ -18,13 +17,8 @@ k3s_cluster:
   vars:
     # ansible
     ansible_port: 22
-    ansible_user: ubuntu  # Matches your user for SSH access
+    ansible_user: ubuntu
     k3s_version: v1.30.2+k3s1
-    # The token should be a random string of reasonable length. You can generate
-    # one with the following commands:
-    # - openssl rand -base64 64
-    # - pwgen -s 64 1
-    # You can use ansible-vault to encrypt this value / keep it secret.
     token: "{{ ansible_vault.token }}"
     api_endpoint: "{{ hostvars[groups['server'][0]]['ansible_host'] | default(groups['server'][0]) }}"
     extra_server_args: "--node-ip={{ hostvars[inventory_hostname]['internal_ip'] }}  --tls-san={{ hostvars[inventory_hostname]['external_ip'] }}"
@@ -34,7 +28,7 @@ k3s_cluster:
     rancher_hostname: rancher.local
     bootstrapPassword: "{{ ansible_vault.bootstrapPassword }}"
 
-    # NFS on server disk (specified above)
+    # NFS on server disk (disk to be formatted is specified above)
     nfs_network: 192.168.0.0/24
     export_path: /mnt/data
 

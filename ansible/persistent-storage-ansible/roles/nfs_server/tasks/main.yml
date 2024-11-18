@@ -20,9 +20,10 @@
     state: directory
 
 - name: Check if the disk is mounted
-  command: mount | grep "{{ export_path }}"
+  shell: mount | grep "{{ export_path }}"
   register: mount_check
   changed_when: false
+  failed_when: false
 
 - name: Mount the disk if not already mounted
   mount:
@@ -32,6 +33,7 @@
     opts: defaults
     state: mounted
   when: mount_check.rc != 0
+  changed_when: mount_check.rc == 0
 
 - name: Ensure /etc/fstab entry for the disk (ensure remount after reboot)
   lineinfile:
@@ -43,6 +45,7 @@
   apt:
     name: nfs-kernel-server
     state: present
+    update_cache: true
   become: true
 
 - name: Configure NFS export
@@ -50,17 +53,35 @@
     path: /etc/exports
     line: "{{ export_path }} {{ nfs_network }}(rw,sync,no_root_squash)"
     state: present
+    create: true
+  become: true
 
 - name: Restart NFS service
   service:
     name: nfs-kernel-server
     state: restarted
     enabled: true
+  changed_when: false
+  become: true
 
 - name: Verify the NFS export
   command: exportfs -v
   register: exportfs_output
   changed_when: false
+
+- name: Ensure rpcbind service is running
+  service:
+    name: rpcbind
+    state: started
+    enabled: true
+  become: true
+
+- name: Ensure NFS service is running
+  service:
+    name: nfs-kernel-server
+    state: started
+    enabled: true
+  become: true
 
 - name: Display NFS export confirmation
   debug:
