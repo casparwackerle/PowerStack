@@ -1,8 +1,8 @@
 ---
 - name: Ensure the specified disk variable is defined
   fail:
-    msg: "The variable 'disk_to_format' is not defined in the inventory."
-  when: disk_to_format is not defined
+    msg: "The variable 'disk_for_persistent_storage' is not defined in the inventory."
+  when: disk_for_persistent_storage is not defined
 
 - name: Ensure the export path variable is defined
   fail:
@@ -27,7 +27,7 @@
 - name: Mount the disk if not already mounted
   mount:
     path: "{{ export_path }}"
-    src: "{{ disk_to_format }}1"
+    src: "{{ disk_for_persistent_storage }}1"
     fstype: btrfs
     opts: defaults
     state: mounted
@@ -36,7 +36,7 @@
 - name: Ensure /etc/fstab entry for the disk (ensure remount after reboot)
   lineinfile:
     path: /etc/fstab
-    line: "{{ disk_to_format }}1 {{ export_path }} btrfs defaults 0 0"
+    line: "{{ disk_for_persistent_storage }}1 {{ export_path }} btrfs defaults 0 0"
     state: present
 
 - name: Install NFS server

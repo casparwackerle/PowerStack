@@ -1,9 +1,11 @@
 ---
-- name: Ensure the specified disk variable is defined
+# Ensure the disk variable is defined
+- name: Ensure the disk variable is defined
   fail:
-    msg: "The variable 'disk_to_format' is not defined in the inventory."
-  when: disk_to_format is not defined
+    msg: "The variable 'disk_for_persistent_storage' is not defined in the inventory."
+  when: disk_for_persistent_storage is not defined
 
+# Check if the disk exists
 - name: Check if the specified disk exists
   command: lsblk -o NAME -d -n
   register: available_disks
@@ -11,28 +13,50 @@
 
 - name: Fail if the specified disk does not exist
   fail:
-    msg: "The specified disk {{ disk_to_format }} does not exist."
-  when: "'{{ disk_to_format | basename }}' not in available_disks.stdout_lines"
+    msg: "The specified disk {{ disk_for_persistent_storage }} does not exist."
+  when: "'{{ disk_for_persistent_storage | basename }}' not in available_disks.stdout_lines"
 
-- name: Gather information about the specified disk
-  command: lsblk -o NAME,FSTYPE,MOUNTPOINT -d -n {{ disk_to_format }}
+# Gather information about the specified disk
+- name: Gather information about the specified disk. Assumes that partition is called {{ disk_for_persistent_storage }}1
+  command: lsblk -o NAME,FSTYPE,MOUNTPOINT -d -n {{ disk_for_persistent_storage }}1
   register: disk_info
   changed_when: false
+  failed_when: false
 
-- name: Skip formatting if the disk is already formatted
+# Parse disk information
+- name: Parse disk information
+  set_fact:
+    disk_fstype: "{{ disk_info.stdout.split()[1] if disk_info.stdout.split() | length > 1 else '' }}"
+    disk_mountpoint: "{{ disk_info.stdout.split()[2] if disk_info.stdout.split() | length > 2 else '' }}"
+
+# Skip actions if the disk is already formatted and mounted
+- name: Skip all actions if the disk is already formatted and mounted
   debug:
-    msg: "The disk {{ disk_to_format }} is already formatted as {{ disk_info.stdout.split()[1] }}."
-  when: disk_info.stdout.split()[1] != ''
+    msg: "The disk {{ disk_for_persistent_storage }} is already formatted as {{ disk_fstype }} and mounted at {{ disk_mountpoint }}. No further action needed."
+  when:
+    - disk_fstype != ''
+    - disk_mountpoint == '/mnt/data'
 
-- name: Partition and format the disk if unformatted
+# Mount the disk if it is formatted but not mounted
+- name: Mount the disk if formatted but not mounted
+  mount:
+    path: /mnt/data
+    src: "{{ disk_for_persistent_storage }}1"
+    fstype: btrfs
+    opts: defaults
+    state: mounted
+  when:
+    - disk_fstype == 'btrfs'
+    - disk_mountpoint != '/mnt/data'
+
+# Partition, format, and mount the disk if it is unformatted
+- name: Partition, format, and mount the disk if unformatted
   block:
     - name: Create a GPT partition table
-      command: parted -s {{ disk_to_format }} mklabel gpt
-      when: disk_info.stdout.split()[1] == ''
+      command: parted -s {{ disk_for_persistent_storage }} mklabel gpt
 
     - name: Create a primary partition
-      command: parted -s {{ disk_to_format }} mkpart primary btrfs 0% 100%
-      when: disk_info.stdout.split()[1] == ''
+      command: parted -s {{ disk_for_persistent_storage }} mkpart primary btrfs 0% 100%
 
     - name: Install btrfs utilities
       apt:
@@ -43,9 +67,32 @@
     - name: Format the partition as btrfs
       filesystem:
         fstype: btrfs
-        dev: "{{ disk_to_format }}1"
-      when: disk_info.stdout.split()[1] == ''
+        dev: "{{ disk_for_persistent_storage }}1"
 
-- name: Ensure the disk is ready
+    - name: Ensure the mount point exists
+      file:
+        path: /mnt/data
+        state: directory
+
+    - name: Mount the disk
+      mount:
+        path: /mnt/data
+        src: "{{ disk_for_persistent_storage }}1"
+        fstype: btrfs
+        opts: defaults
+        state: mounted
+  when: disk_fstype == ''
+
+# Ensure /etc/fstab entry for persistence
+- name: Ensure /etc/fstab entry for the disk
+  lineinfile:
+    path: /etc/fstab
+    line: "{{ disk_for_persistent_storage }}1 /mnt/data btrfs defaults 0 0"
+    state: present
+
+# Print confirmation message
+- name: Confirm the disk setup is complete
   debug:
-    msg: "The disk {{ disk_to_format }} has been successfully prepared for use."
+    msg: >
+      The disk {{ disk_for_persistent_storage }} is formatted as {{ disk_fstype | default('btrfs') }},
+      mounted at /mnt/data, and ready for use.
