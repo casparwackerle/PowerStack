@@ -1,27 +1,23 @@
 ---
-- name: Prepare SSD on master server
-  hosts: server
-  become: true
-  roles:
-    - role: format_ssd
-
-- name: Install and configure NFS server
-  hosts: server
-  become: true
-  roles:
-   - role: nfs_server
-
-- name: Install and configure NFS clients
-  hosts: agent
-  become: true
-  roles:
-   - role: nfs_client
-
-# - name: Configure Kubernetes Persistent Volumes and Claims
+# - name: Prepare SSD on master server
 #   hosts: server
-#   vars_files:
-#    - ../../configs/vault.yml
+#   become: true
 #   roles:
-#    - role: kubernetes_pv_pvc
-#   vars:
-#    nfs_server_ip: "{{ hostvars['master1']['ansible_host'] }}"
+#     - role: format_ssd
+
+# - name: Install and configure NFS server
+#   hosts: server
+#   become: true
+#   roles:
+#    - role: nfs_server
+
+# - name: Install and configure NFS clients
+#   hosts: agent
+#   become: true
+#   roles:
+#    - role: nfs_client
+
+- name: Configure Kubernetes Persistent Volumes and Claims
+  hosts: server
+  roles:
+   - role: kubernetes_pv_pvc

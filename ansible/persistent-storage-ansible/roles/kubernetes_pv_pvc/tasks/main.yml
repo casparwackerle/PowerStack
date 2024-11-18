@@ -1,30 +1,42 @@
-- name: Create PV and PVC manifests
-  copy:
-    content: |
-      apiVersion: v1
-      kind: PersistentVolume
-      metadata:
-        name: nfs-pv
-      spec:
-        capacity:
-          storage: 200Gi
-        accessModes:
-          - ReadWriteMany
-        nfs:
-          server: "{{ nfs_server_ip }}"
-          path: /mnt/data
-      ---
-      apiVersion: v1
-      kind: PersistentVolumeClaim
-      metadata:
-        name: nfs-pvc
-      spec:
-        accessModes:
-          - ReadWriteMany
-        resources:
-          requests:
-            storage: 200Gi
-    dest: /tmp/nfs-pv-pvc.yaml
+---
+- name: Ensure required variables are defined
+  fail:
+    msg: "The variable '{{ item }}' is not defined in the inventory."
+  with_items:
+    - export_path
+    - pv_name
+    - pvc_name
+    - storage_size
+  when: item is not defined
 
-- name: Apply PV and PVC
-  command: kubectl apply -f /tmp/nfs-pv-pvc.yaml
+- name: Create PersistentVolume
+  copy:
+    content: "{{ lookup('template', 'pv.yml.j2') }}"
+    dest: "/tmp/{{ pv_name }}.yml"
+  become: true
+
+- name: Apply PersistentVolume manifest
+  command: kubectl apply -f /tmp/{{ pv_name }}.yml
+  register: pv_result
+  changed_when: "'created' in pv_result.stdout or 'configured' in pv_result.stdout"
+  become: true
+
+- name: Debug PersistentVolume creation output
+  debug:
+    var: pv_result.stdout
+
+- name: Create PersistentVolumeClaim
+  copy:
+    content: "{{ lookup('template', 'pvc.yml.j2') }}"
+    dest: "/tmp/{{ pvc_name }}.yml"
+  become: true
+
+- name: Apply PersistentVolumeClaim manifest
+  command: kubectl apply -f /tmp/{{ pvc_name }}.yml
+  register: pvc_result
+  changed_when: "'created' in pvc_result.stdout or 'configured' in pvc_result.stdout"
+  become: true
+
+- name: Debug PersistentVolumeClaim creation output
+  debug:
+    var: pvc_result.stdout

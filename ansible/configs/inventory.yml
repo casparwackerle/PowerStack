@@ -32,6 +32,11 @@ k3s_cluster:
     nfs_network: 192.168.0.0/24
     export_path: /mnt/data
 
+    # kubernetes pv and pvc
+    pv_name: nfs-pv
+    pvc_name: nfs-pvc
+    storage_size: 10Gi
+
     # Optional vars
 
     # cluster_context: k3s-ansible
