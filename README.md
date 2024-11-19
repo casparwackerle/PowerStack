@@ -22,9 +22,8 @@ Here, a description of Powerstack is missing.
 **Disclaimer**: This deployment script will reformat a disk, causing potential data loss. Please read the installation guide.
 
 ## Documentation
-- [Project Documentation and Architecture](docs/design.md)
-- [Installation Guide](docs/installation.md)
-- [Configuration Guide](docs/configuration.md)
+- [Project Documentation and Architecture](docs/project.md)
+- [Installation Guide](docs/installation-and-setup.md)
 
 ## License
 **Disclaimer**: This project includes third-party code with their respective licenses. It is the responsibility of users to ensure compliance with the licenses of included components. Once this project is done, I intend to clarify the License situation.
