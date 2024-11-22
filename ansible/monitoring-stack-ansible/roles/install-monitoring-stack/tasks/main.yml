@@ -1,0 +1,75 @@
+---
+- name: Ensure Helm is installed
+  shell: |
+    curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+  args:
+    creates: /usr/local/bin/helm
+
+- name: Add Rancher repository and update Helm
+  shell: |
+    helm repo add rancher-stable https://releases.rancher.com/server-charts/stable
+    helm repo update
+
+- name: Check if cattle-system namespace exists
+  command: kubectl get namespace cattle-system
+  register: namespace_check
+  ignore_errors: true
+
+- name: Create cattle-system namespace if necessary
+  when: namespace_check.rc != 0
+  command: kubectl create namespace cattle-system
+  ignore_errors: true
+
+- name: Check if cert-manager is already installed
+  stat:
+    path: /var/lib/rancher/cert-manager-installed
+  register: cert_manager_installed
+
+- name: Install cert-manager if not already installed
+  shell: |
+    kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.11.0/cert-manager.yaml
+  when: not cert_manager_installed.stat.exists
+  args:
+    creates: /var/lib/rancher/cert-manager-installed
+
+- name: Mark cert-manager as installed
+  file:
+    path: /var/lib/rancher/cert-manager-installed
+    state: touch
+  when: not cert_manager_installed.stat.exists
+
+- name: Wait for cert-manager to be running
+  shell: kubectl rollout status deployment/cert-manager -n cert-manager --timeout=300s
+  retries: 5
+  delay: 30
+
+- name: Check if rancher already exists
+  stat:
+    path: /var/lib/rancher/rancher-installed
+  register: rancher_installed
+
+- name: Install Rancher using Helm
+  when: not rancher_installed.stat.exists
+  shell: |
+    helm install rancher rancher-stable/rancher \
+      --namespace cattle-system \
+      --set hostname={{ rancher_hostname }} \
+      --set tls=external \
+      --set bootstrapPassword={{ bootstrapPassword }}
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+  args:
+    creates: /var/lib/rancher/rancher-installed
+
+- name: Mark rancher as installed
+  file:
+    path: /var/lib/rancher/rancher-installed
+    state: touch
+  when: not rancher_installed.stat.exists
+
+- name: Verify Rancher deployment status THIS TAKES A WHILE
+  shell: kubectl -n cattle-system get deploy rancher -o jsonpath="{.status.conditions[?(@.type=='Available')].status}"
+  register: rancher_status
+  retries: 5
+  delay: 60
+  until: rancher_status.stdout == "True"

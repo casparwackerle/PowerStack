@@ -37,6 +37,9 @@ k3s_cluster:
     pvc_name: nfs-pvc
     storage_size: 150Gi
 
+    # Monitoring Stack
+    monitoring-stack-repo-url: https://prometheus-community.github.io/helm-charts
+
     # Optional vars
 
     # cluster_context: k3s-ansible
