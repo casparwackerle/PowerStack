@@ -6,3 +6,4 @@
    - ../../../configs/vault.yml
   roles:
     - role: install-monitoring-stack
+    - role: port-forward-grafana

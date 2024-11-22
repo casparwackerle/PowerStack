@@ -1,0 +1,34 @@
+---
+- name: Ensure Grafana service exists
+  shell: kubectl get svc -n monitoring-stack monitoring-stack-grafana
+  register: grafana_service_check
+  failed_when: grafana_service_check.rc != 0
+  changed_when: false
+
+- name: Start port-forwarding for Grafana service
+  shell: |
+    kubectl -n monitoring-stack port-forward svc/monitoring-stack-grafana 3000:80 > /dev/null 2>&1 &
+  args:
+    executable: /bin/bash
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+  async: 0
+  poll: 0
+  when: grafana_service_check.rc == 0
+
+- name: Patch the Grafana service to NodePort
+  shell: |
+    kubectl patch svc monitoring-stack-grafana -n monitoring-stack -p '{"spec": {"type": "NodePort"}}'
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+
+- name: Retrieve NodePort for Grafana service
+  shell: |
+    kubectl get svc monitoring-stack-grafana -n monitoring-stack -o jsonpath="{.spec.ports[0].nodePort}"
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+  register: grafana_nodeport
+
+- name: Display Grafana NodePort
+  debug:
+    msg: "Grafana is exposed on NodePort {{ grafana_nodeport.stdout }}. Use http://{{ hostvars[inventory_hostname]['external_ip'] }}:{{ grafana_nodeport.stdout }} to access Grafana."
