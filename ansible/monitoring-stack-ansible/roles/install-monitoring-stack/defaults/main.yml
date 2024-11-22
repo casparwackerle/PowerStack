@@ -1,7 +1,0 @@
----
-- hosts: localhost
-  tasks:
-      - name: Add helm repo
-        kubernetes.core.helm_repository:
-            name: monitoring-stack
-            repo_url: "{{ monitoring-stack-repo-url }}"

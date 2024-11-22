@@ -38,7 +38,7 @@ k3s_cluster:
     storage_size: 150Gi
 
     # Monitoring Stack
-    monitoring-stack-repo-url: https://prometheus-community.github.io/helm-charts
+    monitoring_stack_repo_url: https://prometheus-community.github.io/helm-charts
 
     # Optional vars
 

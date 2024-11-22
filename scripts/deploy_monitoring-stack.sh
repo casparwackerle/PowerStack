@@ -31,11 +31,10 @@ exec > >(tee -i "$LOG_FILE") 2>&1
 echo "Log file created: $LOG_FILE"
 
 # Navigate to the monitoring-stack-ansible directory
-cd "$REPO_PATH/ansible/rmonitoring-stack-ansible" || { echo "Error: 'monitoring-stack' directory not found in $REPO_PATH"; exit 1; }
+cd "$REPO_PATH/ansible/monitoring-stack-ansible" || { echo "Error: 'monitoring-stack-ansible' directory not found in $REPO_PATH"; exit 1; }
 
 # Run the Ansible playbook with the inventory file and ask for vault password
-ansible-playbook playbooks/install-monitoring-stack.yml -i inventory.yml -i ../../configs/inventory.yml
-
+ansible-playbook playbooks/install-monitoring-stack.yml -i inventory.yml -i ../../configs/inventory.yml  --ask-vault-pass
 echo "monitoring-stack installation complete!"
 
 # Return to the original directory

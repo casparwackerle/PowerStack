@@ -12,8 +12,8 @@ This repository is designed for bare-metal nodes with very specific goals and re
 - Two or more physical servers with Ubuntu 22.04 installed. This project was tested on x64 architecture.
 - Passwordless SSH access to all servers.
 - A user account with `sudo` privileges.
-- The control node *must* have Ansible 8.0+ (ansible-core 2.15+).
-- The control node must have an empty storage device available, which will be used to provide persistent storage for Kubernetes.
+- The control node (of ansible, i.e. your local machine) *must* have Ansible 8.0+ (ansible-core 2.15+).
+- The assigned control plane (of kubernetes, i.e. one of your servers) must have an empty storage device available, which will be used to provide persistent storage for Kubernetes.
 - Networking between the physical servers. A subnet for internal communication is recommended but not required.
 - It is recommended that all managed nodes disable firewalls and swap. See [K3s Requirements](https://docs.k3s.io/installation/requirements) for more information.
 
@@ -111,3 +111,8 @@ When accessing the Rancher interface for the first time, you will be asked for t
 ### Additional Notes
 - This installation process assumes familiarity with basic Linux commands and networking.
 - Use a testing environment to experiment before deploying on production servers.
+
+
+
+NOTE: ALL HELM CHARTS ARE INSTALLED AS ROOT.
+KUBECTL IS CONFIGURED FOR USER UBUNTU HOWEVER, WHICH MEANS THAT HELM CAN NOT BE USED FROM A REMOTE MACHINE. LOG INTO TARGET MACHINE, THEN sudo helm repo list

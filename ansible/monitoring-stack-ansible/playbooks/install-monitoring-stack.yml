@@ -1,6 +1,6 @@
 ---
 - name: Install monitoring stack using helm
-  hosts: localhost
+  hosts: server
   become: true
   vars_files:
    - ../../../configs/vault.yml
