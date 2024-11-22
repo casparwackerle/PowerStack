@@ -2,3 +2,6 @@
 	path = ansible/k3s-ansible
 	url = git@github.com:casparwackerle/k3s-ansible.git
 
+[submodule "helm/prometheus-helm"]
+	path = helm/prometheus-helm
+	url = git@github.com:casparwackerle/prometheus-helm.git

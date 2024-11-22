@@ -34,7 +34,7 @@ echo "Log file created: $LOG_FILE"
 cd "$REPO_PATH/ansible/persistent-storage-ansible" || { echo "Error: 'ansible' directory not found in $REPO_PATH"; exit 1; }
 
 # Run the Ansible playbook with the inventory file and ask for vault password
-ansible-playbook playbooks/persistent-storage.yml -i inventory.yml -i ../configs/inventory.yml
+ansible-playbook playbooks/persistent-storage.yml -i inventory.yml -i ../../configs/inventory.yml
 
 echo "persistent storage installation complete!"
 

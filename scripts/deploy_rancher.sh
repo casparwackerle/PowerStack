@@ -34,7 +34,7 @@ echo "Log file created: $LOG_FILE"
 cd "$REPO_PATH/ansible/rancher-ansible" || { echo "Error: 'ansible' directory not found in $REPO_PATH"; exit 1; }
 
 # Run the Ansible playbook with the inventory file and ask for vault password
-ansible-playbook playbooks/rancher.yml -i inventory.yml -i ../configs/inventory.yml --ask-vault-pass
+ansible-playbook playbooks/rancher.yml -i inventory.yml -i ../../configs/inventory.yml --ask-vault-pass
 
 echo "rancher installation complete!"
 
