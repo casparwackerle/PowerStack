@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export ANSIBLE_FORCE_COLOR=true
+
 # Enable strict error handling
 set -e  # Exit immediately if a command exits with a non-zero status
 set -u  # Treat unset variables as an error

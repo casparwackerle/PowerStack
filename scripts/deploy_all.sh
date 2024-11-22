@@ -37,6 +37,7 @@ SCRIPTS=(
     "$REPO_PATH/scripts/deploy_k3s.sh"
     "$REPO_PATH/scripts/deploy_rancher.sh"
     "$REPO_PATH/scripts/deploy_persistent-storage.sh"
+    "$REPO_PATH/scripts/deploy_monitoring-stack.sh"
 )
 
 # Execute each script in order
