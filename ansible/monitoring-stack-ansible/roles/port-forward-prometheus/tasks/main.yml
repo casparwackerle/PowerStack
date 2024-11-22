@@ -1,0 +1,34 @@
+---
+- name: Ensure Prometheus service exists
+  shell: kubectl get svc -n monitoring-stack monitoring-stack-kube-prom-prometheus
+  register: prometheus_service_check
+  failed_when: prometheus_service_check.rc != 0
+  changed_when: false
+
+- name: Start port-forwarding for Prometheus service
+  shell: |
+    kubectl -n monitoring-stack port-forward svc/monitoring-stack-kube-prom-prometheus 9090:9090 > /dev/null 2>&1 &
+  args:
+    executable: /bin/bash
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+  async: 0
+  poll: 0
+  when: prometheus_service_check.rc == 0
+
+- name: Patch Prometheus service to use a static NodePort
+  shell: |
+    kubectl patch svc monitoring-stack-kube-prom-prometheus -n monitoring-stack -p '{"spec": {"ports": [{"port": 9090, "nodePort": {{ prometheus_custom_nodeport }}, "protocol": "TCP", "targetPort": 9090}],"type": "NodePort"}}'
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+
+- name: Retrieve NodePort for Prometheus service
+  shell: |
+    kubectl get svc monitoring-stack-kube-prom-prometheus -n monitoring-stack -o jsonpath="{.spec.ports[0].nodePort}"
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+  register: prometheus_nodeport
+
+- name: Display Prometheus NodePort
+  debug:
+    msg: "Prometheus is exposed on NodePort {{ prometheus_nodeport.stdout }}. Use http://{{ hostvars[inventory_hostname]['external_ip'] }}:{{ prometheus_nodeport.stdout }} to access Prometheus."

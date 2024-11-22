@@ -40,6 +40,11 @@ k3s_cluster:
     # Monitoring Stack
     monitoring_stack_repo_url: https://prometheus-community.github.io/helm-charts
 
+    # NodePorts. MUST BE BETWEEN 30000 AND 32767
+    prometheus_custom_nodeport: 30001
+    grafana_custom_nodeport: 30002
+    alertmanager_custom_nodeport: 30003
+
     # Optional vars
 
     # cluster_context: k3s-ansible

@@ -16,9 +16,9 @@
   poll: 0
   when: grafana_service_check.rc == 0
 
-- name: Patch the Grafana service to NodePort
+- name: Patch Grafana service to use a static NodePort
   shell: |
-    kubectl patch svc monitoring-stack-grafana -n monitoring-stack -p '{"spec": {"type": "NodePort"}}'
+    kubectl patch svc monitoring-stack-grafana -n monitoring-stack -p '{"spec": {"ports": [{"port": 80, "nodePort": {{ grafana_custom_nodeport }}, "protocol": "TCP", "targetPort": 3000}],"type": "NodePort"}}'
   environment:
     KUBECONFIG: /home/ubuntu/.kube/config
 

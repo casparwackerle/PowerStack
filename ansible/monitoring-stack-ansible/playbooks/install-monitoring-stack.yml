@@ -7,3 +7,5 @@
   roles:
     - role: install-monitoring-stack
     - role: port-forward-grafana
+    - role: port-forward-prometheus
+    - role: port-forward-alertmanager
