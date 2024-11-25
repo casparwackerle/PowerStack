@@ -18,7 +18,10 @@ This repository is designed for bare-metal nodes with very specific goals and re
 - It is recommended that all managed nodes disable firewalls and swap. See [K3s Requirements](https://docs.k3s.io/installation/requirements) for more information.
 
 ### Software
-- **Ansible**: Version 8.0+.
+- **Ansible Core**: Version 8.0+.
+```bash
+sudo apt install ansible-core
+```
 - **Kubectl**: Version v1.30.2+.
 - **Helm**: Version v3.16.2+, initialized
 

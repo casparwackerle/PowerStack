@@ -6,9 +6,9 @@ spec:
   capacity:
     storage: {{ storage_size }}
   accessModes:
-    - ReadWriteMany
-  persistentVolumeReclaimPolicy: Retain
-  storageClassName: local-nfs
+    - {{ storageAccessMode }}
+  persistentVolumeReclaimPolicy: {{ persistentVolumeReclaimPolicy }}
+  storageClassName: {{ storageClassName }}
   nfs:
     path: {{ export_path }}
     server: {{ hostvars[groups['server'][0]]['internal_ip'] }}

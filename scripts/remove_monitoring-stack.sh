@@ -25,20 +25,19 @@ mkdir -p "$REPO_PATH/logs"
 
 # Add a timestamp to the log file name
 TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
-LOG_FILE="$REPO_PATH/logs/reset_all_$TIMESTAMP.log"
+LOG_FILE="$REPO_PATH/logs/removal_monitoring-stack_$TIMESTAMP.log"
 
 # Redirect script output to a timestamped log file
 exec > >(tee -i "$LOG_FILE") 2>&1
 
 echo "Log file created: $LOG_FILE"
 
-# Navigate to the k3s-ansible directory
-cd "$REPO_PATH/ansible/k3s-ansible" || { echo "Error: 'ansible' directory not found in $REPO_PATH"; exit 1; }
+# Navigate to the monitoring-stack-ansible directory
+cd "$REPO_PATH/ansible/monitoring-stack-ansible" || { echo "Error: 'monitoring-stack-ansible' directory not found in $REPO_PATH"; exit 1; }
 
 # Run the Ansible playbook with the inventory file and ask for vault password
-ansible-playbook playbooks/reset.yml -i inventory.yml -i ../../configs/inventory.yml
-
-echo "reset complete!"
+ansible-playbook playbooks/remove-monitoring-stack.yml -i inventory.yml -i ../../configs/inventory.yml  --ask-vault-pass
+echo "monitoring-stack removal complete!"
 
 # Return to the original directory
 cd "$ORIGINAL_DIR" || { echo "Error: Unable to return to the original directory: $ORIGINAL_DIR"; exit 1; }

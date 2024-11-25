@@ -1,0 +1,8 @@
+---
+- name: Remove monitoring stack using helm
+  hosts: server
+  become: true
+  vars_files:
+   - ../../../configs/vault.yml
+  roles:
+    - role: remove-monitoring-stack

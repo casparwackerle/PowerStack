@@ -56,8 +56,8 @@
       --set hostname={{ rancher_hostname }} \
       --set tls=external \
       --set bootstrapPassword={{ bootstrapPassword }} \
-      --set service.type=NodePort \
-      --set service.nodePort={{ rancher_custom_nodeport }}
+#      --set service.type=NodePort \
+#      --set service.nodePort={{ rancher_custom_nodeport }}
   environment:
     KUBECONFIG: /home/ubuntu/.kube/config
   args:
@@ -76,6 +76,6 @@
   delay: 60
   until: rancher_status.stdout == "True"
 
-- name: Display Rancher NodePort
-  debug:
-    msg: "Rancher is exposed on NodePort {{ rancher_custom_nodeport }}. Use http://{{ hostvars[inventory_hostname]['external_ip'] }}:{{ rancher_custom_nodeport }} to access Rancher."
+# - name: Display Rancher NodePort
+#   debug:
+#     msg: "Rancher is exposed on NodePort {{ rancher_custom_nodeport }}. Use http://{{ hostvars[inventory_hostname]['external_ip'] }}:{{ rancher_custom_nodeport }} to access Rancher."

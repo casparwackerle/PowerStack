@@ -4,8 +4,8 @@ metadata:
   name: {{ pvc_name }}
 spec:
   accessModes:
-    - ReadWriteMany
+    - {{ storageAccessMode }}
   resources:
     requests:
       storage: {{ storage_size }}
-  storageClassName: local-nfs
+  storageClassName: {{ storageClassName }}

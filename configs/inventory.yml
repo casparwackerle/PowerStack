@@ -33,15 +33,20 @@ k3s_cluster:
     export_path: /mnt/data
 
     # kubernetes pv and pvc
+    storageClassName: local-nfs
+    storageAccessMode: ReadWriteMany
+    persistentVolumeReclaimPolicy: Retain
     pv_name: nfs-pv
     pvc_name: nfs-pvc
     storage_size: 150Gi
+    grafana_pv_size: 20Gi
 
     # Monitoring Stack
     monitoring_stack_repo_url: https://prometheus-community.github.io/helm-charts
+    grafana_admin_password: "{{ ansible_vault.grafanaAdminPassword }}"
 
     # NodePorts. MUST BE BETWEEN 30000 AND 32767
-    rancher_custom_nodeport: 30001
+    #rancher_custom_nodeport: 30001 # does not work
     prometheus_custom_nodeport: 30002
     grafana_custom_nodeport: 30003
     alertmanager_custom_nodeport: 30004
