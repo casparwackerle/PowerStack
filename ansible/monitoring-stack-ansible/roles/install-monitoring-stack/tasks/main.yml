@@ -20,24 +20,92 @@
   command: kubectl create namespace monitoring-stack
   ignore_errors: true
 
-- name: Ensure /var/lib/monitoring-stack directory exists
-  file:
-    path: /var/lib/monitoring-stack
-    state: directory
-    owner: root
-    group: root
-    mode: '0755'
+
+
+# - name: Ensure required variables for StorageClass are defined
+#   fail:
+#     msg: "The variable '{{ item }}' is not defined in the inventory."
+#   with_items:
+#     - storageClassName
+#   when: item is not defined
+
+# - name: Create StorageClass manifest
+#   copy:
+#     content: |
+#       apiVersion: storage.k8s.io/v1
+#       kind: StorageClass
+#       metadata:
+#         name: {{ storageClassName }}
+#       provisioner: kubernetes.io/no-provisioner
+#       volumeBindingMode: WaitForFirstConsumer
+#       reclaimPolicy: {{ persistentVolumeReclaimPolicy }}
+#     dest: "/tmp/{{ storageClassName }}-storageclass.yaml"
+#   become: true
+
+# - name: Apply StorageClass manifest
+#   command: kubectl apply -f /tmp/{{ storageClassName }}-storageclass.yaml
+#   register: storageclass_result
+#   changed_when: "'created' in storageclass_result.stdout or 'configured' in storageclass_result.stdout"
+#   become: true
+
+# - name: Debug StorageClass creation output
+#   debug:
+#     var: storageclass_result.stdout
+
+# - name: Ensure StorageClass is successfully created
+#   command: kubectl get storageclass {{ storageClassName }}
+#   register: storageclass_verify
+#   changed_when: false
+#   failed_when: "'Error' in storageclass_verify.stdout"
+#   become: true
+
+# - name: Debug StorageClass verification output
+#   debug:
+#     var: storageclass_verify.stdout
+
+
+
+# - name: Create PersistentVolumeClaim
+#   copy:
+#     content: "{{ lookup('template', 'pvc.yml.j2') }}"
+#     dest: "/tmp/{{ pvc_name }}.yml"
+#   become: true
+
+# - name: Apply PersistentVolumeClaim manifest
+#   command: kubectl apply -f /tmp/{{ pvc_name }}.yml
+#   register: pvc_result
+#   changed_when: "'created' in pvc_result.stdout or 'configured' in pvc_result.stdout"
+#   become: true
+
+# - name: Debug PersistentVolumeClaim creation output
+#   debug:
+#     var: pvc_result.stdout
+
+# - name: Ensure /var/lib/monitoring-stack directory exists
+#   file:
+#     path: /var/lib/monitoring-stack
+#     state: directory
+#     owner: root
+#     group: root
+#     mode: '0755'
 
 - name: Check if monitoring-stack already exists
   stat:
     path: /var/lib/monitoring-stack/monitoring-stack-installed
   register: monitoring_stack_installed
 
+# - name: Render Grafana values.yaml
+#   template:
+#     src: values.yml.j2
+#     dest: /tmp/monitoring-stack-values.yml
+
 - name: Install monitoring_stack using Helm
   when: not monitoring_stack_installed.stat.exists
   shell: |
     helm install monitoring-stack monitoring-stack/kube-prometheus-stack \
-      --namespace monitoring-stack
+      -namespace monitoring-stack
+#      --grafana.persistentVolume.existingClaim=nfs-pvc
+#      --set=alertmanager.persistentVolume.existingClaim=nfs-pvc,server.persistentVolume.existingClaim=nfs-pvc,grafana.persistentVolume.existingClaim=nfs-pvc
   environment:
     KUBECONFIG: /home/ubuntu/.kube/config
   args:
@@ -48,3 +116,9 @@
     path: /var/lib/monitoring-stack/monitoring-stack-installed
     state: touch
   when: not monitoring_stack_installed.stat.exists
+
+# - name: Remove temporary monitoring-stack values file
+#   file:
+#     path: /tmp/monitoring-stack-values.yml
+#     state: absent
+#   when: not monitoring_stack_installed.stat.exists

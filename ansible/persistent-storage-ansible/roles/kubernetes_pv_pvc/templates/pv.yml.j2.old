@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ pv_name }}
+spec:
+  capacity:
+    storage: {{ storage_size }}
+  accessModes:
+    - {{ storageAccessMode }}
+  persistentVolumeReclaimPolicy: {{ persistentVolumeReclaimPolicy }}
+  storageClassName: {{ storageClassName }}
+  nfs:
+    path: {{ export_path }}
+    server: {{ hostvars[groups['server'][0]]['internal_ip'] }}
+  claimRef:
+    namespace: default
+    name: {{ pvc_name }}

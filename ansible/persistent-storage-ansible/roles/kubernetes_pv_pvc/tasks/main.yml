@@ -9,6 +9,16 @@
     - storage_size
   when: item is not defined
 
+# - name: Check if monitoring-stack namespace exists
+#   command: kubectl get namespace monitoring-stack
+#   register: namespace_monitoringstack_check
+#   ignore_errors: true
+
+# - name: Create monitoring-stack namespace if necessary
+#   when: namespace_monitoringstack_check.rc != 0
+#   command: kubectl create namespace monitoring-stack
+#   ignore_errors: true
+
 - name: Create PersistentVolume
   copy:
     content: "{{ lookup('template', 'pv.yml.j2') }}"
