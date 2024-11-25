@@ -33,7 +33,7 @@ exec > >(tee -i "$LOG_FILE") 2>&1
 echo "Log file created: $LOG_FILE"
 
 # Navigate to the k3s-ansible directory
-cd "$REPO_PATH/ansible/k3s-ansible" || { echo "Error: 'ansible' directory not found in $REPO_PATH"; exit 1; }
+cd "$REPO_PATH/ansible/monitoring-stack-ansible" || { echo "Error: 'ansible' directory not found in $REPO_PATH"; exit 1; }
 
 # Run the Ansible playbook with the inventory file and ask for vault password
 ansible-playbook playbooks/reset.yml -i inventory.yml -i ../../configs/inventory.yml

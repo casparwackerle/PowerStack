@@ -1,31 +1,14 @@
 ---
-- name: Check if monitoring_stack release exists
+- name: Install monitoring_stack using Helm
   shell: |
-    helm list -n monitoring-stack -q | grep -w monitoring-stack
+    helm uninstall monitoring-stack monitoring-stack/kube-prometheus-stack \
+      --namespace monitoring-stack
   environment:
     KUBECONFIG: /home/ubuntu/.kube/config
-  register: helm_release_check
-  ignore_errors: true
-
-- name: Remove monitoring_stack using Helm
-  shell: |
-    helm uninstall monitoring-stack -n monitoring-stack
-  environment:
-    KUBECONFIG: /home/ubuntu/.kube/config
-  when: helm_release_check.rc == 0
-
-- name: Check if monitoring-stack namespace exists
-  shell: kubectl get namespace monitoring-stack
-  register: namespace_check
-  ignore_errors: true
-
-- name: Delete monitoring-stack namespace
-  shell: kubectl delete namespace monitoring-stack
-  when: namespace_check.rc == 0
-  ignore_errors: true
 
 - name: Remove monitoring-stack installation marker file
   file:
     path: /var/lib/monitoring-stack/monitoring-stack-installed
     state: absent
   become: true
+  register: monitoring_stack_marker_removed

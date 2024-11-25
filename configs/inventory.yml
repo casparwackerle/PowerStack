@@ -39,12 +39,11 @@ k3s_cluster:
     pv_name: nfs-pv
     pvc_name: nfs-pvc
     storage_size: 150Gi
-
+    grafana_pv_size: 20Gi
 
     # Monitoring Stack
     monitoring_stack_repo_url: https://prometheus-community.github.io/helm-charts
     grafana_admin_password: "{{ ansible_vault.grafanaAdminPassword }}"
-    grafana_pv_size: 20Gi
 
     # NodePorts. MUST BE BETWEEN 30000 AND 32767
     #rancher_custom_nodeport: 30001 # does not work
