@@ -70,6 +70,12 @@
     mode: '0644'
   become: true
 
+
+####################################
+# delete existing calimRefs of pv. kubectl patch pv nfs-pv -p '{"spec":{"claimRef": null}}'
+#################################
+
+
 - name: Install monitoring_stack using Helm
   when: not monitoring_stack_installed.stat.exists
   shell: |

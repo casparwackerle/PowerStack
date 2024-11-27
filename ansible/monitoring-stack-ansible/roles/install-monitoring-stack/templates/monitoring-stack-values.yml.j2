@@ -19,12 +19,12 @@ alertmanager:
 
 grafana:
   enabled: true
-  adminPassword: prom-operator
+  adminPassword: prom-operator ######################################################################## <- change this
   persistence:
     enabled: true
     storageClassName: "{{ storageClassName }}"
     accessModes: ["{{ storageAccessMode }}"]
-    size: 5Gi
+    size: 15Gi
 
 prometheusOperator:
   enabled: true
@@ -38,4 +38,4 @@ prometheus:
         accessModes: ["{{ storageAccessMode }}"]
         resources:
           requests:
-            storage: 5Gi
+            storage: 15Gi
