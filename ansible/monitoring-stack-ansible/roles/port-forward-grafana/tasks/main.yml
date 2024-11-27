@@ -1,13 +1,13 @@
 ---
 - name: Ensure Grafana service exists
-  shell: kubectl get svc -n monitoring-stack monitoring-stack-grafana
+  shell: kubectl get svc -n {{ monitoring_namespace }} monitoring-grafana
   register: grafana_service_check
   failed_when: grafana_service_check.rc != 0
   changed_when: false
 
 - name: Start port-forwarding for Grafana service
   shell: |
-    kubectl -n monitoring-stack port-forward svc/monitoring-stack-grafana 3000:80 > /dev/null 2>&1 &
+    kubectl -n {{ monitoring_namespace }} port-forward svc/monitoring-grafana 3000:80 > /dev/null 2>&1 &
   args:
     executable: /bin/bash
   environment:
@@ -18,13 +18,13 @@
 
 - name: Patch Grafana service to use a static NodePort
   shell: |
-    kubectl patch svc monitoring-stack-grafana -n monitoring-stack -p '{"spec": {"ports": [{"port": 80, "nodePort": {{ grafana_custom_nodeport }}, "protocol": "TCP", "targetPort": 3000}],"type": "NodePort"}}'
+    kubectl patch svc monitoring-grafana -n {{ monitoring_namespace }} -p '{"spec": {"ports": [{"port": 80, "nodePort": {{ grafana_custom_nodeport }}, "protocol": "TCP", "targetPort": 3000}],"type": "NodePort"}}'
   environment:
     KUBECONFIG: /home/ubuntu/.kube/config
 
 - name: Retrieve NodePort for Grafana service
   shell: |
-    kubectl get svc monitoring-stack-grafana -n monitoring-stack -o jsonpath="{.spec.ports[0].nodePort}"
+    kubectl get svc monitoring-grafana -n {{ monitoring_namespace }} -o jsonpath="{.spec.ports[0].nodePort}"
   environment:
     KUBECONFIG: /home/ubuntu/.kube/config
   register: grafana_nodeport

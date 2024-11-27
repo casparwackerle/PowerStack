@@ -5,7 +5,10 @@
   vars_files:
    - ../../../configs/vault.yml
   roles:
+    - role: persistent-storage
     - role: install-monitoring-stack
     - role: port-forward-grafana
     - role: port-forward-prometheus
     - role: port-forward-alertmanager
+    # - role: port-kube-state-metrics
+

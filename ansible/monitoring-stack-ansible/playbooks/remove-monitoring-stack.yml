@@ -6,3 +6,10 @@
    - ../../../configs/vault.yml
   roles:
     - role: remove-monitoring-stack
+
+- name: Remove monitoring-stack installation marker file
+  file:
+    path: /var/lib/monitoring-stack/monitoring-stack-installed
+    state: absent
+  become: true
+  register: monitoring_stack_marker_removed

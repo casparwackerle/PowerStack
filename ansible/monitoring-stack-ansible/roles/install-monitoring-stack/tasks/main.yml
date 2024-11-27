@@ -10,15 +10,15 @@
     helm repo add monitoring-stack {{ monitoring_stack_repo_url }}
     helm repo update
 
-- name: Check if monitoring-stack namespace exists
-  command: kubectl get namespace monitoring-stack
-  register: namespace_check
-  ignore_errors: true
+# - name: Check if monitoring namespace exists
+#   command: kubectl get namespace {{ monitoring_namespace }}
+#   register: namespace_check
+#   ignore_errors: true
 
-- name: Create monitoring-stack namespace if necessary
-  when: namespace_check.rc != 0
-  command: kubectl create namespace monitoring-stack
-  ignore_errors: true
+# - name: Create monitoring namespace if necessary
+#   when: namespace_check.rc != 0
+#   command: kubectl create namespace {{ monitoring_namespace }}
+#   ignore_errors: true
 
 - name: Ensure /var/lib/monitoring-stack directory exists
   file:
@@ -32,17 +32,72 @@
   stat:
     path: /var/lib/monitoring-stack/monitoring-stack-installed
   register: monitoring_stack_installed
+#####################
+# - name: Install monitoring_stack using Helm
+#   when: not monitoring_stack_installed.stat.exists
+#   shell: |
+#     helm install monitoring monitoring-stack/kube-prometheus-stack \
+#       --namespace monitoring
+#   environment:
+#     KUBECONFIG: /home/ubuntu/.kube/config
+#   args:
+#     creates: /var/lib/monitoring-stack/monitoring-stack-installed
+
+# - name: Create PersistentVolume
+#   copy:
+#     content: "{{ lookup('template', 'pv.yml.j2') }}"
+#     dest: "/tmp/{{ pv_name }}.yml"
+#   become: true
+
+- name: Ensure monitoring_stack values file is rendered locally
+  template:
+    src: monitoring-stack-values.yml.j2
+    # src: templates/monitoring-stack-values.yml.j2
+    dest: /tmp/monitoring-stack-values.yml  # Rendered on control machine
+  delegate_to: localhost
+  become: false
+
+- name: Debug rendered monitoring_stack values file
+  command: cat /tmp/monitoring-stack-values.yml
+  delegate_to: localhost
+  run_once: true
+  become: false
+
+- name: Copy monitoring_stack values file to the target machine
+  copy:
+    src: /tmp/monitoring-stack-values.yml
+    dest: /tmp/monitoring-stack-values.yml
+    mode: '0644'
+  become: true
 
 - name: Install monitoring_stack using Helm
   when: not monitoring_stack_installed.stat.exists
   shell: |
-    helm install monitoring-stack monitoring-stack/kube-prometheus-stack \
-      --namespace monitoring-stack
+    helm install monitoring monitoring-stack/kube-prometheus-stack \
+      --namespace {{ monitoring_namespace }} \
+      -f /tmp/monitoring-stack-values.yml
   environment:
     KUBECONFIG: /home/ubuntu/.kube/config
   args:
     creates: /var/lib/monitoring-stack/monitoring-stack-installed
+  become: true
 
+# - name: Delete monitoring_stack values file from target machine
+#   file:
+#     path: /tmp/monitoring-stack-values.yml
+#     state: absent
+#   become: true
+
+# - name: Delete monitoring_stack values file from control machine
+#   file:
+#     path: /tmp/monitoring-stack-values.yml
+#     state: absent
+#   delegate_to: localhost
+#   run_once: true
+#   become: false
+
+
+#######################3
 - name: Mark monitoring-stack as installed
   file:
     path: /var/lib/monitoring-stack/monitoring-stack-installed

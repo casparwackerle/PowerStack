@@ -1,0 +1,99 @@
+---
+- name: Check if monitoring namespace exists
+  command: kubectl get namespace {{ monitoring_namespace }}
+  register: namespace_check
+  ignore_errors: true
+
+- name: Create monitoring namespace if necessary
+  when: namespace_check.rc != 0
+  command: kubectl create namespace {{ monitoring_namespace }}
+  ignore_errors: true
+
+# Step 1: Create the StorageClass
+- name: Ensure required variables for StorageClass are defined
+  fail:
+    msg: "The variable '{{ item }}' is not defined in the inventory."
+  with_items:
+    - storageClassName
+  when: item is not defined
+
+- name: Create StorageClass manifest
+  copy:
+    content: |
+      apiVersion: storage.k8s.io/v1
+      kind: StorageClass
+      metadata:
+        name: {{ storageClassName }}
+      provisioner: kubernetes.io/no-provisioner
+      volumeBindingMode: WaitForFirstConsumer
+    dest: "/tmp/{{ storageClassName }}-storageclass.yaml"
+  become: true
+
+- name: Apply StorageClass manifest
+  command: kubectl apply -f /tmp/{{ storageClassName }}-storageclass.yaml
+  register: storageclass_result
+  changed_when: "'created' in storageclass_result.stdout or 'configured' in storageclass_result.stdout"
+  become: true
+
+- name: Debug StorageClass creation output
+  debug:
+    var: storageclass_result.stdout
+
+# Step 2: Create the PersistentVolume
+- name: Create PersistentVolume manifest
+  copy:
+    content: |
+      apiVersion: v1
+      kind: PersistentVolume
+      metadata:
+        name: {{ pv_name }}
+      spec:
+        capacity:
+          storage: {{ storage_size }}
+        accessModes:
+          - {{ storageAccessMode }}
+        storageClassName: {{ storageClassName }}
+        nfs:
+          path: {{ export_path }}
+          server: {{ hostvars[groups['server'][0]]['internal_ip'] }}
+    dest: "/tmp/{{ pv_name }}-pv.yaml"
+  become: true
+
+- name: Apply PersistentVolume manifest
+  command: kubectl apply -f /tmp/{{ pv_name }}-pv.yaml
+  register: pv_result
+  changed_when: "'created' in pv_result.stdout or 'configured' in pv_result.stdout"
+  become: true
+
+- name: Debug PersistentVolume creation output
+  debug:
+    var: pv_result.stdout
+
+# Step 3: Create the PersistentVolumeClaim
+- name: Create PersistentVolumeClaim manifest
+  copy:
+    content: |
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: {{ pvc_name }}
+        namespace: {{ monitoring_namespace }}
+      spec:
+        accessModes:
+          - {{ storageAccessMode }}
+        resources:
+          requests:
+            storage: {{ storage_size }}
+        storageClassName: {{ storageClassName }}
+    dest: "/tmp/{{ pvc_name }}-pvc.yaml"
+  become: true
+
+- name: Apply PersistentVolumeClaim manifest
+  command: kubectl apply -f /tmp/{{ pvc_name }}-pvc.yaml
+  register: pvc_result
+  changed_when: "'created' in pvc_result.stdout or 'configured' in pvc_result.stdout"
+  become: true
+
+- name: Debug PersistentVolumeClaim creation output
+  debug:
+    var: pvc_result.stdout

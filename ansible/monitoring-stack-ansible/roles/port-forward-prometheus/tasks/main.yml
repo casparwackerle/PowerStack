@@ -1,13 +1,13 @@
 ---
 - name: Ensure Prometheus service exists
-  shell: kubectl get svc -n monitoring-stack monitoring-stack-kube-prom-prometheus
+  shell: kubectl get svc -n {{ monitoring_namespace }} monitoring-kube-prometheus-prometheus
   register: prometheus_service_check
   failed_when: prometheus_service_check.rc != 0
   changed_when: false
 
 - name: Start port-forwarding for Prometheus service
   shell: |
-    kubectl -n monitoring-stack port-forward svc/monitoring-stack-kube-prom-prometheus 9090:9090 > /dev/null 2>&1 &
+    kubectl -n {{ monitoring_namespace }} port-forward svc/monitoring-kube-prometheus-prometheus 9090:9090 > /dev/null 2>&1 &
   args:
     executable: /bin/bash
   environment:
@@ -18,13 +18,13 @@
 
 - name: Patch Prometheus service to use a static NodePort
   shell: |
-    kubectl patch svc monitoring-stack-kube-prom-prometheus -n monitoring-stack -p '{"spec": {"ports": [{"port": 9090, "nodePort": {{ prometheus_custom_nodeport }}, "protocol": "TCP", "targetPort": 9090}],"type": "NodePort"}}'
+    kubectl patch svc monitoring-kube-prometheus-prometheus -n {{ monitoring_namespace }} -p '{"spec": {"ports": [{"port": 9090, "nodePort": {{ prometheus_custom_nodeport }}, "protocol": "TCP", "targetPort": 9090}],"type": "NodePort"}}'
   environment:
     KUBECONFIG: /home/ubuntu/.kube/config
 
 - name: Retrieve NodePort for Prometheus service
   shell: |
-    kubectl get svc monitoring-stack-kube-prom-prometheus -n monitoring-stack -o jsonpath="{.spec.ports[0].nodePort}"
+    kubectl get svc monitoring-kube-prometheus-prometheus -n {{ monitoring_namespace }} -o jsonpath="{.spec.ports[0].nodePort}"
   environment:
     KUBECONFIG: /home/ubuntu/.kube/config
   register: prometheus_nodeport

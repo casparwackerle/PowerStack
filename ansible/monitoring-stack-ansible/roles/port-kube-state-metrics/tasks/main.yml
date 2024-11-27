@@ -1,0 +1,34 @@
+---
+- name: Ensure kube-state-metrics service exists
+  shell: kubectl get svc -n {{ monitoring_namespace }} monitoring-kube-prom-kube-state-metrics
+  register: kube-state-metrics_service_check
+  failed_when: kube-state-metrics_service_check.rc != 0
+  changed_when: false
+
+- name: Start port-forwarding for kube-state-metrics service
+  shell: |
+    kubectl -n {{ monitoring_namespace }} port-forward svc/monitoring-kube-prom-kube-state-metrics 8080:8080 > /dev/null 2>&1 &
+  args:
+    executable: /bin/bash
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+  async: 0
+  poll: 0
+  when: kube-state-metrics_service_check.rc == 0
+
+- name: Patch kube-state-metrics service to use a static NodePort
+  shell: |
+    kubectl patch svc monitoring-kube-prom-kube-state-metrics -n {{ monitoring_namespace }} -p '{"spec": {"ports": [{"port": 9090, "nodePort": {{ kube-state-metrics_custom_nodeport }}, "protocol": "TCP", "targetPort": 9090}],"type": "NodePort"}}'
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+
+- name: Retrieve NodePort for kube-state-metrics service
+  shell: |
+    kubectl get svc monitoring-kube-prom-kube-state-metrics -n {{ monitoring_namespace }} -o jsonpath="{.spec.ports[0].nodePort}"
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+  register: kube-state-metrics_nodeport
+
+- name: Display kube-state-metrics NodePort
+  debug:
+    msg: "kube-state-metrics is exposed on NodePort {{ kube-state-metrics_nodeport.stdout }}. Use http://{{ hostvars[inventory_hostname]['external_ip'] }}:{{ kube-state-metrics_nodeport.stdout }} to access kube-state-metrics."

@@ -1,13 +1,13 @@
 ---
 - name: Ensure Alertmanager service exists
-  shell: kubectl get svc -n monitoring-stack monitoring-stack-kube-prom-alertmanager
+  shell: kubectl get svc -n {{ monitoring_namespace }} monitoring-kube-prometheus-alertmanager
   register: alertmanager_service_check
   failed_when: alertmanager_service_check.rc != 0
   changed_when: false
 
 - name: Start port-forwarding for Alertmanager service
   shell: |
-    kubectl -n monitoring-stack port-forward svc/monitoring-stack-kube-prom-alertmanager 9093:9093 > /dev/null 2>&1 &
+    kubectl -n {{ monitoring_namespace }} port-forward svc/monitoring-kube-prometheus-alertmanager 9093:9093 > /dev/null 2>&1 &
   args:
     executable: /bin/bash
   environment:
@@ -18,13 +18,13 @@
 
 - name: Patch Alertmanager service to use a static NodePort
   shell: |
-    kubectl patch svc monitoring-stack-kube-prom-alertmanager -n monitoring-stack -p '{"spec": {"ports": [{"port": 9093, "nodePort": {{ alertmanager_custom_nodeport }}, "protocol": "TCP", "targetPort": 9093}],"type": "NodePort"}}'
+    kubectl patch svc monitoring-kube-prometheus-alertmanager -n {{ monitoring_namespace }} -p '{"spec": {"ports": [{"port": 9093, "nodePort": {{ alertmanager_custom_nodeport }}, "protocol": "TCP", "targetPort": 9093}],"type": "NodePort"}}'
   environment:
     KUBECONFIG: /home/ubuntu/.kube/config
 
 - name: Retrieve NodePort for Alertmanager service
   shell: |
-    kubectl get svc monitoring-stack-kube-prom-alertmanager -n monitoring-stack -o jsonpath="{.spec.ports[0].nodePort}"
+    kubectl get svc monitoring-kube-prometheus-alertmanager -n {{ monitoring_namespace }} -o jsonpath="{.spec.ports[0].nodePort}"
   environment:
     KUBECONFIG: /home/ubuntu/.kube/config
   register: alertmanager_nodeport

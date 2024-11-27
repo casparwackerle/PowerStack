@@ -1,0 +1,41 @@
+## SOURCE: https://github.com/digitalocean/Kubernetes-Starter-Kit-Developers/blob/main/04-setup-observability/assets/manifests/prom-stack-values-v35.5.1.yaml
+##
+## Starter Kit configuration for Prometheus stack
+##
+defaultRules:
+  create: true
+  rules:
+    etcd: false
+    kubeScheduler: false
+
+kubeScheduler:
+  enabled: false
+
+kubeEtcd:
+  enabled: false
+
+alertmanager:
+  enabled: true
+
+grafana:
+  enabled: true
+  adminPassword: prom-operator
+  persistence:
+    enabled: true
+    storageClassName: "{{ storageClassName }}"
+    accessModes: ["{{ storageAccessMode }}"]
+    size: 5Gi
+
+prometheusOperator:
+  enabled: true
+
+prometheus:
+  enabled: true
+  storageSpec:
+    volumeClaimTemplate:
+      spec:
+        storageClassName: "{{ storageClassName }}"
+        accessModes: ["{{ storageAccessMode }}"]
+        resources:
+          requests:
+            storage: 5Gi

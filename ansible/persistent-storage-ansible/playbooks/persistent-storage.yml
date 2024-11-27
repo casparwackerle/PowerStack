@@ -17,7 +17,7 @@
   roles:
    - role: nfs_client
 
-- name: Configure Kubernetes Persistent Volumes and Claims
-  hosts: server
-  roles:
-   - role: kubernetes_pv_pvc
+# - name: Configure Kubernetes Persistent Volumes and Claims
+#   hosts: server
+#   roles:
+#    - role: kubernetes_pv_pvc
