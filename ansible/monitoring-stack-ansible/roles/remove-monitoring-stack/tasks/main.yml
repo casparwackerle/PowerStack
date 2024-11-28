@@ -1,12 +1,30 @@
 ---
-# - name: Install monitoring_stack using Helm
+- name: Install monitoring_stack using Helm
+  shell: |
+    helm uninstall monitoring --n {{ monitoring_namespace }}
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+
+# - name: Install monitoring_stack using Helm                   ##this is really bad
 #   shell: |
-#     helm uninstall monitoring-stack monitoring-stack/kube-prometheus-stack \
-#       --n {{ monitoring_namespace }}
+#     kube --n {{ monitoring_namespace }}
 #   environment:
 #     KUBECONFIG: /home/ubuntu/.kube/config
 
-- name: Remove monitoring-stack installation marker file
+# - name: Install monitoring_stack using Helm
+#   shell: |
+#     helm uninstall monitoring --n {{ monitoring_namespace }}
+#   environment:
+#     KUBECONFIG: /home/ubuntu/.kube/config
+
+# - name: Install monitoring_stack using Helm
+#   shell: |
+#     helm uninstall monitoring --n {{ monitoring_namespace }}
+#   environment:
+#     KUBECONFIG: /home/ubuntu/.kube/config
+
+
+- name: Remove monitoring-stack installation marker file      # DOES NOT WORK
   file:
     path: /var/lib/monitoring-stack/monitoring-stack-installed
     state: absent

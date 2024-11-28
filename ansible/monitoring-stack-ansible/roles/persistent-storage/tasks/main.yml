@@ -39,14 +39,38 @@
   debug:
     var: storageclass_result.stdout
 
-# Step 2: Create the PersistentVolume
+# Step 0: Override default Storageclass (to make it non-default)
+
+- name: Override default storage
+  copy:
+    content: |
+      apiVersion: storage.k8s.io/v1
+      kind: StorageClass
+      metadata:
+        annotations:
+          storageclass.kubernetes.io/is-default-class: 'false'
+        name: local-path
+      provisioner: rancher.io/local-path
+    dest: "/tmp/local-path-storageclass.yaml"
+  become: true
+
+- name: Apply StorageClass manifest
+  command: kubectl apply -f /tmp/local-path-storageclass.yaml
+  register: storageclass_result
+  changed_when: "'created' in storageclass_result.stdout or 'configured' in storageclass_result.stdout"
+  become: true
+
+
+# Step 2: Create the PersistentVolume (grafana)
 - name: Create PersistentVolume manifest
   copy:
     content: |
       apiVersion: v1
       kind: PersistentVolume
       metadata:
-        name: {{ pv_name }}
+        name: {{ pv_name }}-grafana
+        labels:
+          app.kubernetes.io/name: persistent-storage-grafana
       spec:
         capacity:
           storage: {{ storage_size }}
@@ -54,29 +78,64 @@
           - {{ storageAccessMode }}
         storageClassName: {{ storageClassName }}
         nfs:
-          path: {{ export_path }}
+          path: {{ export_path }}/grafana
           server: {{ hostvars[groups['server'][0]]['internal_ip'] }}
-    dest: "/tmp/{{ pv_name }}-pv.yaml"
+    dest: "/tmp/{{ pv_name }}-grafana.yaml"
   become: true
 
 - name: Apply PersistentVolume manifest
-  command: kubectl apply -f /tmp/{{ pv_name }}-pv.yaml
-  register: pv_result
-  changed_when: "'created' in pv_result.stdout or 'configured' in pv_result.stdout"
+  command: kubectl apply -f /tmp/{{ pv_name }}-grafana.yaml
+  register: pv_result_grafana
+  changed_when: "'created' in pv_result_grafana.stdout or 'configured' in pv_result_grafana.stdout"
   become: true
 
 - name: Debug PersistentVolume creation output
   debug:
-    var: pv_result.stdout
+    var: pv_result_grafana.stdout
 
-# Step 3: Create the PersistentVolumeClaim
+
+# Step 2: Create the PersistentVolume (prometheus)
+- name: Create PersistentVolume manifest
+  copy:
+    content: |
+      apiVersion: v1
+      kind: PersistentVolume
+      metadata:
+        name: {{ pv_name }}-prometheus
+        labels:
+          app.kubernetes.io/name: persistent-storage-prometheus
+      spec:
+        capacity:
+          storage: {{ storage_size }}
+        accessModes:
+          - {{ storageAccessMode }}
+        storageClassName: {{ storageClassName }}
+        nfs:
+          path: {{ export_path }}/prometheus
+          server: {{ hostvars[groups['server'][0]]['internal_ip'] }}
+    dest: "/tmp/{{ pv_name }}-prometheus.yaml"
+  become: true
+
+- name: Apply PersistentVolume manifest
+  command: kubectl apply -f /tmp/{{ pv_name }}-prometheus.yaml
+  register: pv_result_prometheus
+  changed_when: "'created' in pv_result_prometheus.stdout or 'configured' in pv_result_prometheus.stdout"
+  become: true
+
+- name: Debug PersistentVolume creation output
+  debug:
+    var: pv_result_prometheus.stdout
+
+
+
+# Step 3: Create the PersistentVolumeClaim (grafana)
 - name: Create PersistentVolumeClaim manifest
   copy:
     content: |
       apiVersion: v1
       kind: PersistentVolumeClaim
       metadata:
-        name: {{ pvc_name }}
+        name: {{ pvc_name }}-grafana
         namespace: {{ monitoring_namespace }}
       spec:
         accessModes:
@@ -85,15 +144,44 @@
           requests:
             storage: {{ storage_size }}
         storageClassName: {{ storageClassName }}
-    dest: "/tmp/{{ pvc_name }}-pvc.yaml"
+    dest: "/tmp/{{ pvc_name }}-grafana.yaml"
   become: true
 
 - name: Apply PersistentVolumeClaim manifest
-  command: kubectl apply -f /tmp/{{ pvc_name }}-pvc.yaml
-  register: pvc_result
-  changed_when: "'created' in pvc_result.stdout or 'configured' in pvc_result.stdout"
+  command: kubectl apply -f /tmp/{{ pvc_name }}-grafana.yaml
+  register: pvc_result_grafana
+  changed_when: "'created' in pvc_result_grafana.stdout or 'configured' in pvc_result_grafana.stdout"
   become: true
 
 - name: Debug PersistentVolumeClaim creation output
   debug:
-    var: pvc_result.stdout
+    var: pvc_result_grafana.stdout
+
+# Step 3: Create the PersistentVolumeClaim (prometheus)
+- name: Create PersistentVolumeClaim manifest
+  copy:
+    content: |
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: {{ pvc_name }}-prometheus
+        namespace: {{ monitoring_namespace }}
+      spec:
+        accessModes:
+          - {{ storageAccessMode }}
+        resources:
+          requests:
+            storage: {{ storage_size }}
+        storageClassName: {{ storageClassName }}
+    dest: "/tmp/{{ pvc_name }}-prometheus.yaml"
+  become: true
+
+- name: Apply PersistentVolumeClaim manifest
+  command: kubectl apply -f /tmp/{{ pvc_name }}-prometheus.yaml
+  register: pvc_result_prometheus
+  changed_when: "'created' in pvc_result_prometheus.stdout or 'configured' in pvc_result_prometheus.stdout"
+  become: true
+
+- name: Debug PersistentVolumeClaim creation output
+  debug:
+    var: pvc_result_prometheus.stdout

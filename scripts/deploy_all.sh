@@ -25,7 +25,7 @@ echo "multiple times during this installation process."
 echo "======================================================================"
 
 # Dynamic countdown from 5 seconds to 0
-for i in {5..1}; do
+for i in {2..1}; do
     echo -ne "$i...\r"
     sleep 1
 done

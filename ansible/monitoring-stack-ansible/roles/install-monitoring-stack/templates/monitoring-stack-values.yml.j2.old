@@ -22,7 +22,9 @@ grafana:
   adminPassword: prom-operator ######################################################################## <- change this
   persistence:
     enabled: true
-    existingClaim: 	nfs-pvc-grafana
+    storageClassName: "{{ storageClassName }}"
+    accessModes: ["{{ storageAccessMode }}"]
+    size: 15Gi
 
 prometheusOperator:
   enabled: true
@@ -32,8 +34,9 @@ prometheus:
   storageSpec:
     volumeClaimTemplate:
       spec:
-        storageClassName: local-nfs
-        accessModes: ["ReadWriteMany"]
+        selector:
+          matchLabels:
+            app.kubernetes.io/name: persistent-storage-prometheus
         resources:
           requests:
             storage: 15Gi
