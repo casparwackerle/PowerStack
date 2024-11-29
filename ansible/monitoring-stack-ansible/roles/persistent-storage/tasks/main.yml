@@ -70,7 +70,7 @@
       metadata:
         name: {{ pv_name }}-grafana
         labels:
-          app.kubernetes.io/name: persistent-storage-grafana
+          app: grafana
       spec:
         capacity:
           storage: 20Gi
@@ -103,7 +103,7 @@
       metadata:
         name: {{ pv_name }}-prometheus
         labels:
-          app.kubernetes.io/name: persistent-storage-prometheus
+          app: prometheus
       spec:
         capacity:
           storage: 20Gi
@@ -143,6 +143,9 @@
         resources:
           requests:
             storage: 5Gi
+        selector:
+          matchLabels:
+            app: grafana
         storageClassName: {{ storageClassName }}
     dest: "/tmp/{{ pvc_name }}-grafana.yaml"
   become: true

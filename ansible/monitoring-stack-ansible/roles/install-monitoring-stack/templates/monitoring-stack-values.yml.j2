@@ -58,9 +58,12 @@ prometheus:
         metadata:
           name: nfs-pvc-prometheus
         spec:
-          storageClassName: local-nfs
           accessModes:
             - ReadWriteMany
           resources:
             requests:
               storage: 5Gi
+          selector:
+            matchLabels:
+              app: prometheus
+          storageClassName: local-nfs

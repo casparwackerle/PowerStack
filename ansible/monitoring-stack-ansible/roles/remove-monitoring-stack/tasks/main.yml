@@ -1,32 +1,64 @@
 ---
-- name: Install monitoring_stack using Helm
+# Step 1: Uninstall monitoring stack using Helm
+- name: Uninstall monitoring stack Helm release
   shell: |
-    helm uninstall monitoring --n {{ monitoring_namespace }}
-  environment:
-    KUBECONFIG: /home/ubuntu/.kube/config
+    helm uninstall monitoring -n monitoring
+  register: helm_uninstall_result
+  failed_when: false
+- name: Debug Helm uninstall result
+  debug:
+    var: helm_uninstall_result.stdout
 
-# - name: Install monitoring_stack using Helm                   ##this is really bad
-#   shell: |
-#     kube --n {{ monitoring_namespace }}
-#   environment:
-#     KUBECONFIG: /home/ubuntu/.kube/config
+# Step 2: Delete PersistentVolumeClaims in monitoring namespace
+- name: List PVCs in monitoring namespace
+  shell: |
+    kubectl get pvc -n monitoring -o name
+  register: pvc_list
+  failed_when: false
+- name: Delete PVCs in monitoring namespace
+  shell: |
+    kubectl delete {{ item }} -n monitoring --wait=false
+  loop: "{{ pvc_list.stdout_lines }}"
+  when: pvc_list.stdout_lines | length > 0
+  failed_when: false
 
-# - name: Install monitoring_stack using Helm
-#   shell: |
-#     helm uninstall monitoring --n {{ monitoring_namespace }}
-#   environment:
-#     KUBECONFIG: /home/ubuntu/.kube/config
+# Step 3: Delete PersistentVolumes associated with monitoring namespace
+- name: List PVs
+  shell: |
+    kubectl get pv -o json | jq -r '.items[] | select(.spec.claimRef.namespace=="monitoring") | .metadata.name'
+  register: pv_list
+  failed_when: false
+- name: Delete PVs associated with monitoring namespace
+  shell: |
+    kubectl delete pv {{ item }} --wait=false
+  loop: "{{ pv_list.stdout_lines }}"
+  when: pv_list.stdout_lines | length > 0
+  failed_when: false
 
-# - name: Install monitoring_stack using Helm
-#   shell: |
-#     helm uninstall monitoring --n {{ monitoring_namespace }}
-#   environment:
-#     KUBECONFIG: /home/ubuntu/.kube/config
+# Step 4: Delete monitoring namespace
+- name: Delete monitoring namespace
+  shell: |
+    kubectl delete namespace monitoring --wait=false
+  register: namespace_delete_result
+  failed_when: false
+- name: Debug namespace delete result
+  debug:
+    var: namespace_delete_result.stdout
 
+# Step 5: Delete storage class
+- name: Delete storage class local-nfs
+  shell: |
+    kubectl delete storageclass local-nfs
+  register: storageclass_delete_result
+  failed_when: false
+- name: Debug storage class delete result
+  debug:
+    var: storageclass_delete_result.stdout
 
-- name: Remove monitoring-stack installation marker file      # DOES NOT WORK
+# Step 6: Remove installation marker file
+- name: Remove monitoring-stack installation marker file
   file:
     path: /var/lib/monitoring-stack/monitoring-stack-installed
     state: absent
   become: true
-  register: monitoring_stack_marker_removed
+
