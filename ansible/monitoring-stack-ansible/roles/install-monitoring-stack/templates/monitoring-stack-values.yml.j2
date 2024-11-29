@@ -16,10 +16,20 @@ kubeEtcd:
 
 alertmanager:
   enabled: true
+  alertmanagerSpec:
+        storage: {}
+        volumeClaimTemplate:
+          spec:
+            storageClassName: local-nfs
+            accessModes: ["ReadWriteOnce"]
+            resources:
+              requests:
+                storage: 5Gi
+          selector: {}
 
 grafana:
   enabled: true
-  adminPassword: prom-operator ######################################################################## <- change this
+  adminPassword: prom-operator ######################################################################## <- CHANGE THIS
   persistence:
     enabled: true
     existingClaim: 	nfs-pvc-grafana
@@ -29,12 +39,28 @@ prometheusOperator:
 
 prometheus:
   enabled: true
-  storageSpec:
-    volumeClaimTemplate:
-      spec:
-        selector:
-          matchLabels:
-            app.kubernetes.io/name: my-example-prometheus
-        resources:
-          requests:
-            storage: 15Gi
+  metadata:
+    name: my-example-prometheus-name
+    labels:
+      prometheus: example
+  prometheusSpec:
+    ## SecurityContext configuration
+    ##
+    securityContext:
+      enabled: true
+      # changed / adapted for efs
+      # runAsUser: 1001
+      # fsGroup: 1001
+      runAsUser: 65534
+      fsGroup: 65534
+    storageSpec:
+      volumeClaimTemplate:
+        metadata:
+          name: nfs-pvc-prometheus
+        spec:
+          storageClassName: local-nfs
+          accessModes:
+            - ReadWriteMany
+          resources:
+            requests:
+              storage: 5Gi

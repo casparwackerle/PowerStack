@@ -163,11 +163,11 @@ prometheus:
   #             operator: In
   #             values:
   #             - observability
-    storageSpec:
-      volumeClaimTemplate:
-        spec:
-          storageClassName: {{ storageClassName }}
-          accessModes: {{ storageAccessMode }}
-          resources:
-            requests:
-              storage: 5Gi
+  storageSpec:
+    volumeClaimTemplate:
+      spec:
+        storageClassName: {{ storageClassName }}
+        accessModes: {{ storageAccessMode }}
+        resources:
+          requests:
+            storage: 5Gi

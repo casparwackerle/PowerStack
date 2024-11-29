@@ -73,7 +73,7 @@
           app.kubernetes.io/name: persistent-storage-grafana
       spec:
         capacity:
-          storage: {{ storage_size }}
+          storage: 20Gi
         accessModes:
           - {{ storageAccessMode }}
         storageClassName: {{ storageClassName }}
@@ -106,9 +106,9 @@
           app.kubernetes.io/name: persistent-storage-prometheus
       spec:
         capacity:
-          storage: {{ storage_size }}
+          storage: 20Gi
         accessModes:
-          - {{ storageAccessMode }}
+          - ReadWriteMany
         storageClassName: {{ storageClassName }}
         nfs:
           path: {{ export_path }}/prometheus
@@ -142,7 +142,7 @@
           - {{ storageAccessMode }}
         resources:
           requests:
-            storage: {{ storage_size }}
+            storage: 5Gi
         storageClassName: {{ storageClassName }}
     dest: "/tmp/{{ pvc_name }}-grafana.yaml"
   become: true
@@ -157,33 +157,33 @@
   debug:
     var: pvc_result_grafana.stdout
 
-# Step 3: Create the PersistentVolumeClaim (prometheus)
-- name: Create PersistentVolumeClaim manifest
-  copy:
-    content: |
-      apiVersion: v1
-      kind: PersistentVolumeClaim
-      metadata:
-        name: {{ pvc_name }}-prometheus
-        namespace: {{ monitoring_namespace }}
-        labels:
-          app.kubernetes.io/name: persistent-storage-prometheus
-      spec:
-        accessModes:
-          - ReadWriteOnce
-        resources:
-          requests:
-            storage: {{ storage_size }}
-        storageClassName: {{ storageClassName }}
-    dest: "/tmp/{{ pvc_name }}-prometheus.yaml"
-  become: true
+# # Step 3: Create the PersistentVolumeClaim (prometheus)
+# - name: Create PersistentVolumeClaim manifest
+#   copy:
+#     content: |
+#       apiVersion: v1
+#       kind: PersistentVolumeClaim
+#       metadata:
+#         name: {{ pvc_name }}-prometheus
+#         namespace: {{ monitoring_namespace }}
+#         labels:
+#           app.kubernetes.io/name: persistent-storage-prometheus
+#       spec:
+#         accessModes:
+#           - ReadWriteOnce
+#         resources:
+#           requests:
+#             storage: 5Gi
+#         storageClassName: {{ storageClassName }}
+#     dest: "/tmp/{{ pvc_name }}-prometheus.yaml"
+#   become: true
 
-- name: Apply PersistentVolumeClaim manifest
-  command: kubectl apply -f /tmp/{{ pvc_name }}-prometheus.yaml
-  register: pvc_result_prometheus
-  changed_when: "'created' in pvc_result_prometheus.stdout or 'configured' in pvc_result_prometheus.stdout"
-  become: true
+# - name: Apply PersistentVolumeClaim manifest
+#   command: kubectl apply -f /tmp/{{ pvc_name }}-prometheus.yaml
+#   register: pvc_result_prometheus
+#   changed_when: "'created' in pvc_result_prometheus.stdout or 'configured' in pvc_result_prometheus.stdout"
+#   become: true
 
-- name: Debug PersistentVolumeClaim creation output
-  debug:
-    var: pvc_result_prometheus.stdout
+# - name: Debug PersistentVolumeClaim creation output
+#   debug:
+#     var: pvc_result_prometheus.stdout
