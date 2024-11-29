@@ -166,9 +166,11 @@
       metadata:
         name: {{ pvc_name }}-prometheus
         namespace: {{ monitoring_namespace }}
+        labels:
+          app.kubernetes.io/name: persistent-storage-prometheus
       spec:
         accessModes:
-          - {{ storageAccessMode }}
+          - ReadWriteOnce
         resources:
           requests:
             storage: {{ storage_size }}

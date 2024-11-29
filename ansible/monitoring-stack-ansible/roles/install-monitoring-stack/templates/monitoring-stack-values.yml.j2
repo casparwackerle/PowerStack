@@ -32,8 +32,9 @@ prometheus:
   storageSpec:
     volumeClaimTemplate:
       spec:
-        storageClassName: local-nfs
-        accessModes: ["ReadWriteMany"]
+        selector:
+          matchLabels:
+            app.kubernetes.io/name: my-example-prometheus
         resources:
           requests:
             storage: 15Gi
