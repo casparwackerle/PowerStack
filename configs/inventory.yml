@@ -33,13 +33,20 @@ k3s_cluster:
     export_path: /mnt/data
 
     # kubernetes pv and pvc
-    storageClassName: local-nfs
-    storageAccessMode: ReadWriteMany
-    persistentVolumeReclaimPolicy: Retain
+    storageclass_name: local-nfs
+    storage_accessmode: ReadWriteMany
+    
+    # persistentVolumeReclaimPolicy: Retain
     pv_name: nfs-pv
     pvc_name: nfs-pvc
-    storage_size: 150Gi
-    grafana_pv_size: 20Gi
+    storageclass_size: 150Gi           # Must fit on SSD and be more than the sum of all PV
+    pv_size_grafana: 10Gi         
+    pvc_size_grafana: 10Gi        # CANNOT exceed corresponding PV size
+    pv_size_prometheus: 50Gi      
+    pvc_size_prometheus: 50Gi     # CANNOT exceed corresponding PV size
+    pv_size_alertmanager: 5Gi
+    pvc_size_alertmanager: 5Gi    # CANNOT exceed corresponding PV size
+    
 
     # Monitoring Stack
     monitoring_stack_repo_url: https://prometheus-community.github.io/helm-charts
@@ -47,7 +54,7 @@ k3s_cluster:
     monitoring_namespace: monitoring
 
     # NodePorts. MUST BE BETWEEN 30000 AND 32767
-    #rancher_custom_nodeport: 30001 # does not work
+    #rancher_custom_nodeport: 30001 # does not work, reachable on {{rancher_hostname
     prometheus_custom_nodeport: 30002
     grafana_custom_nodeport: 30003
     alertmanager_custom_nodeport: 30004

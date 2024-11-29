@@ -1,0 +1,25 @@
+---
+- name: Delete config/values files from target machine
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/local-nfs-storageclass.yaml
+    - /tmp/local-path-storageclass.yaml
+    - /tmp/monitoring-stack-values.yml
+    - /tmp/nfs-pv-alertmanager.yaml
+    - /tmp/nfs-pvc-grafana.yaml
+    - /tmp/nfs-pv-grafana.yaml
+    - /tmp/nfs-pv-prometheus.yaml
+
+  become: true
+
+- name: Delete config/values files from control machine
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/monitoring-stack-values.yml
+  delegate_to: localhost
+  run_once: true
+  become: false

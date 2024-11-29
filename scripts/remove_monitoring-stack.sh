@@ -36,7 +36,7 @@ echo "Log file created: $LOG_FILE"
 cd "$REPO_PATH/ansible/monitoring-stack-ansible" || { echo "Error: 'monitoring-stack-ansible' directory not found in $REPO_PATH"; exit 1; }
 
 # Run the Ansible playbook with the inventory file and ask for vault password
-ansible-playbook playbooks/remove-monitoring-stack.yml -i inventory.yml -i ../../configs/inventory.yml  --ask-vault-pass
+ansible-playbook playbooks/remove-monitoring-stack.yml -i inventory.yml -i ../../configs/inventory.yml
 echo "monitoring-stack removal complete!"
 
 # Return to the original directory

@@ -10,5 +10,4 @@
     - role: port-forward-grafana
     - role: port-forward-prometheus
     - role: port-forward-alertmanager
-    # - role: port-kube-state-metrics
-
+    - role: post-install-cleanup

@@ -17,53 +17,53 @@ kubeEtcd:
 alertmanager:
   enabled: true
   alertmanagerSpec:
-        storage: {}
-        volumeClaimTemplate:
-          spec:
-            storageClassName: local-nfs
-            accessModes: ["ReadWriteOnce"]
-            resources:
-              requests:
-                storage: 5Gi
-          selector: {}
+    storage:
+      volumeClaimTemplate:
+        metadata:
+          name: {{ pvc_name }}-alertmanager
+        spec:
+          accessModes:
+            - {{ storage_accessmode }}
+          resources:
+            requests:
+              storage: {{ pvc_size_alertmanager }}
+          selector:
+            matchLabels:
+              app: alertmanager
+          storageClassName: {{ storageclass_name }}
 
 grafana:
   enabled: true
-  adminPassword: prom-operator ######################################################################## <- CHANGE THIS
+  adminPassword: {{ grafana_admin_password }}
   persistence:
     enabled: true
-    existingClaim: 	nfs-pvc-grafana
+    existingClaim: 	{{ pvc_name }}-grafana
 
 prometheusOperator:
   enabled: true
 
 prometheus:
   enabled: true
-  metadata:
-    name: my-example-prometheus-name
-    labels:
-      prometheus: example
+#  metadata:
+#    name: my-example-prometheus-name
+#    labels:
+#      prometheus: example
   prometheusSpec:
-    ## SecurityContext configuration
-    ##
     securityContext:
       enabled: true
-      # changed / adapted for efs
-      # runAsUser: 1001
-      # fsGroup: 1001
       runAsUser: 65534
       fsGroup: 65534
     storageSpec:
       volumeClaimTemplate:
         metadata:
-          name: nfs-pvc-prometheus
+          name: {{ pvc_name }}-prometheus
         spec:
           accessModes:
-            - ReadWriteMany
+            - {{ storage_accessmode }}
           resources:
             requests:
-              storage: 5Gi
+              storage: {{ pvc_size_prometheus }}
           selector:
             matchLabels:
               app: prometheus
-          storageClassName: local-nfs
+          storageClassName: {{ storageclass_name }}

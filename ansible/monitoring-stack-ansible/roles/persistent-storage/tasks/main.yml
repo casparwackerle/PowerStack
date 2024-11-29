@@ -9,12 +9,30 @@
   command: kubectl create namespace {{ monitoring_namespace }}
   ignore_errors: true
 
+# Step 0: Ensure that all target directories exist on the NFS server
+
+- name: Ensure required directories for persistent storage exist
+  file:
+    path: "{{ export_path }}/{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - grafana
+    - prometheus
+    - alertmanager
+  loop_control:
+    label: "{{ item }}"
+  become: true
+
 # Step 1: Create the StorageClass
 - name: Ensure required variables for StorageClass are defined
   fail:
     msg: "The variable '{{ item }}' is not defined in the inventory."
   with_items:
-    - storageClassName
+    - storageclass_name
+    - storageclass_size
   when: item is not defined
 
 - name: Create StorageClass manifest
@@ -23,14 +41,14 @@
       apiVersion: storage.k8s.io/v1
       kind: StorageClass
       metadata:
-        name: {{ storageClassName }}
+        name: {{ storageclass_name }}
       provisioner: kubernetes.io/no-provisioner
       volumeBindingMode: WaitForFirstConsumer
-    dest: "/tmp/{{ storageClassName }}-storageclass.yaml"
+    dest: "/tmp/{{ storageclass_name }}-storageclass.yaml"
   become: true
 
 - name: Apply StorageClass manifest
-  command: kubectl apply -f /tmp/{{ storageClassName }}-storageclass.yaml
+  command: kubectl apply -f /tmp/{{ storageclass_name }}-storageclass.yaml
   register: storageclass_result
   changed_when: "'created' in storageclass_result.stdout or 'configured' in storageclass_result.stdout"
   become: true
@@ -39,9 +57,9 @@
   debug:
     var: storageclass_result.stdout
 
-# Step 0: Override default Storageclass (to make it non-default)
+# Step 2: Override the default Storageclass local-path (to make it non-default)
 
-- name: Override default storage
+- name: Override default storageClass (to make it non-default)
   copy:
     content: |
       apiVersion: storage.k8s.io/v1
@@ -60,9 +78,8 @@
   changed_when: "'created' in storageclass_result.stdout or 'configured' in storageclass_result.stdout"
   become: true
 
-
-# Step 2: Create the PersistentVolume (grafana)
-- name: Create PersistentVolume manifest
+# Step 3a: Create the PersistentVolume (Grafana)
+- name: Create PersistentVolume manifest (Grafana)
   copy:
     content: |
       apiVersion: v1
@@ -73,10 +90,10 @@
           app: grafana
       spec:
         capacity:
-          storage: 20Gi
+          storage: {{  pv_size_grafana  }}
         accessModes:
-          - {{ storageAccessMode }}
-        storageClassName: {{ storageClassName }}
+          - {{ storage_accessmode }}
+        storageClassName: {{ storageclass_name }}
         nfs:
           path: {{ export_path }}/grafana
           server: {{ hostvars[groups['server'][0]]['internal_ip'] }}
@@ -93,9 +110,8 @@
   debug:
     var: pv_result_grafana.stdout
 
-
-# Step 2: Create the PersistentVolume (prometheus)
-- name: Create PersistentVolume manifest
+# Step 3b: Create the PersistentVolume (Prometheus)
+- name: Create PersistentVolume manifest (Prometheus)
   copy:
     content: |
       apiVersion: v1
@@ -106,10 +122,10 @@
           app: prometheus
       spec:
         capacity:
-          storage: 20Gi
+          storage: {{  pv_size_prometheus  }}
         accessModes:
-          - ReadWriteMany
-        storageClassName: {{ storageClassName }}
+          - {{ storage_accessmode }}
+        storageClassName: {{ storageclass_name }}
         nfs:
           path: {{ export_path }}/prometheus
           server: {{ hostvars[groups['server'][0]]['internal_ip'] }}
@@ -126,9 +142,39 @@
   debug:
     var: pv_result_prometheus.stdout
 
+# Step 3c: Create the PersistentVolume (AlertManager)
+- name: Create PersistentVolume manifest
+  copy:
+    content: |
+      apiVersion: v1
+      kind: PersistentVolume
+      metadata:
+        name: {{ pv_name }}-alertmanager
+        labels:
+          app: alertmanager
+      spec:
+        capacity:
+          storage: {{ pv_size_alertmanager }}
+        accessModes:
+          - {{ storage_accessmode }}
+        storageClassName: {{ storageclass_name }}
+        nfs:
+          path: {{ export_path }}/alertmanager
+          server: {{ hostvars[groups['server'][0]]['internal_ip'] }}
+    dest: "/tmp/{{ pv_name }}-alertmanager.yaml"
+  become: true
 
+- name: Apply PersistentVolume manifest
+  command: kubectl apply -f /tmp/{{ pv_name }}-alertmanager.yaml
+  register: pv_result_alertmanager
+  changed_when: "'created' in pv_result_alertmanager.stdout or 'configured' in pv_result_alertmanager.stdout"
+  become: true
 
-# Step 3: Create the PersistentVolumeClaim (grafana)
+- name: Debug PersistentVolume creation output
+  debug:
+    var: pv_result_alertmanager.stdout
+
+# Step 4: Create the PersistentVolumeClaim (Grafana)
 - name: Create PersistentVolumeClaim manifest
   copy:
     content: |
@@ -139,14 +185,14 @@
         namespace: {{ monitoring_namespace }}
       spec:
         accessModes:
-          - {{ storageAccessMode }}
+          - {{ storage_accessmode }}
         resources:
           requests:
-            storage: 5Gi
+            storage: {{ pvc_size_grafana }}
         selector:
           matchLabels:
             app: grafana
-        storageClassName: {{ storageClassName }}
+        storageClassName: {{ storageclass_name }}
     dest: "/tmp/{{ pvc_name }}-grafana.yaml"
   become: true
 
@@ -160,33 +206,8 @@
   debug:
     var: pvc_result_grafana.stdout
 
-# # Step 3: Create the PersistentVolumeClaim (prometheus)
-# - name: Create PersistentVolumeClaim manifest
-#   copy:
-#     content: |
-#       apiVersion: v1
-#       kind: PersistentVolumeClaim
-#       metadata:
-#         name: {{ pvc_name }}-prometheus
-#         namespace: {{ monitoring_namespace }}
-#         labels:
-#           app.kubernetes.io/name: persistent-storage-prometheus
-#       spec:
-#         accessModes:
-#           - ReadWriteOnce
-#         resources:
-#           requests:
-#             storage: 5Gi
-#         storageClassName: {{ storageClassName }}
-#     dest: "/tmp/{{ pvc_name }}-prometheus.yaml"
-#   become: true
-
-# - name: Apply PersistentVolumeClaim manifest
-#   command: kubectl apply -f /tmp/{{ pvc_name }}-prometheus.yaml
-#   register: pvc_result_prometheus
-#   changed_when: "'created' in pvc_result_prometheus.stdout or 'configured' in pvc_result_prometheus.stdout"
-#   become: true
-
-# - name: Debug PersistentVolumeClaim creation output
-#   debug:
-#     var: pvc_result_prometheus.stdout
+# Note
+#
+# The PCV for Prometheus and AlertManager are best created with the Helm chart.
+# To make changes, edit the helm chart values file: 
+# Powerstack/ansible/monitoring-stack-ansible/roles/install-monitoring-stack/templates/monitoring-stack-values.yml.j2

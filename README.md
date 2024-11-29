@@ -20,6 +20,7 @@ Here, a description of Powerstack is missing.
 4. Run [deploy_all.sh](scripts/deploy_all.sh)
 
 **Disclaimer**: This deployment script will reformat a disk, causing potential data loss. Please read the installation guide.
+**Disclaimer**: While all passwords are encrypted, the scripts in this repository cannot be considered high-security.
 
 ## Documentation
 - [Project Documentation and Architecture](docs/project.md)

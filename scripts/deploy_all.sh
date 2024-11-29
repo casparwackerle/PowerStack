@@ -36,7 +36,7 @@ echo "0... Continuing installation."
 SCRIPTS=(
     "$REPO_PATH/scripts/deploy_k3s.sh"
     "$REPO_PATH/scripts/deploy_rancher.sh"
-    "$REPO_PATH/scripts/deploy_persistent-storage.sh"
+    "$REPO_PATH/scripts/deploy_nfs.sh"
     "$REPO_PATH/scripts/deploy_monitoring-stack.sh"
 )
 

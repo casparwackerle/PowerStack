@@ -25,7 +25,7 @@ mkdir -p "$REPO_PATH/logs"
 
 # Add a timestamp to the log file name
 TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
-LOG_FILE="$REPO_PATH/logs/installation_persistent-storage_$TIMESTAMP.log"
+LOG_FILE="$REPO_PATH/logs/installation_nfs_$TIMESTAMP.log"
 
 # Redirect script output to a timestamped log file
 exec > >(tee -i "$LOG_FILE") 2>&1
@@ -33,12 +33,12 @@ exec > >(tee -i "$LOG_FILE") 2>&1
 echo "Log file created: $LOG_FILE"
 
 # Navigate to the k3s-ansible directory
-cd "$REPO_PATH/ansible/persistent-storage-ansible" || { echo "Error: 'ansible' directory not found in $REPO_PATH"; exit 1; }
+cd "$REPO_PATH/ansible/nfs-ansible" || { echo "Error: 'ansible/nfs' directory not found in $REPO_PATH"; exit 1; }
 
 # Run the Ansible playbook with the inventory file and ask for vault password
-ansible-playbook playbooks/persistent-storage.yml -i inventory.yml -i ../../configs/inventory.yml
+ansible-playbook playbooks/nfs.yml -i inventory.yml -i ../../configs/inventory.yml
 
-echo "persistent storage installation complete!"
+echo "nfs installation complete!"
 
 # Return to the original directory
 cd "$ORIGINAL_DIR" || { echo "Error: Unable to return to the original directory: $ORIGINAL_DIR"; exit 1; }
