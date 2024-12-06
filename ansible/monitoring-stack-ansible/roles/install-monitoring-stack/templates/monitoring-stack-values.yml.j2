@@ -39,15 +39,8 @@ grafana:
     enabled: true
     existingClaim: 	{{ pvc_name }}-grafana
 
-prometheusOperator:
-  enabled: true
-
 prometheus:
   enabled: true
-#  metadata:
-#    name: my-example-prometheus-name
-#    labels:
-#      prometheus: example
   prometheusSpec:
     securityContext:
       enabled: true
@@ -67,3 +60,6 @@ prometheus:
             matchLabels:
               app: prometheus
           storageClassName: {{ storageclass_name }}
+
+prometheusOperator:
+  enabled: true
