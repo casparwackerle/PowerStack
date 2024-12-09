@@ -1,0 +1,6 @@
+---
+- name: Remove Kepler using helm
+  hosts: server
+  become: true
+  roles:
+     - role: remove-kepler

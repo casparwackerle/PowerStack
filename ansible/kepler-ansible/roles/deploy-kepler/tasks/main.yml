@@ -1,0 +1,70 @@
+---
+- name: Ensure Helm is installed
+  shell: |
+    curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+  args:
+    creates: /usr/local/bin/helm
+
+- name: Add kepler repository and update Helm
+  shell: |
+    helm repo add kepler {{ kepler_repo_url }}
+    helm repo update
+
+- name: Check if kepler namespace exists
+  command: kubectl get namespace {{ kepler_namespace }}
+  register: namespace_check
+  ignore_errors: true
+
+- name: Create kepler namespace if necessary
+  when: namespace_check.rc != 0
+  command: kubectl create namespace {{ kepler_namespace }}
+  ignore_errors: true
+
+- name: Ensure /var/lib/kepler directory exists
+  file:
+    path: /var/lib/kepler
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Check if kepler already exists
+  stat:
+    path: /var/lib/kepler/kepler-installed
+  register: kepler_installed
+
+- name: Ensure kepler values file is rendered locally
+  template:
+    src: kepler-values.yml.j2
+    dest: /tmp/kepler-values.yml  # Rendered on control machine
+  delegate_to: localhost
+  become: false
+
+- name: Debug rendered kepler values file
+  command: cat /tmp/kepler-values.yml
+  delegate_to: localhost
+  run_once: true
+  become: false
+
+- name: Copy kepler values file to the target machine
+  copy:
+    src: /tmp/kepler-values.yml
+    dest: /tmp/kepler-values.yml
+    mode: '0644'
+  become: true
+
+- name: Install kepler using Helm
+  when: not kepler_installed.stat.exists
+  shell: |
+    helm install kepler kepler/kepler \
+      --namespace {{ kepler_namespace }} \
+      -f /tmp/kepler-values.yml
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+  become: true
+
+- name: Mark kepler as installed
+  file:
+    path: /var/lib/kepler/kepler-installed
+    state: touch
+  when: not kepler_installed.stat.exists

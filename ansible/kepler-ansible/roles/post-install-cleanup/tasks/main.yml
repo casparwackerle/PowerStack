@@ -1,0 +1,21 @@
+---
+- name: Delete config/values files from target machine
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/kepler-values.yml
+    - /tmp/kepler-grafana-dashboard-configmap.yaml
+  become: true
+
+- name: Delete config/values files from control machine
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/kepler-values.yml
+    - /tmp/kepler-grafana-dashboard.json
+    - /tmp/kepler-grafana-dashboard-configmap.yaml
+  delegate_to: localhost
+  run_once: true
+  become: false

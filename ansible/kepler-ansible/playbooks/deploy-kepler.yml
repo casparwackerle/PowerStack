@@ -1,0 +1,10 @@
+---
+- name: Install and configure Kepler
+  hosts: server
+  become: true
+  vars_files:
+   - ../../../configs/vault.yml
+  roles:
+#    - role: deploy-kepler
+    - role: add-grafana-dashboard
+#    - role: post-install-cleanup
