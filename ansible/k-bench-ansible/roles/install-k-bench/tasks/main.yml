@@ -1,0 +1,15 @@
+---
+- name: Install K-Bench on the Ubuntu container
+  command: |
+    kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- bash -c "
+    apt-get update &&
+    apt-get install -y git curl wget &&
+    git clone {{ k_bench_repo }} &&
+    cd k-bench &&
+    . install.sh &&
+  register: install_kbench
+  failed_when: install_kbench.rc != 0
+
+# - name: Run K-Bench
+#   command: |
+#     kbench

@@ -1,0 +1,10 @@
+---
+- name: Install and configure K-bench
+  hosts: server
+  become: true
+  vars_files:
+   - ../../../configs/vault.yml
+  roles:
+   - deploy-ubuntu-pod
+   - install-kubecontrol
+  #  - install-k-bench

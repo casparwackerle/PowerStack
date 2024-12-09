@@ -5,6 +5,6 @@
   vars_files:
    - ../../../configs/vault.yml
   roles:
-#    - role: deploy-kepler
-    - role: add-grafana-dashboard
-#    - role: post-install-cleanup
+    - role: deploy-kepler
+#    - role: add-grafana-dashboard
+    - role: post-install-cleanup

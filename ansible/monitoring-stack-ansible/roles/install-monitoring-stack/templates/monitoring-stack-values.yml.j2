@@ -34,10 +34,10 @@ alertmanager:
 
 grafana:
   enabled: true
-  adminPassword: {{ grafana_admin_password }}
+  adminPassword: {{ ansible_vault.grafanaAdminPassword }}
   persistence:
     enabled: true
-    existingClaim: 	{{ pvc_name }}-grafana
+    existingClaim: {{ pvc_name }}-grafana
 
 prometheus:
   enabled: true

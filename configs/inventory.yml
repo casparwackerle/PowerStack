@@ -16,6 +16,7 @@ k3s_cluster:
   # Required Vars
   vars:
     # ansible
+    control_node_name: ho1
     ansible_port: 22
     ansible_user: ubuntu
     k3s_version: v1.30.2+k3s1
@@ -23,6 +24,7 @@ k3s_cluster:
     api_endpoint: "{{ hostvars[groups['server'][0]]['ansible_host'] | default(groups['server'][0]) }}"
     extra_server_args: "--node-ip={{ hostvars[inventory_hostname]['internal_ip'] }}  --tls-san={{ hostvars[inventory_hostname]['external_ip'] }}"
     extra_agent_args: "--node-ip={{ hostvars[inventory_hostname]['internal_ip'] }}"
+    cluster_context: "powerstack"
     
     # rancher
     rancher_hostname: rancher.local
@@ -49,20 +51,22 @@ k3s_cluster:
     
     # Monitoring Stack
     monitoring_stack_repo_url: https://prometheus-community.github.io/helm-charts
-    grafana_admin_password: "{{ ansible_vault.grafanaAdminPassword }}"
+    #grafana_admin_password: {{ ansible_vault.grafanaAdminPassword }}
     monitoring_namespace: monitoring
 
     # NodePorts. MUST BE BETWEEN 30000 AND 32767
     #rancher_custom_nodeport: 30001 # does not work, reachable on {{rancher_hostname
     prometheus_custom_nodeport: 30002
     grafana_custom_nodeport: 30003
-    alertmanager_custom_nodeport: 30004
-    kube-state-metrics_custom_nodeport: 
-    
+    alertmanager_custom_nodeport: 30004    
     # Kepler
     kepler_namespace: kepler
     kepler_repo_url: https://sustainable-computing-io.github.io/kepler-helm-chart
     
+    # benchmarking
+    benchmarking_namespace: benchmarking
+    k_bench_repo: git@github.com:vmware-tanzu/k-bench.git
+    kubectl_version: v3.31.3
 
     # Optional vars
 

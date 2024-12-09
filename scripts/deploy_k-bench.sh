@@ -25,19 +25,19 @@ mkdir -p "$REPO_PATH/logs"
 
 # Add a timestamp to the log file name
 TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
-LOG_FILE="$REPO_PATH/logs/installation_kepler_$TIMESTAMP.log"
+LOG_FILE="$REPO_PATH/logs/installation_k-bench_$TIMESTAMP.log"
 
 # Redirect script output to a timestamped log file
 exec > >(tee -i "$LOG_FILE") 2>&1
 
 echo "Log file created: $LOG_FILE"
 
-# Navigate to the kepler-ansible directory
-cd "$REPO_PATH/ansible/kepler-ansible" || { echo "Error: 'kepler-ansible' directory not found in $REPO_PATH"; exit 1; }
+# Navigate to the k-bench-ansible directory
+cd "$REPO_PATH/ansible/k-bench-ansible" || { echo "Error: 'k-bench-ansible' directory not found in $REPO_PATH"; exit 1; }
 
 # Run the Ansible playbook with the inventory file and ask for vault password
-ansible-playbook playbooks/deploy-kepler.yml -i ../../configs/inventory.yml  --ask-vault-pass
-echo "kepler installation complete!"
+ansible-playbook playbooks/deploy-k-bench.yml -i inventory.yml -i ../../configs/inventory.yml --ask-vault-pass
+echo "k-bench installation complete!"
 
 # Return to the original directory
 cd "$ORIGINAL_DIR" || { echo "Error: Unable to return to the original directory: $ORIGINAL_DIR"; exit 1; }
