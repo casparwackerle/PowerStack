@@ -1,80 +1,37 @@
 ---
-- name: Ensure curl is installed
-  ansible.builtin.package:
-    name: curl
-    state: present
-    
-- name: Download kubectl binary inside the pod
-  command: >
-    kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- bash -c
-    "curl -LO https://dl.k8s.io/release/{{ kubectl_version }}/bin/linux/amd64/kubectl"
-  register: download_kubectl
-  failed_when: download_kubectl.rc != 0
+- name: Install kubectl binary on the Ubuntu pod
+  command: |
+    kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- bash -c "curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && chmod +x kubectl && mv kubectl /usr/local/bin/"
+  register: install_kubectl
+  failed_when: install_kubectl.rc != 0
+  changed_when: "'kubectl' in install_kubectl.stdout"
+  
+- name: Ensure /root/.kube directory exists
+  command: |
+    kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- bash -c "mkdir -p /root/.kube"
+  register: ensure_kube_dir
+  failed_when: ensure_kube_dir.rc != 0
 
-- name: Make kubectl executable inside the pod
-  command: >
-    kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- chmod +x kubectl
-  register: chmod_kubectl
-  failed_when: chmod_kubectl.rc != 0
-
-- name: Move kubectl to /usr/local/bin inside the pod
-  command: >
-    kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- mv kubectl /usr/local/bin/
-  register: move_kubectl
-  failed_when: move_kubectl.rc != 0
-
-- name: Fetch kubeconfig from control node
-  ansible.builtin.fetch:
-    src: /etc/rancher/k3s/k3s.yaml
-    dest: "{{ kubeconfig }}"
-    flat: true
-
-- name: Modify kubeconfig server address
-  ansible.builtin.shell: |
-    KUBECONFIG={{ kubeconfig }} kubectl config set-cluster default --server=https://{{ api_endpoint }}:{{ api_port }}
-  delegate_to: 127.0.0.1
-  become: false
-  register: modify_server
-  changed_when:
-    - modify_server.rc == 0
-
-- name: Rename kubeconfig context
-  ansible.builtin.replace:
-    path: "{{ kubeconfig }}"
-    regexp: 'name: default'
-    replace: 'name: {{ cluster_context }}'
-  delegate_to: 127.0.0.1
-  become: false
-
-- name: Merge kubeconfig into existing one
-  ansible.builtin.shell: |
-    TFILE=$(mktemp)
-    KUBECONFIG={{ kubeconfig }} kubectl config set-context {{ cluster_context }} --user={{ cluster_context }} --cluster={{ cluster_context }}
-    KUBECONFIG={{ kubeconfig }} kubectl config view --flatten > ${TFILE}
-    mv ${TFILE} {{ kubeconfig }}
-  delegate_to: 127.0.0.1
-  become: false
-  register: merge_kubeconfig
-  changed_when:
-    - merge_kubeconfig.rc == 0
-
-- name: Copy modified kubeconfig to the pod
-  command: >
-    kubectl cp {{ kubeconfig }} -n {{ benchmarking_namespace }}
-    ubuntu-benchmark:{{ kubeconfig_pod_dest }}
+- name: Copy kubeconfig file from control node to Ubuntu pod
+  command: |
+    kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- bash -c "scp -o StrictHostKeyChecking=no {{ hostvars[groups['server'][0]].external_ip }}:/etc/rancher/k3s/k3s.yaml /root/.kube/config"
   register: copy_kubeconfig
   failed_when: copy_kubeconfig.rc != 0
 
-- name: Set kubectl context in the pod
-  command: >
-    kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- bash -c
-    "kubectl config use-context {{ cluster_context }} --kubeconfig {{ kubeconfig_pod_dest }}"
-  register: set_context
-  failed_when: set_context.rc != 0
+- name: Update kubeconfig file to use internal IP for the server
+  command: |
+    kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- bash -c "sed -i 's|https://127.0.0.1:6443|https://{{ hostvars[groups['server'][0]].internal_ip }}:6443|' /root/.kube/config"
+  register: update_kubeconfig
+  failed_when: update_kubeconfig.rc != 0
 
-- name: Verify kubectl installation and cluster access inside the pod
-  command: >
-    kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- kubectl get nodes --kubeconfig {{ kubeconfig_pod_dest }}
+- name: Set up kubectl to use the kubeconfig file on the Ubuntu pod
+  command: |
+    kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- bash -c "export KUBECONFIG=/root/.kube/config"
+  register: setup_kubeconfig_env
+  failed_when: setup_kubeconfig_env.rc != 0
+
+- name: Verify kubectl configuration
+  command: |
+    kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- bash -c "kubectl get nodes"
   register: verify_kubectl
   failed_when: verify_kubectl.rc != 0
-  changed_when: false

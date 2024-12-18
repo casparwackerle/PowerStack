@@ -36,7 +36,7 @@ echo "Log file created: $LOG_FILE"
 cd "$REPO_PATH/ansible/k-bench-ansible" || { echo "Error: 'k-bench-ansible' directory not found in $REPO_PATH"; exit 1; }
 
 # Run the Ansible playbook with the inventory file and ask for vault password
-ansible-playbook playbooks/deploy-k-bench.yml -i inventory.yml -i ../../configs/inventory.yml --ask-vault-pass
+ansible-playbook playbooks/deploy-k-bench.yml -i ../../configs/inventory.yml --ask-vault-pass
 echo "k-bench installation complete!"
 
 # Return to the original directory
