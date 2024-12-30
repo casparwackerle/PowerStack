@@ -1,5 +1,5 @@
 ---
-- name: Install and configure K-bench
+- name: Install and configure Ubuntu pod with kubectl
   hosts: server
   become: true
   vars_files:
