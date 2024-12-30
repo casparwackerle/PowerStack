@@ -1,19 +1,4 @@
 ---
-# - name: Install K-Bench on the Ubuntu container
-#   command: |
-#     kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- bash -c "
-#     cd /home/ubuntu
-#     git clone {{ k_bench_repo }} &&
-#     cd k-bench &&
-#     . install.sh
-#   register: install_kbench
-#   failed_when: install_kbench.rc != 0
-
-
-
-# - name: Install Go and dependencies
-#   command: |
-#     kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- bash -c "apt-get update && apt-get install -y golang git"
 - name: Ensure /root/kbench directory is removed before cloning
   command: |
     kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- bash -c "rm -rf /root/kbench"
@@ -24,6 +9,12 @@
   command: |
     kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- bash -c "git clone {{ k_bench_repo }} /root/kbench"
 
+- name: Build and install k-bench
+  command: |
+    kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- bash -c "cd /root/kbench && . install.sh"
+  register: kbench_install
+  failed_when: kbench_install.rc != 0
+
 - name: Install missing Go dependencies
   command: |
     kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- bash -c "cd /root/kbench && go get golang.org/x/oauth2/google@v0.0.0-20200107190931-bf48bf16ab8d"
@@ -33,15 +24,3 @@
     kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- bash -c "cd /root/kbench && go install cmd/kbench.go"
   register: kbench_install
   failed_when: kbench_install.rc != 0
-
-- name: Copy k-bench binary to /usr/local/bin
-  command: |
-    kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- bash -c "cp /root/go/bin/kbench /usr/local/bin/"
-  register: kbench_copy
-  failed_when: kbench_copy.rc != 0
-
-- name: Verify k-bench installation
-  command: |
-    kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- bash -c "kbench --help"
-  register: kbench_verify
-  failed_when: kbench_verify.rc != 0
