@@ -1,0 +1,37 @@
+---
+- name: Install kubectl binary on the Ubuntu pod
+  command: |
+    kubectl exec -n {{ benchmarking_namespace }} ubuntu-kubectl -- bash -c "curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && chmod +x kubectl && mv kubectl /usr/local/bin/"
+  register: install_kubectl
+  failed_when: install_kubectl.rc != 0
+  changed_when: "'kubectl' in install_kubectl.stdout"
+  
+- name: Ensure /root/.kube directory exists
+  command: |
+    kubectl exec -n {{ benchmarking_namespace }} ubuntu-kubectl -- bash -c "mkdir -p /root/.kube"
+  register: ensure_kube_dir
+  failed_when: ensure_kube_dir.rc != 0
+
+- name: Copy kubeconfig file from control node to Ubuntu pod
+  command: |
+    kubectl exec -n {{ benchmarking_namespace }} ubuntu-kubectl -- bash -c "scp -o StrictHostKeyChecking=no {{ hostvars[groups['server'][0]].external_ip }}:/etc/rancher/k3s/k3s.yaml /root/.kube/config"
+  register: copy_kubeconfig
+  failed_when: copy_kubeconfig.rc != 0
+
+- name: Update kubeconfig file to use internal IP for the server
+  command: |
+    kubectl exec -n {{ benchmarking_namespace }} ubuntu-kubectl -- bash -c "sed -i 's|https://127.0.0.1:6443|https://{{ hostvars[groups['server'][0]].internal_ip }}:6443|' /root/.kube/config"
+  register: update_kubeconfig
+  failed_when: update_kubeconfig.rc != 0
+
+- name: Set up kubectl to use the kubeconfig file on the Ubuntu pod
+  command: |
+    kubectl exec -n {{ benchmarking_namespace }} ubuntu-kubectl -- bash -c "export KUBECONFIG=/root/.kube/config"
+  register: setup_kubeconfig_env
+  failed_when: setup_kubeconfig_env.rc != 0
+
+- name: Verify kubectl configuration
+  command: |
+    kubectl exec -n {{ benchmarking_namespace }} ubuntu-kubectl -- bash -c "kubectl get nodes"
+  register: verify_kubectl
+  failed_when: verify_kubectl.rc != 0

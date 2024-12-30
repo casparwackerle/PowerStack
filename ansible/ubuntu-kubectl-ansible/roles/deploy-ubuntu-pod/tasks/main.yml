@@ -1,0 +1,69 @@
+---
+- name: Ensure kubeconfig is available
+  command: kubectl get nodes
+  register: kubeconfig_check
+  failed_when: kubeconfig_check.rc != 0
+
+- name: Check if monitoring namespace exists
+  command: kubectl get namespace {{ benchmarking_namespace }}
+  register: namespace_check
+  ignore_errors: true
+
+- name: Create monitoring namespace if necessary
+  when: namespace_check.rc != 0
+  command: kubectl create namespace {{ benchmarking_namespace }}
+  ignore_errors: true
+
+- name: Apply node affinity label to ensure scheduling on control node
+  command: kubectl label nodes {{ control_node_name }} benchmark=true --overwrite
+  register: label_nodes
+  changed_when: "'benchmark=true' in label_nodes.stdout"
+
+- name: Create a pod manifest for the Ubuntu container
+  copy:
+    content: |
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: ubuntu-kubectl
+        namespace: {{ benchmarking_namespace }}
+        labels:
+          app: benchmark
+      spec:
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: benchmark
+                  operator: In
+                  values:
+                  - "true"
+        containers:
+        - name: ubuntu-kubectl
+          image: ubuntu:latest
+          command: [ "/bin/bash", "-c", "--" ]
+          args: [ "while true; do sleep 30; done;" ]
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "0.5"
+            limits:
+              memory: "1Gi"
+              cpu: "1"
+    dest: /tmp/ubuntu-kubectl-pod.yml
+
+- name: Deploy the Ubuntu container
+  command: kubectl apply -f /tmp/ubuntu-kubectl-pod.yml
+  register: deploy_pod
+  changed_when: "'created' in deploy_pod.stdout"
+
+- name: Wait for Ubuntu container to be ready
+  command: kubectl wait --for=condition=ready pod/ubuntu-kubectl -n {{ benchmarking_namespace }} --timeout=300s
+  register: wait_pod_ready
+  failed_when: wait_pod_ready.rc != 0
+
+- name: Test connectivity with benchmark container
+  command: kubectl exec -n {{ benchmarking_namespace }} ubuntu-kubectl -- echo "Connectivity OK"
+  register: connectivity_test
+  failed_when: connectivity_test.rc != 0

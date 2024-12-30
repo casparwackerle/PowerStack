@@ -22,7 +22,7 @@
       spec:
         containers:
         - name: kube-burner
-          image: quay.io/cloud-bulldozer/kube-burner:latest
+          image: quay.io/kube-burner/kube-burner:latest
           command: ["/bin/bash", "-c", "--"]
           args: ["while true; do sleep 30; done;"]
           resources:
@@ -54,7 +54,7 @@
 #   copy:
 #     src: ~/.kube/config
 #     dest: /tmp/kubeconfig
-#   # delegate_to: localhost
+  # delegate_to: localhost
 
 # - name: Transfer kubeconfig to kube-burner pod
 #   command: |
@@ -62,11 +62,11 @@
 #   register: transfer_kubeconfig
 #   failed_when: transfer_kubeconfig.rc != 0
 
-- name: Ensure kube-burner binary is executable in the pod
-  command: |
-    kubectl exec -n kube-burner kube-burner -- bash -c "chmod +x /usr/local/bin/kube-burner"
-  register: ensure_kube_burner_binary
-  failed_when: ensure_kube_burner_binary.rc != 0
+# - name: Ensure kube-burner binary is executable in the pod
+#   command: |
+#     kubectl exec -n kube-burner kube-burner -- bash -c "chmod +x /usr/local/bin/kube-burner"
+#   register: ensure_kube_burner_binary
+#   failed_when: ensure_kube_burner_binary.rc != 0
 
 - name: Run kube-burner workload
   command: |
