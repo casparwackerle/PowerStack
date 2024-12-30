@@ -44,30 +44,6 @@
   register: wait_kube_burner_ready
   failed_when: wait_kube_burner_ready.rc != 0
 
-# - name: Install kubectl on kube-burner pod
-#   command: |
-#     kubectl exec -n kube-burner kube-burner -- bash -c "curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && chmod +x kubectl && mv kubectl /usr/local/bin/"
-#   register: install_kubectl_kube_burner
-#   failed_when: install_kubectl_kube_burner.rc != 0
-
-# - name: Copy kubeconfig to kube-burner pod
-#   copy:
-#     src: ~/.kube/config
-#     dest: /tmp/kubeconfig
-  # delegate_to: localhost
-
-# - name: Transfer kubeconfig to kube-burner pod
-#   command: |
-#     kubectl cp /tmp/kubeconfig kube-burner/kube-burner:/root/.kube/config
-#   register: transfer_kubeconfig
-#   failed_when: transfer_kubeconfig.rc != 0
-
-# - name: Ensure kube-burner binary is executable in the pod
-#   command: |
-#     kubectl exec -n kube-burner kube-burner -- bash -c "chmod +x /usr/local/bin/kube-burner"
-#   register: ensure_kube_burner_binary
-#   failed_when: ensure_kube_burner_binary.rc != 0
-
 - name: Run kube-burner workload
   command: |
     kubectl exec -n kube-burner kube-burner -- bash -c "kube-burner init -c /root/workload-config.yml"

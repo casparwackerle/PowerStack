@@ -1,4 +1,0 @@
----
-kubeconfig: "/etc/rancher/k3s/k3s.yaml"
-kubeconfig_pod_dest: "/root/.kube/config"  # Path in the pod
-cluster_context: "powerstack"
