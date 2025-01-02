@@ -25,7 +25,7 @@
       apiVersion: v1
       kind: Pod
       metadata:
-        name: ubuntu-benchmark
+        name: ubuntu-kubectl
         namespace: {{ benchmarking_namespace }}
         labels:
           app: benchmark
@@ -40,7 +40,7 @@
                   values:
                   - "true"
         containers:
-        - name: ubuntu-benchmark
+        - name: ubuntu-kubectl
           image: ubuntu:latest
           command: [ "/bin/bash", "-c", "--" ]
           args: [ "while true; do sleep 30; done;" ]
@@ -51,19 +51,19 @@
             limits:
               memory: "1Gi"
               cpu: "1"
-    dest: /tmp/ubuntu-benchmark-pod.yml
+    dest: /tmp/ubuntu-kubectl-pod.yml
 
 - name: Deploy the Ubuntu container
-  command: kubectl apply -f /tmp/ubuntu-benchmark-pod.yml
+  command: kubectl apply -f /tmp/ubuntu-kubectl-pod.yml
   register: deploy_pod
   changed_when: "'created' in deploy_pod.stdout"
 
 - name: Wait for Ubuntu container to be ready
-  command: kubectl wait --for=condition=ready pod/ubuntu-benchmark -n {{ benchmarking_namespace }} --timeout=300s
+  command: kubectl wait --for=condition=ready pod/ubuntu-kubectl -n {{ benchmarking_namespace }} --timeout=300s
   register: wait_pod_ready
   failed_when: wait_pod_ready.rc != 0
 
 - name: Test connectivity with benchmark container
-  command: kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- echo "Connectivity OK"
+  command: kubectl exec -n {{ benchmarking_namespace }} ubuntu-kubectl -- echo "Connectivity OK"
   register: connectivity_test
   failed_when: connectivity_test.rc != 0

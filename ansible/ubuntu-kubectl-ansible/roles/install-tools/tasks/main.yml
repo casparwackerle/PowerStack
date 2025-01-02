@@ -1,21 +1,21 @@
 ---
 - name: Install basic tools (wget, curl, vim, git)
   command: |
-    kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- bash -c "apt-get update && apt-get install -y wget curl vim git"
+    kubectl exec -n {{ benchmarking_namespace }} ubuntu-kubectl -- bash -c "apt-get update && apt-get install -y wget curl vim git"
   register: install_basic_tools
   failed_when: install_basic_tools.rc != 0
   changed_when: "'setting up' in install_basic_tools.stdout.lower()"
 
 - name: Install Go programming language
   command: |
-    kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- bash -c "wget https://go.dev/dl/go1.21.0.linux-amd64.tar.gz && tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz && rm go1.21.0.linux-amd64.tar.gz"
+    kubectl exec -n {{ benchmarking_namespace }} ubuntu-kubectl -- bash -c "wget https://go.dev/dl/go1.21.0.linux-amd64.tar.gz && tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz && rm go1.21.0.linux-amd64.tar.gz"
   register: install_go
   failed_when: install_go.rc != 0
   changed_when: "'extracting' in install_go.stdout.lower()"
 
 - name: Configure Go environment variables
   command: |
-    kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- bash -c "echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc && echo 'export GOPATH=$HOME/go' >> ~/.bashrc && source ~/.bashrc"
+    kubectl exec -n {{ benchmarking_namespace }} ubuntu-kubectl -- bash -c "echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc && echo 'export GOPATH=$HOME/go' >> ~/.bashrc && source ~/.bashrc"
   register: configure_go_env
   failed_when: configure_go_env.rc != 0
   changed_when: "'export' in configure_go_env.stdout.lower()"

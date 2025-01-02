@@ -1,0 +1,12 @@
+---
+- name: Install and configure Ubuntu pod with kubectl
+  hosts: server
+  become: true
+  vars_files:
+   - ../../../configs/vault.yml
+  roles:
+   - deploy-ubuntu-pod
+   - install-tools
+   - setup-openssh
+   - install-kubecontrol
+   - post-install-cleanup

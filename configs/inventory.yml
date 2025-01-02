@@ -66,6 +66,7 @@ k3s_cluster:
     # benchmarking
     benchmarking_namespace: benchmarking
     k_bench_repo: https://github.com/vmware-tanzu/k-bench.git
+    perf_tests_repo: https://github.com/kubernetes/perf-tests.git
     kubectl_version: v3.31.3
 
     # Optional vars

@@ -1,7 +1,7 @@
 ---
 - name: Install openssh-client
   command: |
-    kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- bash -c "apt-get update && apt-get install -y openssh-client"
+    kubectl exec -n {{ benchmarking_namespace }} ubuntu-kubectl -- bash -c "apt-get update && apt-get install -y openssh-client"
 
 - name: Set control_node_name based on inventory
   set_fact:
@@ -9,14 +9,14 @@
 
 - name: Generate an SSH key pair on the Ubuntu pod if not exists
   command: |
-    kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- bash -c "if [ ! -f /root/.ssh/id_ed25519 ]; then ssh-keygen -t ed25519 -f /root/.ssh/id_ed25519 -q -N ''; fi"
+    kubectl exec -n {{ benchmarking_namespace }} ubuntu-kubectl -- bash -c "if [ ! -f /root/.ssh/id_ed25519 ]; then ssh-keygen -t ed25519 -f /root/.ssh/id_ed25519 -q -N ''; fi"
   register: generate_ssh_key
   failed_when: generate_ssh_key.rc != 0
   changed_when: "'Generating public/private ed25519 key pair' in generate_ssh_key.stdout"
 
 - name: Retrieve the public key from the Ubuntu pod
   command: |
-    kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- bash -c "cat /root/.ssh/id_ed25519.pub"
+    kubectl exec -n {{ benchmarking_namespace }} ubuntu-kubectl -- bash -c "cat /root/.ssh/id_ed25519.pub"
   register: ssh_public_key
   failed_when: ssh_public_key.rc != 0
 
@@ -37,6 +37,6 @@
 
 - name: Test SSH connection from the Ubuntu pod to the control node
   command: |
-    kubectl exec -n {{ benchmarking_namespace }} ubuntu-benchmark -- bash -c "ssh -o StrictHostKeyChecking=no {{ control_node_name }} hostname"
+    kubectl exec -n {{ benchmarking_namespace }} ubuntu-kubectl -- bash -c "ssh -o StrictHostKeyChecking=no {{ control_node_name }} hostname"
   register: test_ssh_connection
   failed_when: test_ssh_connection.rc != 0

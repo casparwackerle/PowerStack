@@ -5,8 +5,9 @@
   vars_files:
    - ../../../configs/vault.yml
   roles:
-   - deploy-ubuntu-pod
-   - install-tools
-   - setup-openssh
-   - install-kubecontrol
-   - install-k-bench
+  #  - deploy-ubuntu-pod
+  #  - install-tools
+  #  - setup-openssh
+  #  - install-kubecontrol
+  #  - install-k-bench
+   - install-kube-burner
