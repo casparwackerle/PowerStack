@@ -1,2 +1,3 @@
 ansible/configs/vault.yml
 logs/
+thesis/build/
