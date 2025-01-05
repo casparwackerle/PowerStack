@@ -6,7 +6,7 @@
 
 \section{Overview of Test Environment}
 
-The test environment consists of a Kubernetes cluster deployed on three bare-metal servers housed in a university datacenter. The servers were given to the author for the scope of his Master's studies and were preconfigured. The three servers are identical in hardware specifications and connected through both a private network and the university network. However, the architecture is designed to be largely independent of the specific servers used here, ensuring flexibility for deployment on different hardware setups. The setup allows complete remote management and ensures direct communication between the servers for Kubernetes workloads. Below is a detailed description of the hardware and network topology. A diagram illustrating the architecture and network setup is provided in figure~\ref{fig:physical_and_network_infra}.
+The test environment consists of a Kubernetes cluster deployed on three bare-metal servers housed in a university datacenter. The three servers are identical in hardware specifications and connected through both a private network and the university network. The setup allows complete remote management and ensures direct communication between the servers for Kubernetes workloads. Below is a detailed description of the hardware and network topology. A diagram illustrating the architecture and network setup is provided in figure~\ref{fig:physical_and_network_infra}.
 
 \begin{figure}[ht]
     \centering
@@ -48,14 +48,11 @@ The servers are equipped with Lenovo XClarity Controller (BMC) for remote manage
 The servers are connected using two distinct networks:
 
 \begin{itemize}
-\item Private Network: Each server is assigned a private IP address in the range 192.168.0.104 - 192.168.0.106. This network allows direct communication between the servers without external routing, facilitating high-speed internal traffic for Kubernetes workloads, while not burdening the university network.
-\item University Network: Each server has a public-facing IP address in the range 160.85.30.104 - 160.85.30.106. These addresses are accessible within the university network. External access to the servers requires a connection through the university VPN.
+\item Private Network: Each server has a private IP address (192.168.0.104–192.168.0.106), allowing direct, high-speed communication between nodes. This reduces the load on the university network and improves Kubernetes workload performance.
+\item University Network: Public-facing IP addresses (160.85.30.104–160.85.30.106) allow access within the university network, with external access enabled via VPN.
 \end{itemize}
 
-\textbf{Additional Note:}
-
-The private network’s exact switch configuration and gateway details are managed by the university’s IT department and are beyond the scope of this document.
-
+\textbf{Note}: Detailed switch and gateway configurations are managed by the university IT department and are beyond the scope of this document.
 %\subsection{Ubuntu Linux for bare-metal Kubernetes}
 %\subsubsection{OS version and Kernel features}
 %\subsubsection{Kernel tuning for performance monitoring}
