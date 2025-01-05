@@ -1,0 +1,96 @@
+% Indicate the main file. Must go at the beginning of the file.
+% !TEX root = ../main.tex
+
+\chapter{Introduction and Context} % Main chapter title
+\label{Chapter1}
+
+\section{Significance of Energy Efficiency in Cloud Computing}
+
+Cloud computing has revolutionized the way computing resources are shared and utilized. Unlike personal computers, which are typically designed to handle a broad range of workloads and often operate inefficiently due to underutilization, cloud computing enables resource sharing across dedicated hardware. This sharing allows for more predictable resource usage by smoothing out temporary spikes in demand, resulting in increased operational efficiency. These improvements have been marketed primarily as economic benefits, such as reduced operational costs and improved scalability. However, the environmental implications—notably energy savings—are equally significant. By maximizing the utilization of shared resources, cloud computing inherently reduces energy waste, aligning with global sustainability goals.\\
+The rapid adoption of cloud computing has transformed it into a dominant segment of global IT infrastructure. Cloud hyperscalers, such as Amazon Web Services, Google Cloud, and Microsoft Azure, have become major contributors to global energy consumption, reflecting the dramatic growth in cloud-based workloads. While precise quantifications of their energy usage are beyond the scope of this thesis, it is evident that their impact on global energy demand has reached a level that commands attention from policymakers and regulators. Increasingly stringent regulations on energy efficiency and environmental impact underscore the urgency of addressing this issue. Cloud providers have made significant strides toward sustainability by incorporating renewable energy sources into their operations. While commendable, this shift does not directly address the fundamental question of how efficiently these energy resources are utilized for computing workloads.\\
+In recent years, technological advancements have significantly improved the energy efficiency of data center operations. The de-facto industry-standard metric of Power Usage Effectiveness (PUE), which measures the ratio of total facility energy to IT equipment energy, has seen marked improvements. Early data centers often operated with PUE values above 2, indicating that much of the energy was consumed by non-computational activities such as cooling and power delivery. Some modern data centers now approach PUE values closer to 1, thanks to innovations in infrastructure, cooling systems, and energy delivery. However, PUE measures the efficiency of the overall facility rather than the computational efficiency of workloads. A theoretically perfect PUE of 1 does not preclude significant energy waste if computational resources are underutilized or inefficiently managed. This highlights the necessity of shifting focus from facility-level metrics to workload-level efficiency.\\
+Containers, as an evolution of virtualization technology, represent a critical step forward in optimizing computational workloads. Compared to virtual machines (VMs), containers are inherently lightweight, sharing the host operating system kernel and eliminating the need for duplicating operating system instances. This design reduces overhead and increases resource density, thereby improving energy efficiency. Containers also provide greater flexibility and faster deployment times, enabling dynamic resource allocation that closely aligns with workload demands. Despite these advantages, the transition from VMs to containers has introduced additional layers of complexity.\\
+Measuring energy consumption at the container level is a particularly challenging problem. While the power consumption of a physical server can be measured with relative ease using external tools, attributing this consumption to individual containers requires detailed instrumentation and robust monitoring frameworks. Containers share resources such as CPU, memory, and I/O bandwidth, making it difficult to isolate their energy impact. Furthermore, Kubernetes, as a container orchestration platform, adds another layer of abstraction and complexity. Its dynamic scaling and resource allocation mechanisms—essential for high availability and performance—further obscure the relationship between resource usage and energy consumption. Accurate measurement requires granular monitoring tools that can account for these complexities, which are still in developmental stages.\\
+Despite the critical role of energy efficiency in cloud computing, the topic has received surprisingly limited attention in research. While significant efforts have been made to optimize data center operations and promote "green code" among developers, the energy efficiency of cloud computing technologies, particularly Kubernetes, remains underexplored. Additionally, economic considerations often take precedence, overshadowing energy efficiency as a research priority. Addressing this gap is imperative to ensure that advancements in cloud computing align with both economic and environmental objectives.
+
+\section{The Need for Energy-Efficient Kubernetes Clusters}
+
+As cloud computing continues to dominate IT infrastructure, the importance of energy efficiency within this paradigm cannot be overstated. Kubernetes, the de facto standard for container orchestration, has become a cornerstone of modern cloud environments. Its widespread adoption underlines its effectiveness in managing containerized workloads at scale. However, this very success has also brought new challenges, particularly in the realm of energy efficiency.\\
+Kubernetes environments are inherently complex, featuring dynamic scaling, resource allocation, and workload distribution across multiple nodes. These features, while essential for operational flexibility and performance, complicate the measurement and optimization of energy consumption. The reliance on VMs for hosting Kubernetes clusters—a common practice to simplify infrastructure management— complicate this issue even further. Virtualization adds another layer of abstraction, making it even harder to isolate and measure the energy impact of individual containers or pods.\\
+To make meaningful strides in energy efficiency, it is essential to first establish robust methods for measuring energy consumption in Kubernetes environments. This involves not only addressing the technical challenges of instrumentation and monitoring but also developing frameworks that can translate these measurements into actionable insights. Such efforts are critical for identifying inefficiencies and guiding optimizations that balance performance with energy consumption.\\
+Given the growing energy footprint of cloud computing and the limited research focus on this topic, energy-efficient Kubernetes clusters represent a pressing area for investigation. By bridging this gap, we can contribute to the broader goals of sustainable cloud computing and ensure that the growth of this technology aligns with both economic and environmental priorities.\\
+
+\section{Objectives and Scope of this Thesis}
+
+\subsection{Context}
+
+This thesis is written as part of the Master's program in Computer Science at the Zurich University of Applied Sciences (ZHAW). The author is a member of the Distributed Systems group, focusing on energy efficiency in cloud computing systems. This work is classified as a "Specialization Project," known in German as a "Vertiefungsarbeit" (VT), and represents the first of two specialization projects required by the program. The current thesis (VT1) will be followed by VT2, which will explore the theoretical aspects of energy efficiency in Kubernetes clusters. Specifically, VT2 will focus on research methodologies to measure and improve energy efficiency in Kubernetes environments.\\
+Ultimately, the findings and implementations from VT1 and VT2 will be integrated into a comprehensive Master's thesis. This final thesis will combine theoretical insights and practical implementations to present a holistic view of energy efficiency in Kubernetes clusters.\\
+This thesis builds upon the results of preceding works titled "Erweiterte Vertiefungsarbeit 1" (EVA1) and "Erweiterte Vertiefungsarbeit 2" (EVA2). EVA1 focussed on Performance Optimitation, with a focus on Methodoly and Operating system tools, Statistics and Queueing theory, extended Berkeley Packet Fileter (eBPF) and a small implementation Project.\\
+EVA2 investigated the measurement of energy consumption in computer systems, focusing on hardware (CPU I/O, logic components, the frequency/voltage/temperature interdependency, CPU states, and x86 vs ARM architectures) and firmware/software aspects (BIOS/ACPI, ACPI states, Linux OSPM, state control, monitoring, and Linux state drivers). While these foundational topics provide the basis for the current thesis, they will not be revisited in detail here.\\
+
+\subsection{Scope}
+
+This thesis is intended as a practical implementation project rather than theoretical research. Consequently, a detailed analysis of the state of the art, including a comprehensive discussion of current and past research, is not included. While the author has addressed these aspects in prior works, this thesis focuses on documenting the technical implementation of a test environment. As a result, certain statements within this thesis that might require extensive citation and academic discussion have been intentionally streamlined to maintain focus on practical objectives.\\
+The primary scope of this thesis is the creation and documentation of a test environment designed for subsequent research projects within the Master's program. This test environment serves as a foundational tool for VT2 and the Master's thesis, enabling further investigation into energy efficiency in Kubernetes clusters.\\
+
+\subsection{Objectives}
+
+The primary objective of this thesis is to design and implement a test environment that supports future research within the context of the author's Master's studies. Specifically, the test environment aims to facilitate:
+\begin{itemize}
+\item The analysis of parameters critical to energy efficiency in Kubernetes clusters.
+\item Ensuring reliability and availability of the test environment for consistent experimentation.
+\item Achieving reproducibility and automation in the deployment and configuration processes.
+\end{itemize}
+The outcomes of this thesis will provide the necessary infrastructure and documentation to support subsequent theoretical and practical work, forming a key component of the broader research objectives pursued by the author.
+
+\subsubsection{Parameters for Analysis}
+In order to minimize effort and avoid \textit{reinventing the wheel}, the approach will involve reusing established tools and components where feasible. Suitable software components will be selected based on their ability to provide comprehensive monitoring and energy-related data.
+
+Parameters to be analyzed are expected to include:
+\begin{itemize}
+\item CPU utilization and energy consumption.
+\item Memory usage and its impact on power draw.
+\item Disk I/O and storage-related power consumption.
+\end{itemize}
+
+Further evaluation will be necessary to determine whether additional parameters should be incorporated. The chosen components will be documented and justified in subsequent sections, ensuring that they meet the requirements for effective energy efficiency analysis.
+
+\subsubsection{Data Integrity and Persistence}
+
+The objective is to create a system that prevents data loss during experiments and ensures data persistence even when the system is fully powered down.
+
+Key requirements:
+\begin{itemize}
+\item Persistent data storage that survives complete system shutdown.
+\item A unified data store accessible by all nodes.
+\item Data persistence, even across Kubernetes cluster reinstallation.
+\item The ability to dynamically power down unused worker nodes without risking data loss.
+\end{itemize}
+These measures will ensure that experimental data remains intact and available throughout the research process, enabling consistent and reliable analysis.
+
+\subsubsection{Reproducibility and Automation}
+
+This objective is defined as a bonus goal aimed at enhancing the efficiency of the research process. The intent is to create a system that can be easily redeployed on different hardware configurations with minimal effort.
+
+Expected benefits:
+\begin{itemize}
+\item Simplified recovery from misconfiguration or failure by enabling rapid redeployment.
+\item Reduced troubleshooting time by allowing clean redeployments in case of system issues.
+\item Improved stack cleanliness, as regular redeployment will eliminate failed installations and residual configurations.
+\end{itemize}
+While full automation may not be feasible or necessary in all scenarios, achieving a high degree of reproducibility and automation will significantly enhance the flexibility and robustness of the research environment.
+
+\subsubsection{Security}
+
+Security is included as an additional bonus goal to ensure that the system adheres to basic security principles. While the primary focus is not on creating a production-grade secure environment, certain baseline security measures will be implemented.
+
+Key security objectives:
+\begin{itemize}
+\item Use of encrypted passwords where possible.
+\item Adherence to basic security best practices for Kubernetes deployments.
+\item Minimization of potential vulnerabilities through careful configuration.
+\end{itemize}
+By incorporating these measures, the system will provide a reasonable level of security, sufficient for research purposes and consistent with best practices in cloud infrastructure management.
+
+ 
