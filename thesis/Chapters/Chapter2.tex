@@ -120,14 +120,77 @@ Despite its potential, KEPLER has some limitations:
 
 While KEPLER may not be perfect, it is currently the most promising approach to addressing the challenge of measuring energy consumption in Kubernetes environments. Consequently, a large focus of this thesis will be on evaluating KEPLER's capabilities and identifying areas for improvement.
 
+\section{Architecture and Design}
 
-\section{Architecture and design}
 \subsection{Kubernetes Cluster Design}
-\subsubsection{Cluster nodes and Roles}
-\subsubsection{Networking between nodes}
+
+The Kubernetes cluster is deployed on three bare-metal servers running Ubuntu. One server is designated as the control plane, while the other two serve as worker nodes. This setup avoids high availability (HA) for simplicity, given the scope of this project. The servers are connected via their internal IP addresses, enabling direct communication without routing through external networks. All Kubernetes components, including the API server, controller manager, and scheduler, run exclusively on the control plane node, while workloads are distributed across all nodes by Kubernetes. Figure~\ref{fig:physical_and_network_infra} provides an overview of the system architecture, including components and data flow.
+
+\subsection{Persistent Storage}
+
+Persistent storage is provided using the spare SSD disk on the control node. A partition on the disk is created, formatted with the BTRFS file system, and mounted. The NFS server is installed on the control node, and NFS clients are installed on the worker nodes, enabling them to access the shared storage. This centralized approach was chosen because the control node is the only server guaranteed to remain powered on throughout the experiment, ruling out the need for a distributed storage solution like CEPH.
+
+Within the NFS share, separate directories are created for Prometheus and Grafana data. Persistent volumes (PVs) are defined in Kubernetes, and persistent volume claims (PVCs) are created for each service. The size of these PVs can be configured during installation, allowing flexibility for future storage needs.
+
 \subsection{Monitoring Architecture}
-\subsubsection{Prometheus data flow}
-\subsubsection{Grafana Dashboards}
+
+The monitoring stack is deployed using the kube-prometheus-stack Helm chart. This stack includes Prometheus, Grafana, and AlertManager, providing a complete solution for monitoring, visualizing, and managing alerts in Kubernetes. Prometheus is configured to scrape metrics from KEPLER and Kubernetes endpoints (such as the kubelet API) at regular intervals. Grafana connects to Prometheus, enabling real-time visualization of metrics through customizable dashboards.
+
+\subsection{Metrics Collection and Storage}
+
+KEPLER generates metrics by collecting data from various sources:
+\begin{itemize}
+\item Hardware-level metrics: Using eBPF and kernel tracepoints to gather low-level data such as CPU cycles and cache misses.
+\item Power-related metrics: Collected via RAPL (Running Average Power Limit) and ACPI (Advanced Configuration and Power Interface) to monitor CPU and platform energy consumption.
+\item Container-level metrics: Retrieved from the Kubernetes kubelet API, which provides cgroup resource usage data for running containers and pods.
+\end{itemize}
+
+KEPLER aggregates this data, calculates power consumption metrics, and exposes them in a Prometheus-friendly format. Prometheus scrapes these metrics at a configurable interval, storing them as time series data on the persistent volume. The time series format allows Prometheus to track changes over time, enabling detailed analysis of resource usage patterns.
+
+Grafana queries Prometheus to visualize the collected metrics through interactive dashboards. Additionally, Prometheus provides an API for direct access to the stored data, facilitating further analysis if required.
+
+\subsection{Repository Structure}
+
+The repository for this project is designed to include all aspects of the Kubernetes-based energy efficiency test environment, from deployment automation to documentation. Given the reliance on various external projects, a hybrid approach was adopted for managing dependencies:
+
+\subsubsection{Submodules for External Repositories}
+Several external projects with frequent updates were forked and included as submodules in the repository. This approach allows easy configuration and customization while maintaining the ability to sync changes from upstream repositories. Additionally, by freezing submodules at specific commits, the project is protected from unexpected upstream changes that could introduce instability.
+
+\subsubsection{Direct Deployment from External Repositories}
+For other external projects that require minimal customization, direct deployment from their original repositories was chosen. This reduces the complexity of repository maintenance and ensures that stable, tested versions are always used.
+
+\subsubsection{Structure Overview}
+The repository is organized to maintain clarity and separation of concerns:
+\begin{itemize}
+    \item ansible/: Contains all Ansible playbooks and roles for automated deployments.
+    \item helm/: Custom or external Helm charts managed through Ansible.
+    \item scripts/: Bash scripts for executing Ansible playbooks with proper context and logging.
+    \item config/: Centralized configuration file and Ansible vault.
+    \item docs/: Documentation files containing setup and usage of the project.
+    \item thesis/: Contains all files related to the thesis, written in LaTeX, including the main document, figures, and bibliography.
+\end{itemize}
+
+\subsection{Automation Architecture}
+
+Automation was a key focus in this project to ensure reproducibility, consistency, and ease of deployment. The automation architecture is primarily based on Ansible, with Helm nested into Ansible playbooks for Kubernetes-specific deployments.
+
+\subsubsection{Ansible and Helm Integration}
+Ansible was used for automating the setup of the base environment, including system-level configurations and Kubernetes deployments. All Helm installations, such as the kube-prometheus-stack, were wrapped in Ansible playbooks. This approach provided a unified automation framework where both system configurations and Kubernetes resources could be managed together. This also allowed for clear version control and logging of every deployment step.
+
+\subsubsection{Execution Scripts}
+Custom Bash scripts were written to handle the execution of Ansible playbooks. These scripts ensured:
+\begin{itemize}
+    \item Playbooks were executed in the correct context and with the proper configuration.
+    \item Automatic log creation and saving for every playbook run, aiding in troubleshooting and auditing.
+\end{itemize}
+
+\subsubsection{Centralized Configuration}
+All configuration values, such as IP addresses, storage paths, and deployment options, were centralized in a single configuration file. This design simplifies re-deployment on different hardware by only requiring changes in one location. When necessary, Jinja templates were used in Ansible to dynamically adapt configurations based on this central file.
+
+\subsubsection{Security}
+Sensitive information, such as passwords and API keys, was encrypted using an Ansible Vault. This ensured that confidential data could be securely managed within the repository without compromising security during deployment.
+
+
 
 \section{KEPLER Architecture and Metrics collection}
 \subsection{KEPLER components}
@@ -142,8 +205,3 @@ While KEPLER may not be perfect, it is currently the most promising approach to 
 \subsubsection{Container-level metrics}
 \subsubsection{Node-level metrics}
 \subsubsection{Process-level metrics}
-
-
-\section{Repository Strucure}
-\subsection{Git main repository and submodules}
-\subsection{Tools}
