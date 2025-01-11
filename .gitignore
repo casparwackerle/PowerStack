@@ -1,5 +1,5 @@
-ansible/configs/vault.yml
-logs/
-thesis/build/
+/ansible/configs/vault.yml
+/logs/
+/thesis/build/
 # But do not ignore the main.pdf file
-!thesis/build/main.pdf
+!/thesis/build/main.pdf
