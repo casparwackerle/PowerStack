@@ -9,7 +9,7 @@ This repository is designed for bare-metal nodes with very specific goals and re
 ## Prerequisites
 
 ### Servers
-- Two or more physical servers with Ubuntu 22.04 installed. This project was tested on x64 architecture.
+- Two or more physical servers with Ubuntu 22.04 installed. This project was tested on x86-64 architecture.
 - Passwordless SSH access to all servers.
 - A user account with `sudo` privileges.
 - The control node (of ansible, i.e. your local machine) *must* have Ansible 8.0+ (ansible-core 2.15+).
