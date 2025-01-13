@@ -98,10 +98,11 @@ serviceMonitor:
       targetLabel: instance
 
 redfish:
-  enabled: false
+  enabled: true
   name: redfish
   labels: {}
   annotations: {}
   fileContent: |-
-    your_kubelet_node1_name,redfish_username,redfish_password,https://node1_redfish_ip_or_hostname
-    your_kubelet_node2_name,redfish_username,redfish_password,https://node2_redfish_ip_or_hostname
+    {{ hostvars[groups['server'][0]].node_name }},{{ ansible_vault.xclarityUser }},{{ ansible_vault.xclarityPassword }},https://{{ hostvars[groups['server'][0]].BMC_ip }}
+    {{ hostvars[groups['agent'][0]].node_name }},{{ ansible_vault.xclarityUser }},{{ ansible_vault.xclarityPassword }},https://{{ hostvars[groups['agent'][0]].BMC_ip }}
+    {{ hostvars[groups['agent'][1]].node_name }},{{ ansible_vault.xclarityUser }},{{ ansible_vault.xclarityPassword }},https://{{ hostvars[groups['agent'][1]].BMC_ip }}
