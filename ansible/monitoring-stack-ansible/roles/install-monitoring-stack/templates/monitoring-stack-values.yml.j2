@@ -49,6 +49,7 @@ prometheus:
               - {{ groups['server'][0] | default('') }}:9102  # Control node
               - {{ groups['agent'][0] | default('') }}:9102   # Worker node 1
               - {{ groups['agent'][1] | default('') }}:9102   # Worker node 2
+    scrapeInterval: "{{ prometheus_scrape_interval }}"
     securityContext:
       enabled: true
       runAsUser: 65534

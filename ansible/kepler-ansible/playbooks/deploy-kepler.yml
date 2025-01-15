@@ -1,4 +1,10 @@
 ---
+- name: Ensure perf_event_paranoid is configured on all nodes
+  hosts: k3s_cluster
+  become: true
+  roles:
+    - role: perf-event-config
+
 - name: Install and configure Kepler
   hosts: server
   become: true
