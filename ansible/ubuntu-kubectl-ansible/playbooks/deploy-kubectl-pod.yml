@@ -6,8 +6,8 @@
    - ../../../configs/vault.yml
   roles:
   #  - deploy-benchmarking-pod
-   - deploy-pod-high-cpu
-   - deploy-pod-high-mem
+   - deploy-pods-high-cpu
+   - deploy-pods-high-mem
    - install-tools
   #  - setup-openssh
   #  - install-tools

@@ -1,0 +1,57 @@
+---
+- name: Ensure kubeconfig is available
+  command: kubectl get nodes
+  register: kubeconfig_check
+  failed_when: kubeconfig_check.rc != 0
+
+- name: Check if testing namespace exists
+  command: kubectl get namespace {{ testing_namespace }}
+  register: namespace_testing_check
+  ignore_errors: true
+
+- name: Create testing namespace if necessary
+  when: namespace_testing_check.rc != 0
+  command: kubectl create namespace {{ testing_namespace }}
+  ignore_errors: true
+
+- name: Create a high-CPU deployment manifest
+  copy:
+    content: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: testing-high-cpu
+        namespace: {{ testing_namespace }}
+      spec:
+        replicas: 3
+        selector:
+          matchLabels:
+            app: testing-high-cpu
+        template:
+          metadata:
+            labels:
+              app: testing-high-cpu
+          spec:
+            containers:
+            - name: testing-high-cpu
+              image: ubuntu:latest
+              command: [ "/bin/bash", "-c", "--" ]
+              args: [ "while true; do sleep 30; done;" ]
+              resources:
+                requests:
+                  memory: "1Gi"
+                  cpu: "4"
+                limits:
+                  memory: "1Gi"
+                  cpu: "4"
+    dest: /tmp/testing-high-cpu-deployment.yml
+
+- name: Deploy high-CPU Ubuntu containers as a Deployment
+  command: kubectl apply -f /tmp/testing-high-cpu-deployment.yml
+  register: deploy_pod
+  changed_when: "'created' in deploy_pod.stdout"
+
+- name: Wait for Deployment to be fully available
+  command: kubectl rollout status deployment/testing-high-cpu -n {{ testing_namespace }} --timeout=300s
+  register: wait_pod_ready
+  failed_when: wait_pod_ready.rc != 0

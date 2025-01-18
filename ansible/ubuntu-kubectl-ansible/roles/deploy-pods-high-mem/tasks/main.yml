@@ -1,0 +1,57 @@
+---
+- name: Ensure kubeconfig is available
+  command: kubectl get nodes
+  register: kubeconfig_check
+  failed_when: kubeconfig_check.rc != 0
+
+- name: Check if testing namespace exists
+  command: kubectl get namespace {{ testing_namespace }}
+  register: namespace_testing_check
+  ignore_errors: true
+
+- name: Create testing namespace if necessary
+  when: namespace_testing_check.rc != 0
+  command: kubectl create namespace {{ testing_namespace }}
+  ignore_errors: true
+
+- name: Create a high-MEM deployment manifest
+  copy:
+    content: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: testing-high-mem
+        namespace: {{ testing_namespace }}
+      spec:
+        replicas: 3
+        selector:
+          matchLabels:
+            app: testing-high-mem
+        template:
+          metadata:
+            labels:
+              app: testing-high-mem
+          spec:
+            containers:
+            - name: testing-high-mem
+              image: ubuntu:latest
+              command: [ "/bin/bash", "-c", "--" ]
+              args: [ "while true; do sleep 30; done;" ]
+              resources:
+                requests:
+                  memory: "50Gi"
+                  cpu: "200m"
+                limits:
+                  memory: "50Gi"
+                  cpu: "300m"
+    dest: /tmp/testing-high-mem-deployment.yml
+
+- name: Deploy high-MEM Ubuntu containers as a Deployment
+  command: kubectl apply -f /tmp/testing-high-mem-deployment.yml
+  register: deploy_mem_pod
+  changed_when: "'created' in deploy_mem_pod.stdout"
+
+- name: Wait for Deployment to be fully available
+  command: kubectl rollout status deployment/testing-high-mem -n {{ testing_namespace }} --timeout=300s
+  register: wait_mem_pod_ready
+  failed_when: wait_mem_pod_ready.rc != 0

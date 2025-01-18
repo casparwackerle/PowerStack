@@ -6,16 +6,15 @@
   failed_when: install_basic_tools.rc != 0
   changed_when: "'setting up' in install_basic_tools.stdout.lower()"
 
-- name: Install benchmarking tools (stress-ng)
-  command: |
-    kubectl exec -n {{ testing_namespace }} testing-high-cpu -- bash -c "apt-get update && apt-get install -y stress-ng"
-  register: install_benchmarking_tools
-  failed_when: install_benchmarking_tools.rc != 0
-  changed_when: "'setting up' in install_benchmarking_tools.stdout.lower()"
+- name: Get all high-CPU and high-MEM pod names
+  command: kubectl get pods -n {{ testing_namespace }} -o=jsonpath='{.items[*].metadata.name}'
+  register: all_pods
+  changed_when: false
 
-- name: Install benchmarking tools (stress-ng)
+- name: Install benchmarking tools (stress-ng) on all pods
   command: |
-    kubectl exec -n {{ testing_namespace }} testing-high-mem -- bash -c "apt-get update && apt-get install -y stress-ng"
+    kubectl exec -n {{ testing_namespace }} {{ item }} -- bash -c "apt-get update && apt-get install -y stress-ng htop"
+  loop: "{{ all_pods.stdout.split() }}"
   register: install_benchmarking_tools
   failed_when: install_benchmarking_tools.rc != 0
   changed_when: "'setting up' in install_benchmarking_tools.stdout.lower()"
