@@ -59,6 +59,7 @@ k3s_cluster:
     monitoring_stack_repo_url: https://prometheus-community.github.io/helm-charts
     #grafana_admin_password: {{ ansible_vault.grafanaAdminPassword }}
     monitoring_namespace: monitoring
+    testing_namespace: testing  #careful: Testing scripts are not adjusted automatically
     prometheus_scrape_interval: 10s
 
     # NodePorts. MUST BE BETWEEN 30000 AND 32767

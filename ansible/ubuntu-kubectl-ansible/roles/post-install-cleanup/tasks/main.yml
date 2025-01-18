@@ -5,6 +5,7 @@
     state: absent
   loop:
     - /tmp/ubuntu-kubectl-pod.yml
+    - /tmp/testing-pod.yml
   become: true
 
 # - name: Delete config/values files from control machine

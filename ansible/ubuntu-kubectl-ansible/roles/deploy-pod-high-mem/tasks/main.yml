@@ -1,0 +1,69 @@
+---
+- name: Ensure kubeconfig is available
+  command: kubectl get nodes
+  register: kubeconfig_check
+  failed_when: kubeconfig_check.rc != 0
+
+- name: Check if testing namespace exists
+  command: kubectl get namespace {{ testing_namespace }}
+  register: namespace_testing_check
+  ignore_errors: true
+
+- name: Create testing namespace if necessary
+  when: namespace_testing_check.rc != 0
+  command: kubectl create namespace {{ testing_namespace }}
+  ignore_errors: true
+
+- name: Apply node affinity label to ensure scheduling on control node
+  command: kubectl label nodes {{ control_node_name }} benchmark=true --overwrite
+  register: label_nodes
+  changed_when: "'benchmark=true' in label_nodes.stdout"
+
+- name: Create a pod manifest for the Ubuntu containers
+  copy:
+    content: |
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: testing-high-mem
+        namespace: {{ testing_namespace }}
+        labels:
+          app: benchmark
+      spec:
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: benchmark
+                  operator: In
+                  values:
+                  - "true"
+        containers:
+        - name: testing-high-mem
+          image: ubuntu:latest
+          command: [ "/bin/bash", "-c", "--" ]
+          args: [ "while true; do sleep 30; done;" ]
+          resources:
+            requests:
+              memory: "48Gi"
+              cpu: "500m"
+            limits:
+              memory: "48Gi"
+              cpu: "500m"
+    dest: /tmp/testing-pod-high-mem.yml
+
+- name: Deploy the Ubuntu containers
+  command: kubectl apply -f /tmp/testing-pod-high-mem.yml
+  register: deploy_pod
+  changed_when: "'created' in deploy_pod.stdout"
+
+- name: Wait for Ubuntu containers to be ready
+  command: kubectl wait --for=condition=ready pod/testing-high-mem -n {{ testing_namespace }} --timeout=300s
+  register: wait_pod_ready
+  failed_when: wait_pod_ready.rc != 0
+
+- name: Test connectivity with benchmark container
+  command: kubectl exec -n {{ testing_namespace }} testing-high-mem -- echo "Connectivity OK"
+  register: connectivity_test
+  failed_when: connectivity_test.rc != 0

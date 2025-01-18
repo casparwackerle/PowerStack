@@ -5,8 +5,11 @@
   vars_files:
    - ../../../configs/vault.yml
   roles:
-   - deploy-ubuntu-pod
+  #  - deploy-benchmarking-pod
+   - deploy-pod-high-cpu
+   - deploy-pod-high-mem
    - install-tools
-   - setup-openssh
-   - install-kubecontrol
-   - post-install-cleanup
+  #  - setup-openssh
+  #  - install-tools
+  #  - install-kubecontrol
+  #  - post-install-cleanup
