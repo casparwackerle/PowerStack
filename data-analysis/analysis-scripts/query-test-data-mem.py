@@ -6,8 +6,20 @@ from datetime import datetime, timezone, timedelta
 
 PROMETHEUS_URL = "http://160.85.30.104:30002/api/v1/query_range"
 METRICS = [
+    # Kepler Metrics for Container Energy Consumption
+    "kepler_container_joules_total",
+    "kepler_container_core_joules_total",
     "kepler_container_dram_joules_total",
-    "kepler_container_package_joules_total"
+    "kepler_container_package_joules_total",
+    "kepler_container_other_joules_total",
+    
+    # Kepler Metrics for Container Resource Utilization
+    "kepler_container_cpu_cycles_total",
+    "kepler_container_cpu_instructions_total",
+    "kepler_container_cache_miss_total",
+    "kepler_container_bpf_net_tx_irq_total",
+    "kepler_container_bpf_net_rx_irq_total",
+    "kepler_container_bpf_block_irq_total",
 ]
 MAX_POINTS = 11000
 
