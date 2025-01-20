@@ -1,0 +1,101 @@
+import os
+import re
+import requests
+import pandas as pd
+from datetime import datetime, timezone, timedelta
+
+PROMETHEUS_URL = "http://160.85.30.104:30002/api/v1/query_range"
+METRICS = [
+    "kepler_container_dram_joules_total",
+    "kepler_container_package_joules_total"
+]
+MAX_POINTS = 11000
+
+# Locate Latest Log File
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+
+def find_latest_log():
+    log_files = sorted(
+        [f for f in os.listdir(DATA_DIR) if f.startswith("stress-test-mem") and f.endswith(".log")],
+        key=lambda x: re.search(r"(\d{8}-\d{6})", x).group(1),
+        reverse=True
+    )
+    return os.path.join(DATA_DIR, log_files[0]) if log_files else None
+
+# Extract Start/End Times from Log
+def parse_log(log_file):
+    test_phases = {}
+    with open(log_file, "r") as f:
+        for line in f:
+            match = re.match(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),(Starting stress-ng at (\d+)% Mem for (\d+) seconds on pod .+?),(idle_cluster|busy_cluster)", line)
+            if match:
+                start_time = datetime.strptime(match.group(1), "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+                mem_load = match.group(3) + "%"
+                duration = int(match.group(4))
+                end_time = start_time + timedelta(seconds=duration)
+                end_time_str = end_time.isoformat(timespec='seconds') + "Z"
+                start_time_str = start_time.isoformat(timespec='seconds') + "Z"
+                phase = match.group(5)  # Extracts 'idle_cluster' or 'busy_cluster'
+                test_phases[f"{mem_load}_{phase}"] = {
+                    "start": start_time_str,
+                    "end": end_time_str
+                }
+    return test_phases
+
+# Query Prometheus
+def query_prometheus(metric, start, end):
+    start_unix = int(datetime.fromisoformat(start.replace("Z", "")).timestamp())
+    end_unix = int(datetime.fromisoformat(end.replace("Z", "")).timestamp())
+    step = max(1, (end_unix - start_unix) // MAX_POINTS)
+
+    params = {
+        "query": f"sum by (pod_name, container_name, source) ({metric}{{container_name=~'testing-high-mem'}})",
+        "start": start_unix,
+        "end": end_unix,
+        "step": f"{step}s"
+    }
+    response = requests.get(PROMETHEUS_URL, params=params).json()
+    return response.get("data", {}).get("result", [])
+
+# Save Data to CSV
+def save_to_csv(data, metric, phase):
+    extracted_data = []
+    for d in data:
+        for v in d["values"]:
+            timestamp_utc = datetime.utcfromtimestamp(float(v[0])).isoformat() + "Z"
+            extracted_data.append({
+                "timestamp": timestamp_utc,
+                "value": round(float(v[1]), 3),
+                "pod": d["metric"].get("pod_name", ""),
+                "container_name": d["metric"].get("container_name", ""),
+                "source": d["metric"].get("source", "")
+            })
+    
+    # Define directory structure
+    experiment_type = "mem-stress"  # This will be dynamic in future for other tests
+    metric_dir = os.path.join(DATA_DIR, experiment_type, metric)
+    os.makedirs(metric_dir, exist_ok=True)
+    
+    csv_file = os.path.join(metric_dir, f"kepler_data_{metric}_{phase}.csv")
+    df = pd.DataFrame(extracted_data)
+    df.to_csv(csv_file, index=False)
+    print(f"Saved {csv_file}")
+
+# Main Function
+def main():
+    latest_log = find_latest_log()
+    if not latest_log:
+        print("No log file found.")
+        return
+
+    print(f"Found latest log file: {latest_log}")
+    test_phases = parse_log(latest_log)
+
+    for metric in METRICS:
+        for phase, times in test_phases.items():
+            print(f"Querying {metric} for {phase} (from {times['start']} to {times['end']})")
+            data = query_prometheus(metric, times["start"], times["end"])
+            save_to_csv(data, metric, phase)
+
+if __name__ == "__main__":
+    main()

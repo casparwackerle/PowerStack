@@ -3,3 +3,4 @@
 /thesis/build/*
 # But do not ignore the main.pdf file
 !/thesis/build/main.pdf
+/data-analysis/analysis-scripts/data/*

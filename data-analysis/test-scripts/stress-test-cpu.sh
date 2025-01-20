@@ -48,11 +48,12 @@ done
 # Function to run stress-ng with different CPU loads
 run_cpu_stress_test() {
     local cpu_load=$1
-    log "Starting stress-ng at ${cpu_load}% CPU for $TEST_DURATION seconds on pod $TARGET_POD (node: $TARGET_NODE)"
+    local cluster_state=$2
+    log "Starting stress-ng at ${cpu_load}% CPU for $TEST_DURATION seconds on pod $TARGET_POD (node: $TARGET_NODE),$cluster_state"
     start_time=$(date '+%s')
     kubectl exec -n $NAMESPACE $TARGET_POD -- bash -c "stress-ng --cpu $TOTAL_vCPU --cpu-load $cpu_load --timeout ${TEST_DURATION}s"
     end_time=$(date '+%s')
-    log "Completed stress-ng at ${cpu_load}% CPU. Duration: $((end_time - start_time)) seconds"
+    log "Completed stress-ng at ${cpu_load}% CPU. Duration: $((end_time - start_time)) seconds,$cluster_state"
 }
 
 # Running tests with increasing CPU loads on an idle cluster
@@ -60,7 +61,7 @@ log "Starting CPU stress tests on an idle cluster"
 for load in 10 30 50 70 90; do
     log "Waiting for $SLEEP_DURATION seconds before next stress test..."
     sleep "$SLEEP_DURATION"
-    run_cpu_stress_test "$load"
+    run_cpu_stress_test "$load" "idle_cluster"
 done
 log "CPU Stress test script finished on an idle cluster."
 
@@ -76,7 +77,7 @@ log "Starting CPU stress tests on a busy cluster"
 for load in 10 30 50 70 90; do
     log "Waiting for $SLEEP_DURATION seconds before next stress test..."
     sleep "$SLEEP_DURATION"
-    run_cpu_stress_test "$load"
+    run_cpu_stress_test "$load" "busy_cluster"
 done
 wait  # Ensure all stress commands finish
 log "CPU Stress test script finished on a busy cluster."

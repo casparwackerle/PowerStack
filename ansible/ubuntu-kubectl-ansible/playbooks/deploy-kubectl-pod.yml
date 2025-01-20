@@ -10,6 +10,5 @@
    - deploy-pods-high-mem
    - install-tools
   #  - setup-openssh
-  #  - install-tools
   #  - install-kubecontrol
   #  - post-install-cleanup

@@ -45,14 +45,15 @@ for node in "${!pod_map[@]}"; do
     fi
 done
 
-# Function to run stress-ng with different mem loads
+# Function to run stress-ng with different Mem loads
 run_mem_stress_test() {
     local mem_load=$1
-    log "Starting stress-ng at ${mem_load}% Mem for $TEST_DURATION seconds on pod $TARGET_POD (node: $TARGET_NODE)"
+    local cluster_state=$2
+    log "Starting stress-ng at ${mem_load}% Mem for $TEST_DURATION seconds on pod $TARGET_POD (node: $TARGET_NODE),$cluster_state"
     start_time=$(date '+%s')
     kubectl exec -n $NAMESPACE $TARGET_POD -- bash -c "stress-ng --vm 1 --vm-bytes $(((TOTAL_DRAM * mem_load) / 100))G --vm-keep --timeout ${TEST_DURATION}s"
     end_time=$(date '+%s')
-    log "Completed stress-ng at ${mem_load}% Mem. Duration: $((end_time - start_time)) seconds"
+    log "Completed stress-ng at ${mem_load}% Mem. Duration: $((end_time - start_time)) seconds,$cluster_state"
 }
 
 # Running tests with increasing Mem loads on an idle cluster
@@ -60,7 +61,7 @@ log "Starting Mem stress tests on an idle cluster"
 for load in 10 30 50 70 90; do
     log "Waiting for $SLEEP_DURATION seconds before next stress test..."
     sleep "$SLEEP_DURATION"
-    run_mem_stress_test "$load"
+    run_mem_stress_test "$load" "idle_cluster"
 done
 log "Mem Stress test script finished on an idle cluster."
 
@@ -76,7 +77,7 @@ log "Starting Mem stress tests on a busy cluster"
 for load in 10 30 50 70 90; do
     log "Waiting for $SLEEP_DURATION seconds before next stress test..."
     sleep "$SLEEP_DURATION"
-    run_mem_stress_test "$load"
+    run_mem_stress_test "$load" "busy_cluster"
 done
 wait  # Ensure all stress commands finish
 log "Mem Stress test script finished on a busy cluster."
