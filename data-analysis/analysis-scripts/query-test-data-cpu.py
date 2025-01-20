@@ -22,6 +22,7 @@ METRICS = [
     "kepler_container_bpf_block_irq_total",
 ]
 MAX_POINTS = 11000
+SCRAPING_INTERVAL = 10      # set to 0 for automatic granularity (use if Prometheus scraping interval is unknown)
 
 # Locate Latest Log File
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
@@ -58,7 +59,10 @@ def parse_log(log_file):
 def query_prometheus(metric, start, end):
     start_unix = int(datetime.fromisoformat(start.replace("Z", "")).timestamp())
     end_unix = int(datetime.fromisoformat(end.replace("Z", "")).timestamp())
-    step = max(1, (end_unix - start_unix) // MAX_POINTS)
+    step = SCRAPING_INTERVAL
+    min_step = max(1, (end_unix - start_unix) // MAX_POINTS)
+    if SCRAPING_INTERVAL < min_step:
+        step = max(1, (end_unix - start_unix) // MAX_POINTS)
 
     params = {
         "query": f"sum by (pod_name, container_name, source) ({metric}{{container_name=~'testing-high-cpu'}})",
@@ -84,11 +88,11 @@ def save_to_csv(data, metric, phase):
             })
     
     # Define directory structure
-    experiment_type = "cpu-stress"  # This will be dynamic in future for other tests
+    experiment_type = "cpu"  # This will be dynamic in future for other tests
     metric_dir = os.path.join(DATA_DIR, experiment_type, metric)
     os.makedirs(metric_dir, exist_ok=True)
     
-    csv_file = os.path.join(metric_dir, f"kepler_data_{metric}_{phase}.csv")
+    csv_file = os.path.join(metric_dir, f"{metric}_{phase}.csv")
     df = pd.DataFrame(extracted_data)
     df.to_csv(csv_file, index=False)
     print(f"Saved {csv_file}")
@@ -103,11 +107,21 @@ def main():
     print(f"Found latest log file: {latest_log}")
     test_phases = parse_log(latest_log)
 
+    # Determine the overall experiment start and end time
+    overall_start = min(times["start"] for times in test_phases.values())
+    overall_end = max(times["end"] for times in test_phases.values())
+
     for metric in METRICS:
+        # Query and save data for each test phase (individual load levels)
         for phase, times in test_phases.items():
             print(f"Querying {metric} for {phase} (from {times['start']} to {times['end']})")
             data = query_prometheus(metric, times["start"], times["end"])
             save_to_csv(data, metric, phase)
+
+        # Query and save aggregated data for the full experiment duration
+        print(f"Querying {metric} for full experiment duration (from {overall_start} to {overall_end})")
+        full_data = query_prometheus(metric, overall_start, overall_end)
+        save_to_csv(full_data, metric, "full_experiment")
 
 if __name__ == "__main__":
     main()
