@@ -204,6 +204,9 @@ KEPLER was sporadically unable to correcly handle individual redfish data values
 Failed to get power: json: cannot unmarshal number 3.07 into Go struct field Voltages.Voltages.ReadingVolts of type int
 \end{lstlisting}
 
-\subsubsection{\texttt{sys/devices/system/cpu/cpu0/online: no such file or directory}}
-
+\subsubsection{Error Message cpu0/online}
+The following error message is notable: 
+\begin{lstlisting}[language=bash]
+WARNING: failed to read int from file: open /sys/devices/system/cpu/cpu0/online: no such file or directory
+\end{lstlisting}
 The missing file warning can be attributed to the fact that the Intel Xeon used in this project does not support Core Offlining, i.e. the dynamic disableling of individual CPU Cores at runtime. While Core Offlining is an interesting feature for energy-efficiency ananlysis, this can be acccepted as a hardware limitation of this project.
