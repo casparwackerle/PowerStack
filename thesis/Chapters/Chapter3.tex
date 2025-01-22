@@ -149,7 +149,7 @@ The Redfish Scalable Platforms Management API is a RESTful API specification for
 The Redfish API can be tested by visiting the following endpoints in a web browser:
 \begin{itemize}
     \item General Redfish information: \texttt{https://<BMC-IP>/redfish/v1}
-    \item Power metrics: \texttt{https://<BMC-IP>/redfish/v1/Chassis/1/Power#/PowerControl}
+    \item Power metrics: \texttt{https://<BMC-IP>/redfish/v1/Chassis/1/Power\#\textbackslash{}PowerControl}
 \end{itemize}
 
 \subsubsection{Kernel Configuration}
@@ -186,18 +186,22 @@ Ensure that key metrics are available in Prometheus, and non-zero values are wri
 
 Check the KEPLER logs to gain insight into the used sources:
 
-\lstinputlisting[language=bash,caption=External file: code/kepler.log]{kepler.log}
+\lstinputlisting[
+    language=bash,
+    caption=External file: \texttt{kepler.log},
+    basicstyle=\ttfamily\tiny
+]{Code/kepler.log}
 
 \subsubsection{Power from ACPI / IMPI}
 
 In the event that both ACPI and IPMI were configured to measure platform power, KEPLER prefered to use IPMI as its primary data source. This is to be expected, since IPMI allows to measure power at a higher level than ACPI, and can get detailed power data for the entire plaform. In the absence of IPMI data, KEPLER uses ACPI as the only power data source. 
 
-\subsubsections{Redfish issues}
+\subsubsection{Redfish issues}
 
 KEPLER was sporadically unable to correcly handle individual redfish data values. These incedents were sparse for different data values. Unfortunately, the source of this issue could not be eliminated in the context of this thesis. The log below shows an instance of this error
 
 \begin{lstlisting}[language=bash]
-I0115 15:41:42.648656       1 redfish_util.go:120] Failed to get power: json: cannot unmarshal number 3.07 into Go struct field Voltages.Voltages.ReadingVolts of type int
+Failed to get power: json: cannot unmarshal number 3.07 into Go struct field Voltages.Voltages.ReadingVolts of type int
 \end{lstlisting}
 
 \subsubsection{\texttt{sys/devices/system/cpu/cpu0/online: no such file or directory}}

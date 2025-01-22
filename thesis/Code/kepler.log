@@ -1,24 +1,24 @@
 WARNING: failed to read int from file: open /sys/devices/system/cpu/cpu0/online: no such file or directory
-I0115 16:14:54.700818       1 exporter.go:103] Kepler running on version: v0.7.12-dirty
-I0115 16:14:54.700941       1 config.go:293] using gCgroup ID in the BPF program: true
-I0115 16:14:54.701029       1 config.go:295] kernel version: 5.15
-I0115 16:14:54.701130       1 config.go:322] The Idle power will be exposed. Are you running on Baremetal or using single VM per node?
-I0115 16:14:54.701202       1 power.go:59] use sysfs to obtain power
-I0115 16:14:54.701259       1 node_cred.go:46] use csv file to obtain node credential
-I0115 16:14:56.345738       1 power.go:79] using redfish to obtain power
+1 exporter.go:103] Kepler running on version: v0.7.12-dirty
+1 config.go:293] using gCgroup ID in the BPF program: true
+1 config.go:295] kernel version: 5.15
+1 config.go:322] The Idle power will be exposed. Are you running on Baremetal or using single VM per node?
+1 power.go:59] use sysfs to obtain power
+1 node_cred.go:46] use csv file to obtain node credential
+1 power.go:79] using redfish to obtain power
 WARNING: failed to read int from file: open /sys/devices/system/cpu/cpu0/online: no such file or directory
-I0115 16:14:56.367673       1 exporter.go:84] Number of CPUs: 6
-I0115 16:14:56.857568       1 watcher.go:83] Using in cluster k8s config
-I0115 16:14:56.870136       1 reflector.go:351] Caches populated for *v1.Pod from pkg/kubernetes/watcher.go:211
-I0115 16:14:56.958506       1 watcher.go:229] k8s APIserver watcher was started
-I0115 16:14:56.960624       1 process_energy.go:129] Using the Ratio Power Model to estimate PROCESS_TOTAL Power
-I0115 16:14:56.960643       1 process_energy.go:130] Feature names: [bpf_cpu_time_ms]
-I0115 16:14:56.962619       1 process_energy.go:129] Using the Ratio Power Model to estimate PROCESS_COMPONENTS Power
-I0115 16:14:56.962632       1 process_energy.go:130] Feature names: [bpf_cpu_time_ms bpf_cpu_time_ms bpf_cpu_time_ms   gpu_compute_util]
-I0115 16:14:56.964573       1 node_component_energy.go:62] Skipping creation of Node Component Power Model since the system collection is supported
-I0115 16:14:56.964647       1 prometheus_collector.go:90] Registered Process Prometheus metrics
-I0115 16:14:56.964691       1 prometheus_collector.go:95] Registered Container Prometheus metrics
-I0115 16:14:56.964726       1 prometheus_collector.go:100] Registered VM Prometheus metrics
-I0115 16:14:56.964753       1 prometheus_collector.go:104] Registered Node Prometheus metrics
-I0115 16:14:56.965630       1 exporter.go:194] starting to listen on 0.0.0.0:9102
-I0115 16:14:56.965737       1 exporter.go:208] Started Kepler in 2.2651724s
+1 exporter.go:84] Number of CPUs: 6
+1 watcher.go:83] Using in cluster k8s config
+1 reflector.go:351] Caches populated for *v1.Pod from pkg/kubernetes/watcher.go:211
+1 watcher.go:229] k8s APIserver watcher was started
+1 process_energy.go:129] Using the Ratio Power Model to estimate PROCESS_TOTAL Power
+1 process_energy.go:130] Feature names: [bpf_cpu_time_ms]
+1 process_energy.go:129] Using the Ratio Power Model to estimate PROCESS_COMPONENTS Power
+1 process_energy.go:130] Feature names: [bpf_cpu_time_ms bpf_cpu_time_ms bpf_cpu_time_ms   gpu_compute_util]
+1 node_component_energy.go:62] Skipping creation of Node Component Power Model since the system collection is supported
+1 prometheus_collector.go:90] Registered Process Prometheus metrics
+1 prometheus_collector.go:95] Registered Container Prometheus metrics
+1 prometheus_collector.go:100] Registered VM Prometheus metrics
+1 prometheus_collector.go:104] Registered Node Prometheus metrics
+1 exporter.go:194] starting to listen on 0.0.0.0:9102
+1 exporter.go:208] Started Kepler in 2.2651724s
