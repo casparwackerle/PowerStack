@@ -33,6 +33,14 @@ This thesis builds upon prior works focused on performance optimization and ener
 
 This thesis focuses on the practical implementation of a test environment, excluding detailed theoretical analysis and literature reviews. The primary goal is to document the creation of a reliable and reproducible test environment that supports future research on energy efficiency in Kubernetes clusters.
 
+This thesis builds upon prior work conducted in EVA1 and EVA2, leveraging existing knowledge while extending the research focus. As a result, fundamental concepts from these works are assumed as background knowledge and are not reintroduced in detail.
+
+The EVA1 presentations contribute essential principles related to Linux performance monitoring, system optimization, and a conceptual understanding of eBPF. While these concepts play a role in this research, they are not re-explained, as the focus of this thesis lies in their practical application within an energy-efficient Kubernetes cluster.
+
+Similarly, the EVA2 presentations provide the foundation for understanding energy consumption measurement at multiple levels, including hardware, firmware, and software. Key topics such as CPU states (ACPI, C-states, P-states), Intel CPU Performance Scaling Drivers, and Intel RAPL for power monitoring and control are considered essential but are not explicitly covered again in this thesis.
+
+By building on these existing foundations, this thesis narrows its scope to investigate energy efficiency at the Kubernetes cluster level, incorporating relevant techniques from prior research where necessary.
+
 \subsection{Objectives}
 
 The main objective is to design and implement a test environment that facilitates:
@@ -81,3 +89,12 @@ Security, while not a primary focus, will be addressed by implementing basic bes
 \item Minimization of potential vulnerabilities through careful configuration.
 \end{itemize}
 
+\subsection{Use of AI Tools}
+During the writing of this thesis, \textit{ChatGPT}\parencite{OpenAI_ChatGPT_2024} (Version 4, OpenAI, 2024) was used as an auxiliary tool to enhance efficiency in documentation and technical writing. Specifically, it assisted in:
+\begin{itemize}
+\item Structuring and improving documentation clarity.
+\item Refining descriptions of code and technical implementations.
+\item Beautifying and formatting smaller code snippets.
+\item Assisting in LaTeX syntax corrections and debugging.
+\end{itemize}
+All AI-generated content was critically reviewed, edited, and adapted to fit the specific context of this thesis. \textbf{ChatGPT was not used for literature research, conceptual development, methodology design, or analytical reasoning.} The core ideas, analysis, and implementation details were developed independently.

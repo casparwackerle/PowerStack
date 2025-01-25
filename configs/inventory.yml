@@ -14,10 +14,12 @@ k3s_cluster:
            node_name: ho2
            internal_ip: 192.168.0.105  # Internal IP of worker node 1
            BMC_ip: 160.85.30.102
+           disk_for_testing: /dev/sdb
         160.85.30.106:  # Public IP of worker node 2
            node_name: ho3
            internal_ip: 192.168.0.106  # Internal IP of worker node 2
            BMC_ip: 160.85.30.103
+           disk_for_testing: /dev/sdb
 
   # Required Vars
   vars:

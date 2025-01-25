@@ -39,39 +39,33 @@ log "Selected pod $LOAD_POD on node $NODE for background load."
 # Function to run stress-ng with different CPU loads
 run_cpu_stress_test() {
     local cpu_load=$1
-    local cluster_state=$2
-    log "Starting stress-ng at ${cpu_load}% CPU for $TEST_DURATION seconds on pod $TESTING_POD (node: $NODE),$cluster_state"
+    local node_state=$2
+    log "Starting stress-ng at ${cpu_load}% CPU for $TEST_DURATION seconds on pod $TESTING_POD (node: $NODE),$node_state"
     start_time=$(date '+%s')
     kubectl exec -n $NAMESPACE $TESTING_POD -- bash -c "stress-ng --cpu $ROUNDED_VCPU --cpu-load $cpu_load --timeout ${TEST_DURATION}s"
     end_time=$(date '+%s')
-    log "Completed stress-ng at ${cpu_load}% CPU. Duration: $((end_time - start_time)) seconds,$cluster_state"
+    log "Completed stress-ng at ${cpu_load}% CPU. Duration: $((end_time - start_time)) seconds,$node_state"
 }
 
-# Running tests with increasing CPU loads on an idle cluster
-log "Starting CPU stress tests on an idle cluster"
+# Running tests with increasing CPU loads on an idle node
+log "Starting CPU stress tests on an idle node"
 for load in 10 30 50 70 90; do
     log "Waiting for $SLEEP_DURATION seconds before next stress test..."
     sleep "$SLEEP_DURATION"
-    run_cpu_stress_test "$load" "idle_cluster"
+    run_cpu_stress_test "$load" "idle_node"
 done
-log "CPU Stress test script finished on an idle cluster."
+log "CPU Stress test script finished on an idle node."
 
 # Apply background stress on the SAME NODE (on `load-high-mem`)
 log "Applying stress on pod $LOAD_POD running on node $NODE with adjusted load."
 kubectl exec -n $NAMESPACE $LOAD_POD -- bash -c "stress-ng --cpu $ROUNDED_VCPU --cpu-load 90 --timeout $((6 * (TEST_DURATION + SLEEP_DURATION)))s" &
 
-# Running tests with increasing CPU loads on a busy cluster
-log "Starting CPU stress tests on a busy cluster"
+# Running tests with increasing CPU loads on a busy node
+log "Starting CPU stress tests on a busy node"
 for load in 10 30 50 70 90; do
     log "Waiting for $SLEEP_DURATION seconds before next stress test..."
     sleep "$SLEEP_DURATION"
-    run_cpu_stress_test "$load" "busy_cluster"
+    run_cpu_stress_test "$load" "busy_node"
     done
 wait  # Ensure all stress commands finish
-log "CPU Stress test script finished on a busy cluster."
-
-# Cleanup: Stop all stress-ng processes on the test node
-log "Cleaning up stress-ng processes on node $NODE..."
-kubectl exec -n $NAMESPACE $TESTING_POD -- bash -c "pkill -f stress-ng" &
-kubectl exec -n $NAMESPACE $LOAD_POD -- bash -c "pkill -f stress-ng" &
-log "All stress-ng processes stopped on $NODE."
+log "CPU Stress test script finished on a busy node."

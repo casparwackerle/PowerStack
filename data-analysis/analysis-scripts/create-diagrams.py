@@ -12,7 +12,7 @@ os.makedirs(ANALYSIS_DIR, exist_ok=True)
 # Joule-based KEPLER Metrics (to be converted to Watts)
 JOULE_METRICS = {
     "kepler_container_joules_total",
-    "kepler_container_core_joules_total",
+    # "kepler_container_core_joules_total",     # Not supported by CPU
     "kepler_container_dram_joules_total",
     "kepler_container_package_joules_total",
     "kepler_container_other_joules_total",
@@ -28,7 +28,8 @@ METRICS = list(JOULE_METRICS) + [
     "kepler_container_bpf_block_irq_total",
 ]
 
-EXPERIMENT_TYPES = ["cpu", "mem"]
+# EXPERIMENT_TYPES = ["cpu", "mem", "diskIO"]
+EXPERIMENT_TYPES = ["diskIO"]
 
 # Find the latest log file
 def find_latest_log(experiment_type):
@@ -53,12 +54,12 @@ def parse_log(log_file):
                 test_pod = pod_match.group(1)
 
             # Extract stress test details
-            match = re.match(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),(Starting stress-ng at (\d+)% .+? for (\d+) seconds on pod .+?),(idle_cluster|busy_cluster)", line)
+            match = re.match(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),(Starting (stress-ng|fio) at (\d+)% .+? for (\d+) seconds on pod .+?),(idle_node|busy_node)", line)
             if match:
                 start_time = datetime.strptime(match.group(1), "%Y-%m-%d %H:%M:%S")
-                load = int(match.group(3))
-                duration = int(match.group(4))
-                phase = match.group(5)
+                load = int(match.group(4))
+                duration = int(match.group(5))
+                phase = match.group(6)
 
                 test_phases.append({
                     "start": start_time,
@@ -131,9 +132,10 @@ def generate_plot(experiment_type, metric, test_phases, kepler_data, is_joule_ba
     experiment_end = test_phases[-1]["end"]
     transition_time_seconds = (experiment_start + (experiment_end - experiment_start) / 2 - first_test_time).total_seconds()
 
-    # Add shading to indicate idle vs busy cluster
-    ax1.axvspan(0, transition_time_seconds, facecolor="lightblue", alpha=0.3, label="Idle Cluster")
-    ax1.axvspan(transition_time_seconds, kepler_data["time_seconds"].max(), facecolor="lightcoral", alpha=0.3, label="Busy Cluster")
+    # Add shading to indicate idle vs busy node
+    if experiment_type in ["cpu", "mem"]:
+        ax1.axvspan(0, transition_time_seconds, facecolor="lightblue", alpha=0.3, label="Idle Node")
+        ax1.axvspan(transition_time_seconds, kepler_data["time_seconds"].max(), facecolor="lightcoral", alpha=0.3, label="Busy Node")
 
     # Labels and formatting
     ax1.set_xlabel("Time (seconds)")

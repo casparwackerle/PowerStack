@@ -40,7 +40,7 @@ def parse_log(log_file):
     test_phases = {}
     with open(log_file, "r") as f:
         for line in f:
-            match = re.match(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),(Starting stress-ng at (\d+)% CPU for (\d+) seconds on pod .+?),(idle_cluster|busy_cluster)", line)
+            match = re.match(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),(Starting stress-ng at (\d+)% CPU for (\d+) seconds on pod .+?),(idle_node|busy_node)", line)
             if match:
                 start_time = datetime.strptime(match.group(1), "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
                 cpu_load = match.group(3) + "%"
@@ -48,7 +48,7 @@ def parse_log(log_file):
                 end_time = start_time + timedelta(seconds=duration)
                 end_time_str = end_time.isoformat(timespec='seconds') + "Z"
                 start_time_str = start_time.isoformat(timespec='seconds') + "Z"
-                phase = match.group(5)  # Extracts 'idle_cluster' or 'busy_cluster'
+                phase = match.group(5)  # Extracts 'idle_node' or 'busy_node'
                 test_phases[f"{cpu_load}_{phase}"] = {
                     "start": start_time_str,
                     "end": end_time_str
