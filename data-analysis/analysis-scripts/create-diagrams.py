@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 # Define directories
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
-ANALYSIS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data_analysis", "diagrams")
+ANALYSIS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "diagrams")
 os.makedirs(ANALYSIS_DIR, exist_ok=True)
 
 # Joule-based KEPLER Metrics (to be converted to Watts)
