@@ -11,14 +11,31 @@
   register: all_pods
   changed_when: false
 
-- name: Install benchmarking tools (stress-ng) on all pods
-  command: |
+# - name: Install benchmarking tools (stress-ng) on all pods
+#   command: |
+#     kubectl exec -n {{ testing_namespace }} {{ item }} -- bash -c "apt-get update && apt-get install -y stress-ng htop"
+#   loop: "{{ all_pods.stdout.split() }}"
+#   register: install_benchmarking_tools
+#   failed_when: install_benchmarking_tools.rc != 0
+#   changed_when: "'setting up' in install_benchmarking_tools.stdout.lower()"
+
+- name: Install benchmarking tools (stress-ng) on all pods in parallel
+  command: >
     kubectl exec -n {{ testing_namespace }} {{ item }} -- bash -c "apt-get update && apt-get install -y stress-ng htop"
   loop: "{{ all_pods.stdout.split() }}"
-  register: install_benchmarking_tools
-  failed_when: install_benchmarking_tools.rc != 0
-  changed_when: "'setting up' in install_benchmarking_tools.stdout.lower()"
+  async: 600
+  poll: 0
+  register: install_jobs
 
+- name: Wait for all installations to complete
+  async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  retries: 30
+  delay: 10
+  loop: "{{ install_jobs.results }}"
+ 
 - name: Install Go programming language
   command: |
     kubectl exec -n {{ benchmarking_namespace }} ubuntu-kubectl -- bash -c "wget https://go.dev/dl/go1.21.0.linux-amd64.tar.gz && tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz && rm go1.21.0.linux-amd64.tar.gz"

@@ -40,18 +40,60 @@
               resources:
                 requests:
                   memory: "1Gi"
-                  cpu: "4"
+                  cpu: "2.5"
                 limits:
                   memory: "1Gi"
-                  cpu: "4"
+                  cpu: "2.5"
     dest: /tmp/testing-high-cpu-deployment.yml
+
+- name: Create a second high-CPU deployment manifest
+  copy:
+    content: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: load-high-cpu
+        namespace: {{ testing_namespace }}
+      spec:
+        replicas: 3
+        selector:
+          matchLabels:
+            app: load-high-cpu
+        template:
+          metadata:
+            labels:
+              app: load-high-cpu
+          spec:
+            containers:
+            - name: load-high-cpu
+              image: ubuntu:latest
+              command: [ "/bin/bash", "-c", "--" ]
+              args: [ "while true; do sleep 30; done;" ]
+              resources:
+                requests:
+                  memory: "1Gi"
+                  cpu: "2.5"
+                limits:
+                  memory: "1Gi"
+                  cpu: "2.5"
+    dest: /tmp/load-high-cpu-deployment.yml
 
 - name: Deploy high-CPU Ubuntu containers as a Deployment
   command: kubectl apply -f /tmp/testing-high-cpu-deployment.yml
   register: deploy_pod
   changed_when: "'created' in deploy_pod.stdout"
 
+- name: Deploy high-CPU Ubuntu containers as a Deployment
+  command: kubectl apply -f /tmp/load-high-cpu-deployment.yml
+  register: deploy_pod
+  changed_when: "'created' in deploy_pod.stdout"
+
 - name: Wait for Deployment to be fully available
   command: kubectl rollout status deployment/testing-high-cpu -n {{ testing_namespace }} --timeout=300s
+  register: wait_pod_ready
+  failed_when: wait_pod_ready.rc != 0
+
+- name: Wait for Deployment to be fully available
+  command: kubectl rollout status deployment/load-high-cpu -n {{ testing_namespace }} --timeout=300s
   register: wait_pod_ready
   failed_when: wait_pod_ready.rc != 0

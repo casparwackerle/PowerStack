@@ -47,7 +47,8 @@ def parse_log(log_file):
     with open(log_file, "r") as f:
         for line in f:
             # Identify the pod under test
-            pod_match = re.search(r"Selected pod ([A-Za-z0-9]+(?:-[A-Za-z0-9]+)+) on node", line)
+            #pod_match = re.search(r"Selected pod ([A-Za-z0-9]+(?:-[A-Za-z0-9]+)+) on node", line)
+            pod_match = re.search(r"Selected pod ([A-Za-z0-9]+(-[A-Za-z0-9]+)+) on node \S+ for the main stress test\.", line)
             if pod_match:
                 test_pod = pod_match.group(1)
 
@@ -102,9 +103,12 @@ def generate_plot(experiment_type, metric, test_phases, kepler_data, is_joule_ba
     ax1.plot(
         kepler_data["time_seconds"],
         kepler_data["value_converted"],
-        label=f"{metric} ({'Watts' if is_joule_based else 'Delta Value'})",
+        label=f"{metric}",
         color="blue"
     )
+
+    # Ensure primary Y-axis starts at zero
+    ax1.set_ylim(bottom=0)  
 
     # Primary Y-Axis label
     ax1.set_ylabel("Power Consumption (Watts)" if is_joule_based else "Operations per Second", color="blue")
@@ -139,7 +143,7 @@ def generate_plot(experiment_type, metric, test_phases, kepler_data, is_joule_ba
     ax1.legend(loc="upper left")
     ax2.legend(loc="upper right")
 
-    plt.title(f"{experiment_type.upper()} - {metric}")
+    plt.title(f"{experiment_type.upper()} Stress Test: metric ({metric}) (converted to Watts)" if is_joule_based else f"{experiment_type.upper()} Stress Test: metric ({metric})")
 
     # Save figure
     output_dir = os.path.join(ANALYSIS_DIR, experiment_type, metric)

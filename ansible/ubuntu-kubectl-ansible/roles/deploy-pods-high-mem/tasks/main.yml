@@ -39,19 +39,61 @@
               args: [ "while true; do sleep 30; done;" ]
               resources:
                 requests:
-                  memory: "50Gi"
-                  cpu: "200m"
+                  memory: "25Gi"
+                  cpu: "150m"
                 limits:
-                  memory: "50Gi"
-                  cpu: "300m"
+                  memory: "25Gi"
+                  cpu: "150m"
     dest: /tmp/testing-high-mem-deployment.yml
+
+- name: Create a high-MEM deployment manifest
+  copy:
+    content: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: load-high-mem
+        namespace: {{ testing_namespace }}
+      spec:
+        replicas: 3
+        selector:
+          matchLabels:
+            app: load-high-mem
+        template:
+          metadata:
+            labels:
+              app: load-high-mem
+          spec:
+            containers:
+            - name: load-high-mem
+              image: ubuntu:latest
+              command: [ "/bin/bash", "-c", "--" ]
+              args: [ "while true; do sleep 30; done;" ]
+              resources:
+                requests:
+                  memory: "25Gi"
+                  cpu: "150m"
+                limits:
+                  memory: "25Gi"
+                  cpu: "150m"
+    dest: /tmp/load-high-mem-deployment.yml
 
 - name: Deploy high-MEM Ubuntu containers as a Deployment
   command: kubectl apply -f /tmp/testing-high-mem-deployment.yml
   register: deploy_mem_pod
   changed_when: "'created' in deploy_mem_pod.stdout"
 
+- name: Deploy high-MEM Ubuntu containers as a Deployment
+  command: kubectl apply -f /tmp/load-high-mem-deployment.yml
+  register: deploy_mem_pod
+  changed_when: "'created' in deploy_mem_pod.stdout"
+
 - name: Wait for Deployment to be fully available
   command: kubectl rollout status deployment/testing-high-mem -n {{ testing_namespace }} --timeout=300s
+  register: wait_mem_pod_ready
+  failed_when: wait_mem_pod_ready.rc != 0
+
+- name: Wait for Deployment to be fully available
+  command: kubectl rollout status deployment/load-high-mem -n {{ testing_namespace }} --timeout=300s
   register: wait_mem_pod_ready
   failed_when: wait_mem_pod_ready.rc != 0
