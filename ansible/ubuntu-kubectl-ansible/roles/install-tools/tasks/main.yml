@@ -11,9 +11,17 @@
   register: all_pods
   changed_when: false
 
+- name: Preconfigure iperf3 to disable automatic daemon startup on all pods in parallel
+  command: >
+    kubectl exec -n {{ testing_namespace }} {{ item }} -- bash -c "echo "iperf3 iperf3/autostart boolean false" | debconf-set-selections"
+  loop: "{{ all_pods.stdout.split() }}"
+  async: 600
+  poll: 0
+  register: install_jobs
+
 - name: Install benchmarking tools (stress-ng) on all pods in parallel
   command: >
-    kubectl exec -n {{ testing_namespace }} {{ item }} -- bash -c "apt-get update && apt-get install -y stress-ng htop fio"
+    kubectl exec -n {{ testing_namespace }} {{ item }} -- bash -c "apt-get update && apt-get install -y stress-ng htop fio iperf3"
   loop: "{{ all_pods.stdout.split() }}"
   async: 600
   poll: 0

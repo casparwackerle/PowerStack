@@ -9,7 +9,7 @@ DEVICE="/dev/sdb1"
 MOUNT_POINT="/mnt/testing"
 TEST_FILE="$MOUNT_POINT/testfile"
 TIMESTAMP=$(date '+%Y%m%d-%H%M%S')
-LOG_FILE="/opt/testing/stress-test-disk-${TIMESTAMP}.log"
+LOG_FILE="/opt/testing/stress-test-diskIO-${TIMESTAMP}.log"
 
 # Logging function
 log() {
@@ -36,7 +36,7 @@ log "Selected pod $TESTING_POD on node $NODE for the main stress test."
 # Measure max IOPS using fio
 log "Measuring max IOPS using fio..."
 MAX_IOPS=$(kubectl exec -n $NAMESPACE $TESTING_POD -- bash -c "fio --name=randread --filename=$TEST_FILE --size=1G --ioengine=libaio \
-    --rw=randread --bs=4k --numjobs=1 --iodepth=32 --runtime=10 --time_based --group_reporting" | \
+    --rw=randread --bs=4k --numjobs=1 --iodepth=32 --runtime=60 --time_based --group_reporting" | \
     grep "IOPS=" | awk -F'=' '{print $2}' | awk '{print $1}' | tr -d ',')
 if [[ -z "$MAX_IOPS" ]]; then
     log "Failed to determine max IOPS. Exiting..."

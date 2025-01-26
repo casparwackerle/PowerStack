@@ -9,17 +9,23 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 ANALYSIS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "diagrams")
 os.makedirs(ANALYSIS_DIR, exist_ok=True)
 
+# Configuration for moving average
+MOVING_AVERAGE_WINDOW = 10  # Configurable window size for smoothing
+
 # Joule-based KEPLER Metrics (to be converted to Watts)
 JOULE_METRICS = {
     "kepler_container_joules_total",
-    # "kepler_container_core_joules_total",     # Not supported by CPU
+    # "kepler_container_core_joules_total",         # Not supported by CPU
     "kepler_container_dram_joules_total",
+    # "kepler_container_uncore_joules_total"        # Not supported by hardware
     "kepler_container_package_joules_total",
     "kepler_container_other_joules_total",
+    # "kepler_container_gpu_joules_total"           # deactivated due to gpu absence
 }
 
 # KEPLER metrics to analyze (includes both Joules-based and raw metrics)
 METRICS = list(JOULE_METRICS) + [
+    # "kepler_container_bpf_cpu_time_us_total",      # not working
     "kepler_container_cpu_cycles_total",
     "kepler_container_cpu_instructions_total",
     "kepler_container_cache_miss_total",
@@ -28,8 +34,18 @@ METRICS = list(JOULE_METRICS) + [
     "kepler_container_bpf_block_irq_total",
 ]
 
+NODE_METRICS = {
+    # "kepler_node_core_joules_total",               # not working
+    "kepler_node_dram_joules_total",
+    # "kepler_node_uncore_joules_total",             # not supported by hardware
+    "kepler_node_package_joules_total",
+    "kepler_node_other_joules_total",
+    # "kepler_node_gpu_joules_total",                # deactivated due to hardware absence
+    "kepler_node_platform_joules_total",
+}
+
 # EXPERIMENT_TYPES = ["cpu", "mem", "diskIO"]
-EXPERIMENT_TYPES = ["diskIO"]
+EXPERIMENT_TYPES = ["netIO"]
 
 # Find the latest log file
 def find_latest_log(experiment_type):
@@ -48,13 +64,13 @@ def parse_log(log_file):
     with open(log_file, "r") as f:
         for line in f:
             # Identify the pod under test
-            #pod_match = re.search(r"Selected pod ([A-Za-z0-9]+(?:-[A-Za-z0-9]+)+) on node", line)
             pod_match = re.search(r"Selected pod ([A-Za-z0-9]+(-[A-Za-z0-9]+)+) on node \S+ for the main stress test\.", line)
+            
             if pod_match:
                 test_pod = pod_match.group(1)
 
             # Extract stress test details
-            match = re.match(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),(Starting (stress-ng|fio) at (\d+)% .+? for (\d+) seconds on pod .+?),(idle_node|busy_node)", line)
+            match = re.match(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),(Starting (stress-ng|fio|iperf3) at (\d+)% .+? for (\d+) seconds on pod .+?),(idle_node|busy_node)", line)
             if match:
                 start_time = datetime.strptime(match.group(1), "%Y-%m-%d %H:%M:%S")
                 load = int(match.group(4))
@@ -91,40 +107,50 @@ def load_kepler_data(experiment_type, metric, test_pod):
     df["value_converted"] = df["value_converted"].clip(lower=0)  # Ensure no negative values
     return df
 
-# Generate a time-series plot
-def generate_plot(experiment_type, metric, test_phases, kepler_data, is_joule_based):
-    plt.figure(figsize=(12, 6))
+# Apply moving average smoothing
+def smooth_data(data, window=MOVING_AVERAGE_WINDOW):
+    return data.rolling(window=window, min_periods=window, center=True).mean()
 
-    # Adjust time to start from zero
+# Generate time-series plot
+def generate_plot(experiment_type, metric, test_phases, kepler_data, is_joule_based, show_smoothed):
+    plt.figure(figsize=(12, 6))
     first_test_time = test_phases[0]["start"]
     kepler_data["time_seconds"] = (kepler_data["timestamp"].dt.tz_localize(None) - first_test_time).dt.total_seconds()
-
     # Create primary axis (KEPLER data)
     ax1 = plt.gca()
     ax1.plot(
         kepler_data["time_seconds"],
         kepler_data["value_converted"],
-        label=f"{metric}",
-        color="blue"
+        label=f"{metric} (raw)",
+        color="blue",
+        alpha=0.5
     )
+        
+    if show_smoothed:
+        kepler_data["smoothed_value"] = smooth_data(kepler_data["value_converted"])
+        ax1.plot(
+            kepler_data["time_seconds"],
+            kepler_data["smoothed_value"],
+            label=f"{metric} (smoothed)",
+            color="red"
+        )
 
-    # Ensure primary Y-axis starts at zero
-    ax1.set_ylim(bottom=0)  
-
-    # Primary Y-Axis label
+    
+    ax1.set_ylim(bottom=0)
     ax1.set_ylabel("Power Consumption (Watts)" if is_joule_based else "Operations per Second", color="blue")
-
     # Create secondary y-axis for workload profile
     ax2 = ax1.twinx()
     time_points, load_points = [], []
-
+    
     for phase in test_phases:
         time_points.append((phase["start"] - first_test_time).total_seconds())
         load_points.append(phase["load"])
 
         time_points.append((phase["end"] - first_test_time).total_seconds())
         load_points.append(phase["load"])
-
+    
+    ax2.set_ylim(bottom=0)
+    ax2.set_ylim(top=100)
     ax2.plot(time_points, load_points, color="black", linestyle="--", label="Applied Load (%)", linewidth=2)
 
     # Compute transition time
@@ -148,13 +174,18 @@ def generate_plot(experiment_type, metric, test_phases, kepler_data, is_joule_ba
     plt.title(f"{experiment_type.upper()} Stress Test: metric ({metric}) (converted to Watts)" if is_joule_based else f"{experiment_type.upper()} Stress Test: metric ({metric})")
 
     # Save figure
+    
     output_dir = os.path.join(ANALYSIS_DIR, experiment_type, metric)
     os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, f"{experiment_type}_{metric}.png")
+    if show_smoothed:
+        output_path = os.path.join(output_dir, f"{experiment_type}_{metric}_smoothed.png")
+    else:
+        output_path = os.path.join(output_dir, f"{experiment_type}_{metric}_raw.png")
 
     plt.savefig(output_path, dpi=300)
     plt.close()
     print(f"Saved plot: {output_path}")
+
 
 # Main function
 def main():
@@ -180,8 +211,12 @@ def main():
             # Determine if the metric is a Joule-based metric
             is_joule_based = metric in JOULE_METRICS
 
-            # Generate plot with correct axis labeling
-            generate_plot(experiment_type, metric, test_phases, kepler_data, is_joule_based)
+            # Save raw-only diagram
+            generate_plot(experiment_type, metric, test_phases, kepler_data, is_joule_based, show_smoothed=False)
+
+            # Save raw + smoothed diagram
+            generate_plot(experiment_type, metric, test_phases, kepler_data, is_joule_based, show_smoothed=True)
+
 
 if __name__ == "__main__":
     main()
