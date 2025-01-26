@@ -44,8 +44,7 @@ NODE_METRICS = {
     "kepler_node_platform_joules_total",
 }
 
-# EXPERIMENT_TYPES = ["cpu", "mem", "diskIO"]
-EXPERIMENT_TYPES = ["netIO"]
+EXPERIMENT_TYPES = ["cpu", "mem", "diskIO", "netIO"]
 
 # Find the latest log file
 def find_latest_log(experiment_type):

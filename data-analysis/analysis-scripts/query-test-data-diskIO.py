@@ -5,7 +5,14 @@ import pandas as pd
 from datetime import datetime, timezone, timedelta
 
 PROMETHEUS_URL = "http://160.85.30.104:30002/api/v1/query_range"
-METRICS = [
+NODE_METRICS = {
+    "kepler_node_dram_joules_total",
+    "kepler_node_package_joules_total",
+    "kepler_node_other_joules_total",
+    "kepler_node_platform_joules_total",
+}
+
+METRICS = list(NODE_METRICS) +[
     # Kepler Metrics for Container Energy Consumption
     "kepler_container_joules_total",
     "kepler_container_core_joules_total",
@@ -63,13 +70,20 @@ def query_prometheus(metric, start, end):
     min_step = max(1, (end_unix - start_unix) // MAX_POINTS)
     if SCRAPING_INTERVAL < min_step:
         step = max(1, (end_unix - start_unix) // MAX_POINTS)
-
-    params = {
-        "query": f"sum by (pod_name, container_name, source) ({metric}{{container_name=~'testing-high-mem'}})",
-        "start": start_unix,
-        "end": end_unix,
-        "step": f"{step}s"
-    }
+    if metric in NODE_METRICS:
+        params = {
+            "query": f"{metric}",
+            "start": start_unix,
+            "end": end_unix,
+            "step": f"{step}s"
+        }
+    else:
+        params = {
+            "query": f"sum by (pod_name, container_name, source) ({metric}{{container_name=~'testing-high-mem'}})",
+            "start": start_unix,
+            "end": end_unix,
+            "step": f"{step}s"
+        }
     response = requests.get(PROMETHEUS_URL, params=params).json()
     return response.get("data", {}).get("result", [])
 
@@ -78,14 +92,24 @@ def save_to_csv(data, metric, phase):
     extracted_data = []
     for d in data:
         for v in d["values"]:
-            timestamp_utc = datetime.utcfromtimestamp(float(v[0])).isoformat() + "Z"
-            extracted_data.append({
-                "timestamp": timestamp_utc,
-                "value": round(float(v[1]), 3),
-                "pod": d["metric"].get("pod_name", ""),
-                "container_name": d["metric"].get("container_name", ""),
-                "source": d["metric"].get("source", "")
-            })
+            if metric in NODE_METRICS:
+                timestamp_utc = datetime.utcfromtimestamp(float(v[0])).isoformat() + "Z"
+                extracted_data.append({
+                    "timestamp": timestamp_utc,
+                    "value": round(float(v[1]), 3),
+                    "exported_instance": d["metric"].get("exported_instance", ""),
+                    "mode": d["metric"].get("mode", ""),
+                    "source": d["metric"].get("source", "")
+                })
+            else:
+                timestamp_utc = datetime.utcfromtimestamp(float(v[0])).isoformat() + "Z"
+                extracted_data.append({
+                    "timestamp": timestamp_utc,
+                    "value": round(float(v[1]), 3),
+                    "pod": d["metric"].get("pod_name", ""),
+                    "container_name": d["metric"].get("container_name", ""),
+                    "source": d["metric"].get("source", "")
+                })
     
     # Define directory structure
     experiment_type = "diskIO"  # This will be dynamic in future for other tests
