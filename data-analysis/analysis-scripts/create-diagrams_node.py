@@ -20,8 +20,7 @@ NODE_METRICS = {
 }
 
 # Experiment types and nodes
-#EXPERIMENT_TYPES = ["cpu", "mem", "diskIO", "netIO"]
-EXPERIMENT_TYPES = ["netIO"]
+EXPERIMENT_TYPES = ["cpu", "mem", "diskIO", "netIO"]
 NODES = ["ho1", "ho2", "ho3"]
 
 # Find the latest log file
@@ -98,9 +97,9 @@ def generate_plot(experiment_type, metric, node, dynamic_data, idle_data, test_p
     plt.figure(figsize=(12, 6))
     
     # Adjust time to start from zero
-    first_test_time = dynamic_data["timestamp"].iloc[0]
-    dynamic_data["time_seconds"] = (dynamic_data["timestamp"] - first_test_time).dt.total_seconds()
-    idle_data["time_seconds"] = (idle_data["timestamp"] - first_test_time).dt.total_seconds()
+    first_test_time = test_phases[0]["start"]
+    dynamic_data["time_seconds"] = (dynamic_data["timestamp"].dt.tz_localize(None) - first_test_time).dt.total_seconds()
+    idle_data["time_seconds"] = (idle_data["timestamp"].dt.tz_localize(None) - first_test_time).dt.total_seconds()
     
     ax1 = plt.gca()
     
@@ -111,15 +110,44 @@ def generate_plot(experiment_type, metric, node, dynamic_data, idle_data, test_p
     # Smoothed data
     ax1.plot(dynamic_data["time_seconds"], smooth_data(dynamic_data["value_converted"]), label=f"{metric} (Dynamic, smoothed)", color="red")
     ax1.plot(idle_data["time_seconds"], smooth_data(idle_data["value_converted"]), label=f"{metric} (Idle, smoothed)", color="orange")
-    
-    ax1.set_ylabel("Power Consumption (Watts)", color="blue")
+    ax1.set_ylim(bottom=0)
+    ax1.set_ylabel("Node-Level Power Consumption (Watts)", color="black")
     ax1.set_xlabel("Time (seconds)")
     ax1.legend(loc="upper left")
 
-    output_dir = os.path.join(ANALYSIS_DIR, experiment_type, metric)
-    output_path = os.path.join(output_dir, f"{experiment_type}_{metric}.png")
-    os.makedirs(output_dir, exist_ok=True)
+    # Compute transition time
+    experiment_start = test_phases[0]["start"]
+    experiment_end = test_phases[-1]["end"]
+    transition_time_seconds = (experiment_start + (experiment_end - experiment_start) / 2 - first_test_time).total_seconds()
 
+    # Add shading to indicate idle vs busy node
+    if experiment_type in ["cpu", "mem"]:
+        ax1.axvspan(0, transition_time_seconds, facecolor="lightblue", alpha=0.3, label="Idle Node")
+        ax1.axvspan(transition_time_seconds, dynamic_data["time_seconds"].max(), facecolor="lightcoral", alpha=0.3, label="Busy Node")
+
+    # Create secondary y-axis for workload profile
+    ax2 = ax1.twinx()
+    time_points, load_points = [], []
+    
+    for phase in test_phases:
+        time_points.append((phase["start"] - first_test_time).total_seconds())
+        load_points.append(phase["load"])
+
+        time_points.append((phase["end"] - first_test_time).total_seconds())
+        load_points.append(phase["load"])
+    
+    ax2.set_ylim(bottom=0)
+    ax2.set_ylim(top=100)
+    ax2.set_ylabel("Load (%)", color="black")
+    ax2.plot(time_points, load_points, color="black", linestyle="--", label="Applied Load (%)", linewidth=2)
+    ax2.legend(loc="upper right")
+
+    plt.title(f"{experiment_type.upper()} Stress Test: metric ({metric}) (converted to Watts)")
+
+    output_dir = os.path.join(ANALYSIS_DIR, experiment_type, metric)
+    output_path = os.path.join(output_dir, f"{experiment_type}_{metric}_{node}.png")
+    os.makedirs(output_dir, exist_ok=True)
+    
     plt.savefig(output_path, dpi=300)
     plt.close()
     print(f"Saved plot for {experiment_type} - {metric} - {node}")

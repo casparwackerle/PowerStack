@@ -136,7 +136,7 @@ def generate_plot(experiment_type, metric, test_phases, kepler_data, is_joule_ba
 
     
     ax1.set_ylim(bottom=0)
-    ax1.set_ylabel("Power Consumption (Watts)" if is_joule_based else "Operations per Second", color="blue")
+    ax1.set_ylabel("Container-Level Power Consumption (Watts)" if is_joule_based else "Container-Level Operations per Second", color="black")
     # Create secondary y-axis for workload profile
     ax2 = ax1.twinx()
     time_points, load_points = [], []
@@ -173,7 +173,6 @@ def generate_plot(experiment_type, metric, test_phases, kepler_data, is_joule_ba
     plt.title(f"{experiment_type.upper()} Stress Test: metric ({metric}) (converted to Watts)" if is_joule_based else f"{experiment_type.upper()} Stress Test: metric ({metric})")
 
     # Save figure
-    
     output_dir = os.path.join(ANALYSIS_DIR, experiment_type, metric)
     os.makedirs(output_dir, exist_ok=True)
     if show_smoothed:
