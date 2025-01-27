@@ -2,7 +2,7 @@
 
 # Configuration
 NAMESPACE="testing"
-TEST_DURATION=120
+TEST_DURATION=1800
 SLEEP_DURATION=1
 NODE="ho3"
 DEVICE="/dev/sdb1"
@@ -18,6 +18,13 @@ log() {
 
 # Ensure log directory exists
 mkdir -p "$(dirname "$LOG_FILE")"
+
+# Ensure test file exists
+log "Write test file at $TEST_FILE"
+fio --name=writefile --filename=$TEST_FILE --size=1G --rw=write --bs=4k --numjobs=1 --direct=1 --iodepth=32 --ioengine=libaio --group_reporting
+sync
+
+sleep 30
 
 log "Disk I/O Stress test script started on node $NODE."
 
@@ -35,9 +42,19 @@ log "Selected pod $TESTING_POD on node $NODE for the main stress test."
 
 # Measure max IOPS using fio
 log "Measuring max IOPS using fio..."
-MAX_IOPS=$(kubectl exec -n $NAMESPACE $TESTING_POD -- bash -c "fio --name=randread --filename=$TEST_FILE --size=1G --ioengine=libaio \
-    --rw=randread --bs=4k --numjobs=1 --iodepth=32 --runtime=60 --time_based --group_reporting" | \
-    grep "IOPS=" | awk -F'=' '{print $2}' | awk '{print $1}' | tr -d ',')
+MAX_IOPS_RAW=$(kubectl exec -n $NAMESPACE $TESTING_POD -- bash -c \
+    "fio --name=randread --direct=1 --filename=$TEST_FILE --size=1G --ioengine=libaio \
+    --rw=randread --bs=4k --numjobs=1 --iodepth=32 --time_based --group_reporting \
+    --runtime=60s" | grep -oP 'IOPS=\K[\d.]+[kM]?')
+# Convert shorthand notation to full numbers
+if [[ "$MAX_IOPS_RAW" == *k ]]; then
+    MAX_IOPS=$(echo "$MAX_IOPS_RAW" | sed 's/k//' | awk '{print $1 * 1000}')
+elif [[ "$MAX_IOPS_RAW" == *M ]]; then
+    MAX_IOPS=$(echo "$MAX_IOPS_RAW" | sed 's/M//' | awk '{print $1 * 1000000}')
+else
+    MAX_IOPS=$MAX_IOPS_RAW
+fi
+
 if [[ -z "$MAX_IOPS" ]]; then
     log "Failed to determine max IOPS. Exiting..."
     exit 1
@@ -52,7 +69,7 @@ run_diskIO_stress_test() {
     ROUNDED_IOPS=$(( (MAX_IOPS * diskIO_load) / 100 ))
     log "Starting fio at ${diskIO_load}% diskIO for $TEST_DURATION seconds on pod $TESTING_POD (node: $NODE),$node_state"
     start_time=$(date '+%s')
-    kubectl exec -n $NAMESPACE $TESTING_POD -- bash -c "fio --name=randread --filename=$TEST_FILE --size=1G --ioengine=libaio --rw=randread --bs=4k --numjobs=1 --iodepth=32 --runtime=30 --time_based --group_reporting --rate_iops=$ROUNDED_IOPS --runtime=${TEST_DURATION}"
+    kubectl exec -n $NAMESPACE $TESTING_POD -- bash -c "fio --name=randread --direct=1 --filename=$TEST_FILE --size=1G --ioengine=libaio --rw=randread --bs=4k --numjobs=1 --iodepth=32 --time_based --group_reporting --rate_iops=$ROUNDED_IOPS --runtime=${TEST_DURATION}"
     end_time=$(date '+%s')
     log "Completed fio at ${diskIO_load}% diskIO. Duration: $((end_time - start_time)) seconds,$node_state"
 }
