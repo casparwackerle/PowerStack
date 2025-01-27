@@ -104,11 +104,11 @@ def generate_plot(experiment_type, metric, node, dynamic_data, idle_data, test_p
     ax1 = plt.gca()
     
     # Plot dynamic power consumption
-    ax1.plot(dynamic_data["time_seconds"], dynamic_data["value_converted"], label=f"{metric} (Dynamic, raw)", color="blue", alpha=0.5)
+    ax1.plot(dynamic_data["time_seconds"], dynamic_data["value_converted"], label=f"{metric} (Dynamic, raw)", color="fuchsia", alpha=0.5)
     ax1.plot(idle_data["time_seconds"], idle_data["value_converted"], label=f"{metric} (Idle, raw)", color="green", alpha=0.5)
     
     # Smoothed data
-    ax1.plot(dynamic_data["time_seconds"], smooth_data(dynamic_data["value_converted"]), label=f"{metric} (Dynamic, smoothed)", color="red")
+    ax1.plot(dynamic_data["time_seconds"], smooth_data(dynamic_data["value_converted"]), label=f"{metric} (Dynamic, smoothed)", color="teal")
     ax1.plot(idle_data["time_seconds"], smooth_data(idle_data["value_converted"]), label=f"{metric} (Idle, smoothed)", color="orange")
     ax1.set_ylim(bottom=0)
     ax1.set_ylabel("Node-Level Power Consumption (Watts)", color="black")

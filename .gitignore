@@ -1,8 +1,9 @@
 /ansible/configs/vault.yml
 /logs/
-/thesis/build/*
+/thesis/VT1/build/*
 # But do not ignore the main.pdf file
-!/thesis/build/main.pdf
+!/thesis/VT1/build/main.pdf
 /data-analysis/analysis-scripts/data/*
 /data-analysis/analysis-scripts/diagrams/*
 /data-analysis/analysis-scripts/diagrams_120s/*
+thesis/VT1/Figures/*

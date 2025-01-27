@@ -1,0 +1,276 @@
+% Indicate the main file. Must go at the beginning of the file.
+% !TEX root = ../main.tex
+
+\chapter{Architecture and Design} % Main chapter title
+\label{Chapter2}
+
+\section{Overview of Test Environment}
+
+The test environment consists of a Kubernetes cluster deployed on three bare-metal servers housed in a university datacenter. The three servers are identical in hardware specifications and connected through both a private network and the university network. The setup allows complete remote management and ensures direct communication between the servers for Kubernetes workloads. Below is a detailed description of the hardware and network topology. A diagram illustrating the architecture and network setup is provided in figure~\ref{fig:physical_and_network_infra}.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=1\textwidth]{Figures/physical_and_network_infra.png}
+    \decoRule
+    \caption[Physical Infrastructure Diagram]{Physical Infrastructure Diagram}
+    \label{fig:physical_and_network_infra}
+\end{figure}
+
+\subsection{Hardware and Network}
+
+\subsubsection{Bare-Metal Servers}
+
+The cluster is built using three identical Lenovo ThinkSystem SR530 servers, each equipped with the following hardware:
+
+\begin{itemize}
+\item CPU: 1x Intel(R) Xeon(R) Bronze 3104 @ 1.70GHz, 6 cores.
+\item Memory: 4x 16GB DDR4 DIMMs, totaling 64GB of RAM per server.
+\item Storage:
+\begin{itemize}
+\item 2x 32GB M.2 SATA SSD for the operating system boot drive.
+\item 1x 240GB 6Gbps SATA 2.5" SSD for persistent storage.
+\item 3x 10TB 7.2K RPM 12Gbps SAS 3.5" HDDs for bulk storage.
+\end{itemize}
+\item Power Supply: Dual redundant power supplies.
+\item Cooling: 4 out of 6 possible fans installed.
+\item Firmware:
+\begin{itemize}
+\item BMC Version: 8.88 (Build ID: CDI3A4A)
+\item UEFI Version: 3.42 (Build ID: TEE180J)
+\item LXPM Version: 2.08 (Build ID: PDL142H)
+\end{itemize}
+\end{itemize}
+
+The servers are equipped with Lenovo XClarity Controller (BMC) for remote management. Each server can be accessed via its BMC IP address for out-of-band management and monitoring.
+
+\subsubsection{Network Topology}
+
+The servers are connected using two distinct networks:
+
+\begin{itemize}
+\item \textbf{Private Network:} Each server has a private IP address (192.168.0.104–192.168.0.106), allowing direct, high-speed communication between nodes. This reduces the load on the university network and improves Kubernetes workload performance.
+\item \textbf{University Network:} Public-facing IP addresses (160.85.30.104–160.85.30.106) allow access within the university network, with external access enabled via VPN.
+\end{itemize}
+
+\textbf{Note}: Detailed switch and gateway configurations are managed by the university IT department and are beyond the scope of this document.
+
+\section{Key Technologies}
+
+\subsection{Ubuntu}
+Ubuntu was chosen as the operating system for this project primarily due to the author's familiarity with it. Additionally, it was already installed on the servers when they were received, which saved time and reduced setup complexity. While there are other Linux distributions specifically designed for Kubernetes, using a familiar distribution ensured smoother initial configuration and operation.
+
+\subsection{Bare-Metal K3s}
+Installing Kubernetes directly on bare-metal servers (without using a hypervisor or virtual machines) was a fundamental decision to ensure direct access to hardware-level data. This approach allows Kubernetes to interact with the underlying hardware more effectively, which is critical for accurate energy consumption monitoring.
+
+K3s was chosen for several reasons:
+\begin{itemize}
+\item It is lightweight, making it suitable even for weaker servers, while potentially also lowering energy consumption.
+\item Despite its lightweight nature, it remains fully compatible with stock Kubernetes, ensuring that standard Kubernetes resources and configurations can be used without modification.
+\item K3s is optimized for ARM architectures, making it ideal for deployment on devices like Raspberry Pis in a homelab environment.
+\item The author had prior experience with K3s and Rancher, which contributed to a faster and smoother deployment.
+\end{itemize}
+
+\subsection{Ansible, Helm, Kubectl}
+For automation, Ansible and Helm were selected. Helm and Kubectl were an obvious choice due to their widespread use in Kubernetes for managing and deploying applications.
+
+Ansible was chosen for its flexibility and ease of use in managing server configurations and automating repetitive tasks across multiple nodes. Additionally, Ansible's agentless architecture simplifies the management of bare-metal servers by requiring only SSH access and Python installed on the target machines.
+
+\subsection{Kube-Prometheus Stack}
+The Kube-Prometheus stack was chosen because it is the de-facto standard for monitoring in Kubernetes environments. This project has reached a high level of maturity, offering robust features and a wide range of integrations. Installation and configuration using Helm are straightforward, and the abundance of available resources makes troubleshooting easier.
+
+\subsubsection{Prometheus}
+Prometheus was selected as the primary monitoring tool because it is the standard in the Kubernetes ecosystem. Despite its advantages, Prometheus has some downsides: it can introduce significant overhead, and it is not suitable for monitoring low-second or sub-second intervals due to typical scrape intervals being longer. However, for container orchestration, where longer container lifetimes are expected, this limitation is acceptable.
+
+\subsubsection{Grafana}
+Grafana was chosen for its ability to provide excellent, customizable visualizations of metrics collected by Prometheus. It enables easy interpretation of complex data through dashboards and visual aids, making it a valuable addition to the monitoring stack.
+
+\subsubsection{AlertManager}
+AlertManager is included in the Kube-Prometheus stack and is used to handle alerts generated by Prometheus. While it was not utilized in this project, its inclusion is welcomed for potential future use in managing alerts and notifications in a production environment.
+
+\subsection{KEPLER}
+
+\subsubsection{Purpose of KEPLER}
+KEPLER, or \textit{Kubernetes-based Efficient Power Level Exporter}, is a promising project focused on measuring energy consumption in Kubernetes environments. It provides detailed power consumption metrics at the process, container, and pod levels, addressing the growing need for energy-efficient cloud computing.
+
+With cloud providers and enterprises under increasing pressure to improve energy efficiency, KEPLER offers a practical solution. By enabling detailed real-time measurement of power usage, it bridges the gap between high-level infrastructure metrics and workload-specific energy consumption data. This capability makes KEPLER a valuable tool in advancing energy-efficient Kubernetes clusters.
+
+\subsubsection{Limitations of KEPLER}
+
+Despite its potential, KEPLER has some limitations in the context of this project:
+\begin{itemize}
+\item Active Development: KEPLER is still in active development, meaning its features and APIs may change over time. Additionally, the documentation is currently limited, and there are few community resources available for troubleshooting.
+\item Complexity: As a large and complex project, adapting KEPLER beyond basic configuration requires a deep understanding of its architecture. Implementing custom changes or enhancements can be challenging without significant expertise.
+\end{itemize}
+
+While KEPLER may not be perfect, it is currently the most promising approach to addressing the challenge of measuring energy consumption in Kubernetes environments. Consequently, a large focus of this thesis will be on evaluating KEPLER's capabilities and identifying areas for improvement.
+
+\section{Architecture and Design}
+
+\subsection{Kubernetes Cluster Design}
+
+The Kubernetes cluster is deployed on three bare-metal servers running Ubuntu. One server is designated as the control plane, while the other two serve as worker nodes. This setup avoids high availability (HA) for simplicity, given the scope of this project. The servers are connected via their internal IP addresses, enabling direct communication without routing through external networks. All Kubernetes components, including the API server, controller manager, and scheduler, run exclusively on the control plane node, while workloads are distributed across all nodes by Kubernetes. Figure~\ref{fig:physical_and_network_infra} provides an overview of the system architecture, including components and data flow.
+
+\subsection{Persistent Storage}
+
+Persistent storage is provided using the spare SSD disk on the control node. A partition on the disk is created, formatted with the BTRFS file system, and mounted. The NFS server is installed on the control node, and NFS clients are installed on the worker nodes, enabling them to access the shared storage. This centralized approach was chosen because the control node is the only server guaranteed to remain powered on throughout the experiment, ruling out the need for a distributed storage solution like CEPH.
+
+Within the NFS share, separate directories are created for Prometheus and Grafana data. Persistent volumes (PVs) are defined in Kubernetes, and persistent volume claims (PVCs) are created for each service. The size of these PVs can be configured during installation, allowing flexibility for future storage needs.
+
+\subsection{Monitoring Architecture}
+
+The monitoring stack is deployed using the kube-prometheus-stack Helm chart. This stack includes Prometheus, Grafana, and AlertManager, providing a complete solution for monitoring, visualizing, and managing alerts in Kubernetes. Prometheus is configured to scrape metrics from KEPLER and Kubernetes endpoints (such as the kubelet API) at regular intervals. Grafana connects to Prometheus, enabling real-time visualization of metrics through customizable dashboards.
+
+\subsection{Metrics Collection and Storage}
+
+KEPLER generates metrics by collecting data from various sources:
+\begin{itemize}
+\item \textbf{Hardware-level metrics:} Using eBPF and kernel tracepoints to gather low-level data such as CPU cycles and cache misses.
+\item \textbf{Power-related metrics:} Collected via RAPL (Running Average Power Limit) and IPMI (Intelligent Platform Management Interface) to monitor CPU and platform energy consumption.
+\item \textbf{Container-level metrics:} Retrieved from the Kubernetes kubelet API, which provides cgroup resource usage data for running containers and pods.
+\end{itemize}
+
+KEPLER aggregates this data, calculates power consumption metrics, and exposes them in a Prometheus-friendly format. Prometheus scrapes these metrics at a configurable interval, storing them as time series data on the persistent volume. The time series format allows Prometheus to track changes over time, enabling detailed analysis of resource usage patterns. In chapter ~\ref{KEPLER_architecture_chapter}, the KEPLER architecture is briefly explained with a focus on metrics collection and generation. The information flow is pictured in diagram ~\ref{fig:stack_data_flow}.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=1\textwidth]{Figures/data_flow_diagram.png}
+    \decoRule
+    \caption[Monitoring data flow diagram of the entire stack]{Monitoring data flow diagram of the entire stack}
+    \label{fig:stack_data_flow}
+\end{figure}
+
+Since the KEPLER project has already done a significant amount of research, as well as practical implementation, the decision was made to utilize KEPLER as a core component in this project. 
+
+\subsection{Repository Structure}
+
+The repository for this project is designed to include all aspects of the Kubernetes-based energy efficiency test environment, from deployment automation to documentation. Given the reliance on various external projects, a hybrid approach was adopted for managing dependencies:
+
+\subsubsection{Submodules for External Repositories}
+Several external projects with frequent updates were forked and included as submodules in the repository. This approach allows easy configuration and customization while maintaining the ability to sync changes from upstream repositories. Additionally, by freezing submodules at specific commits, the project is protected from unexpected upstream changes that could introduce instability.
+
+\subsubsection{Direct Deployment from External Repositories}
+For other external projects that require minimal customization, direct deployment from their original repositories was chosen. This reduces the complexity of repository maintenance and ensures that stable, tested versions are always used.
+
+\subsubsection{Structure Overview}
+The repository is organized to maintain clarity and separation of concerns:
+\begin{itemize}
+    \item \textbf{ansible/:} Ansible playbooks and roles for automated deployments.
+    \item \textbf{helm/:} Custom or external Helm charts managed through Ansible.
+    \item \textbf{scripts/:} Bash scripts for executing Ansible playbooks.
+    \item \textbf{config/:} Centralized configuration file and Ansible vault.
+    \item \textbf{docs/:} Documentation files containing setup and usage of the project.
+    \item \textbf{thesis/:} Contains all files related to the thesis, written in LaTeX.
+\end{itemize}
+
+\subsection{Automation Architecture}
+
+Automation was a key focus in this project to ensure reproducibility, consistency, and ease of deployment. The automation architecture is primarily based on Ansible, with Helm nested into Ansible playbooks for Kubernetes-specific deployments.
+
+\subsubsection{Ansible and Helm Integration}
+Ansible was used for automating the setup of the base environment, including system-level configurations and Kubernetes deployments. All Helm installations, such as the kube-prometheus-stack, were wrapped in Ansible playbooks. This approach provided a unified automation framework where both system configurations and Kubernetes resources could be managed together. This also allowed for clear version control and logging of every deployment step.
+
+\subsubsection{Execution Scripts}
+Custom Bash scripts were written to handle the execution of Ansible playbooks. Apart from convenience, these scripts ensured:
+\begin{itemize}
+    \item Correct execution context and configuration for playbook execution.
+    \item Automatic log creation aiding in troubleshooting and auditing.
+\end{itemize}
+
+\subsubsection{Centralized Configuration}
+All configuration values, such as IP addresses, storage paths, and deployment options, were centralized in a single configuration file. This design simplifies re-deployment on different hardware by only requiring changes in one location. When necessary, Jinja templates were used in Ansible to dynamically adapt configurations based on this central file.
+
+\subsubsection{Security}
+Sensitive information, such as passwords and API keys, was encrypted using an Ansible Vault. This ensured that confidential data could be securely managed within the repository without compromising security during deployment.
+
+\section{KEPLER Architecture and Metrics Collection} \label{KEPLER_architecture_chapter}
+
+Since KEPLER plays a central role in this project, it is important to understand its architecture and how it collects metrics. This section provides a brief overview of KEPLER’s components and its data collection methods. For more detailed information, the official KEPLER documentation\parencite{KEPLERDocumentation} should be consulted.
+
+\subsection{KEPLER Components}
+
+\subsubsection{KEPLER Exporter}
+
+The core component of KEPLER is the Exporter, which runs as a privileged daemonset pod on each node in the Kubernetes cluster. This exporter directly interacts with the hardware and kernel, collecting energy consumption and resource utilization metrics. It estimates power usage at the process, container, and pod levels, exposing the collected metrics in a Prometheus-friendly format.
+
+A service monitor is also deployed, allowing Prometheus to scrape metrics from the KEPLER exporter endpoints.
+
+\subsubsection{KEPLER Model Server}
+
+Although the KEPLER Model Server is not used in this project, it is worth noting its purpose. The model server provides power estimation models based on available metrics, supporting different granularities such as node, pod, or processor component levels. It can also include an online trainer to update models dynamically during runtime.
+
+\subsection{KEPLER Data Collection}
+
+\subsubsection{Process and Container Data}
+
+KEPLER employs eBPF to collect detailed CPU event data. eBPF programs run in a privileged context, enabling efficient, low-overhead monitoring of kernel-level events. Specifically, KEPLER hooks into the \texttt{finish\textunderscore task\textunderscore switch} kernel function, which handles task context switching, to collect process-level metrics, specifically the following Perf counters:
+\begin{itemize}
+\item \texttt{PERF\textunderscore COUNT\textunderscore HW\textunderscore CPU\textunderscore CYCLES}
+\item \texttt{PERF\textunderscore COUNT\textunderscore HW\textunderscore REF\textunderscore CPU\textunderscore CYCLES},
+\item \texttt{PERF\textunderscore COUNT\textunderscore HW\textunderscore INSTRUCTIONS}
+\item \texttt{PERF\textunderscore COUNT\textunderscore HW\textunderscore CACHE\textunderscore MISSES}
+\end{itemize}
+
+By maintaining a BPF hash of process IDs, CPU IDs, and context switch timestamps, KEPLER correlates resource usage to individual processes and containers. This data is essential for deriving energy consumption estimates. The hash is shown in table ~\ref{tab:ePBF_hash_table}.
+
+\begin{table}[h]
+    \small
+    \caption{Hardware CPU events monitored by KEPLER}
+    \label{tab:ePBF_hash_table}
+    \begin{tabular}{p{1cm} p{3.2cm}  p{8.7cm} }
+        \toprule
+        \textbf{Key} & \textbf{Value} & \textbf{Description} \\\midrule
+        pid & pid & Process ID\\
+        \vspace{1cm} & cgroupid & Process CGroupID\\
+        \vspace{1cm} & process\textunderscore run\textunderscore time & Total time a process occupies CPU (calculated each time process leaves CPU on context switch)\\
+        \vspace{1cm} & cpu\textunderscore cycles & Total CPU cycles consumed by process\\
+        \vspace{1cm} & cpu\textunderscore instr & Total CPU instructions consumed by process\\
+        \vspace{1cm} & cache\textunderscore miss & Total Cache miss by process\\
+        \vspace{1cm} & page\textunderscore cache\textunderscore hit & Total hit of the page cache\\
+        \vspace{1cm} & vec\textunderscore nr & Total number of soft irq handles by process (max 10)\\
+        \vspace{1cm} & comm & Process name (max length 16)\\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsubsection{CPU Power Data}
+
+KEPLER leverages Intel RAPL (Running Average Power Limit) to monitor energy consumption across various CPU domains, including cores, DRAM, and integrated GPUs. RAPL provides real-time power consumption data with fine granularity and high sampling rates, allowing KEPLER to measure energy usage accurately. The supported power domains include:
+\begin{itemize}
+\item \textbf{Package (PKG):} Total energy consumption of the CPU socket, including cores, caches, and memory controllers.
+\item \textbf{Power Plane 0 (PP0):} Energy consumption of CPU cores.
+\item \textbf{Power Plane 1 (PP1):} Energy consumption of integrated GPUs (if present).
+\item \textbf{DRAM:} Energy consumption of memory attached to the CPU.
+\end{itemize}
+KEPLER uses the following methods to access RAPL data (in order of preference):
+\begin{enumerate}
+\item \textbf{RAPL Sysfs:} Direct access to energy counters via the Linux power capping framework located in \texttt{/sysfs}. This requires root access to the powercap driver and is the method used in this project.
+\item \textbf{RAPL MSR:} Direct access through Model-Specific Registers (MSRs), providing detailed energy readings.
+\item \textbf{Kernel Driver xgene-hwmon:} Used in specific ARM architectures.
+\end{enumerate}
+
+\subsubsection{Platform Power Information}
+
+KEPLER can also collect platform-level power consumption data, representing the total power usage of the node. This is achieved through:
+
+\begin{itemize}
+\item \textbf{ACPI (Advanced Configuration and Power Interface):} Used to access system-level power information.
+\item \textbf{IPMI (Intelligent Platform Management Interface):} Provides remote access to power data via the Baseboard Management Controller (BMC).
+\end{itemize}
+
+\subsection{KEPLER Power Model}
+
+KEPLER uses a combination of two power modeling approaches, choosing a suitable approach based on available data: If total power is known, KEPLER uses a power ration modelling to compute finer-grained power figures for individual components at the node and container level. If detailed hardware-level power metrics are unavailable, such as in virtualized environments, KEPLER estimates power consumption based on system utilization metrics using a pretrained model (currently based on a Intel Xeon E5-2667 v3-processor). Since this modeling is inherintly flawed for any other processor, a goal of the project is to offer a higher number of models with other architectures.
+
+In previous experiments conducted by the author, KEPLER was deployed on a Kubernetes cluster with virtualized nodes in an Openstack environment. Since no hardware-level power information was available, KEPLER attempted to estimate power consumption solely based on system metrics. The results were inconsistent and unreliable, highlighting the importance of accurate hardware data for meaningful power consumption analysis.
+
+\subsection{Metrics produced by KEPLER}
+
+KEPLER collects and exports a wide range of metrics related to energy consumption and resource utilization. The full list and description of metrics is provided in Appendix \ref{AppendixA}, but they are summarized here.
+
+\subsubsection{Container-level metrics}
+
+On a container level, KEPLER estimates the total energy consumption in joules. The consumption is broken down to the components Core, DRAM, 'Uncore' (such as fast-level cache and memory controllers), the entire CPU package, GPU and other. Additionally, several resource utilization metrics are calculated, namely the total CPU time, cycles, instructions and cache misses. Some IRQ metrics are provided, namely the total number of transmitted and received network packets, and the number of block I/O operations.  
+
+\subsubsection{Node-level metrics}
+
+On a node level, total energy consumption is once again estimated in joules. Estimations are provided for the entire node, as well as the Core, DRAM, uncore, CPU package, GPU, platform and other. Additionally, Node-specific metadata (such as the CPU archtecure), aggregated metrics (used by the KEPLER model server), and Intel QAT utilization are provided.

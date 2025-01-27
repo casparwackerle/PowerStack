@@ -1,0 +1,70 @@
+% !TEX root = ../main.tex
+
+%----------------------------------------------------------------------------------------
+% APPENDIX A
+%----------------------------------------------------------------------------------------
+
+\chapter{KEPLER-provided power metrics} % Main appendix title
+
+\label{AppendixA} % For referencing this appendix elsewhere, use \ref{AppendixA}
+
+\section{Summary of KEPLER-Produced Metrics}
+
+KEPLER collects metrics at both the 	extbf{container} and 	extbf{node} levels, focusing on energy consumption, resource utilization, and platform-specific data.
+
+\subsection{Container-Level Metrics}
+
+\subsubsection{Energy Consumption}
+\begin{itemize}
+    \item \textbf{kepler\textunderscore container\textunderscore joules\textunderscore total}: Total energy consumed by a container, aggregated from various components.
+    \item \textbf{kepler\textunderscore container\textunderscore core\textunderscore joules\textunderscore total}: Energy consumed by CPU cores.
+    \item \textbf{kepler\textunderscore container\textunderscore dram\textunderscore joules\textunderscore total}: Energy consumed by DRAM.
+    \item \textbf{kepler\textunderscore container\textunderscore uncore\textunderscore joules\textunderscore total}: Energy consumed by uncore components, such as last-level cache and memory controllers.
+    \item \textbf{kepler\textunderscore container\textunderscore package\textunderscore joules\textunderscore total}: Energy consumed by the entire CPU package, including all cores and uncore components.
+    \item \textbf{kepler\textunderscore container\textunderscore other\textunderscore joules\textunderscore total}: Energy consumed by other host components, derived from subtracting CPU and DRAM energy from total system power.
+    \item \textbf{kepler\textunderscore container\textunderscore gpu\textunderscore joules\textunderscore total}: Energy consumed by GPUs (currently supports NVIDIA GPUs).
+\end{itemize}
+
+\subsubsection{Resource Utilization}
+\begin{itemize}
+    \item \textbf{Base Metric}
+    \begin{itemize}
+        \item \textbf{kepler\textunderscore container\textunderscore bpf\textunderscore cpu\textunderscore time\textunderscore us\textunderscore total}: Total CPU time used by a container, measured using eBPF.
+    \end{itemize}
+    \item \textbf{Hardware Counter Metrics}
+    \begin{itemize}
+        \item \textbf{kepler\textunderscore container\textunderscore cpu\textunderscore cycles\textunderscore total}: Total CPU cycles.
+        \item \textbf{kepler\textunderscore container\textunderscore cpu\textunderscore instructions\textunderscore total}: Total instructions executed.
+        \item \textbf{kepler\textunderscore container\textunderscore cache\textunderscore miss\textunderscore total}: Total last-level cache misses.
+    \end{itemize}
+    \item \textbf{IRQ Metrics}
+    \begin{itemize}
+        \item \textbf{kepler\textunderscore container\textunderscore bpf\textunderscore net\textunderscore tx\textunderscore irq\textunderscore total}: Transmitted network packets.
+        \item \textbf{kepler\textunderscore container\textunderscore bpf\textunderscore net\textunderscore rx\textunderscore irq\textunderscore total}: Received network packets.
+        \item \textbf{kepler\textunderscore container\textunderscore bpf\textunderscore block\textunderscore irq\textunderscore total}: Block I/O operations.
+    \end{itemize}
+\end{itemize}
+
+\subsection{Node-Level Metrics}
+
+\subsubsection{Energy Consumption}
+\begin{itemize}
+    \item \textbf{kepler\textunderscore node\textunderscore core\textunderscore joules\textunderscore total}: Total energy consumed by all CPU cores on the node.
+    \item \textbf{kepler\textunderscore node\textunderscore dram\textunderscore joules\textunderscore total}: Total energy consumed by DRAM on the node.
+    \item \textbf{kepler\textunderscore node\textunderscore uncore\textunderscore joules\textunderscore total}: Total energy consumed by uncore components.
+    \item \textbf{kepler\textunderscore node\textunderscore package\textunderscore joules\textunderscore total}: Total energy consumed by the CPU package.
+    \item \textbf{kepler\textunderscore node\textunderscore other\textunderscore joules\textunderscore total}: Total energy consumed by other host components.
+    \item \textbf{kepler\textunderscore node\textunderscore gpu\textunderscore joules\textunderscore total}: Total energy consumed by GPUs.
+    \item \textbf{kepler\textunderscore node\textunderscore platform\textunderscore joules\textunderscore total}: Total energy consumption of the entire node (measured via ACPI/IPMI).
+\end{itemize}
+
+\subsubsection{Node Metadata}
+\begin{itemize}
+    \item \textbf{kepler\textunderscore node\textunderscore info}: Node-specific information, including CPU architecture.
+    \item \textbf{kepler\textunderscore node\textunderscore energy\textunderscore stat}: Aggregated metrics used by the model server for further predictions.
+\end{itemize}
+
+\subsubsection{Accelerator Metrics}
+\begin{itemize}
+    \item \textbf{kepler\textunderscore node\textunderscore accelerator\textunderscore intel\textunderscore qat}: Utilization of Intel QAT accelerators, if available.
+\end{itemize}

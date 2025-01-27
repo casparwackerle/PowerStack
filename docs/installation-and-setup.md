@@ -38,7 +38,7 @@ git clone --recurse-submodules -j8 git@github.com:casparwackerle/PowerStack.git
 cp ansible/configs/inventory_example.yml ansible/configs/inventory.yml
 vi ansible/configs/inventory.yml
 ```
-Edit the [Ansible Inventory File](../ansible/configs/inventory.yml) to match your desired configuration, specifically:
+Edit the [Ansible Inventory File](../configs/inventory.yml) to match your desired configuration, specifically:
 - Internal and external IP addresses of each node. These may be the same if you are not using an internal network.
 - Ansible user for SSH server access.
 - Rancher hostname, which will expose the Rancher Kubernetes management platform.
@@ -69,6 +69,7 @@ ansible-vault encrypt ansible/configs/vault.yml
 ---
 
 ### Installation
+> ⚠ **DISCLAIMER:** This process will reformat several disks and may result in **data loss**. Proceed with caution. At the very least, check the [Ansible inventory file](../configs/inventory.yml)
 Run the [Deploy All Script](../scripts/deploy_all.sh) to initiate the installation process:
 ```bash
 . scripts/deploy_all.sh

@@ -1,51 +1,43 @@
-# System Overview
+# Architecture and Design
 
-High-level description of the architecture.
+## Overview of Test Environment
+PowerStack runs on a Kubernetes cluster deployed across three identical bare-metal servers. These servers are located in a university data center and connected through both a private and university-managed network. This setup allows efficient workload execution while enabling complete remote management. 
 
-# Physical Architecture
+### Physical Infrastructure
+<img src="diagrams/physical_and_network_infra.png" alt="drawing" width="800"/>
 
-Details of the physical servers, networking, and connectivity.
+Each server features:
+- **CPU**: Intel Xeon Bronze 3104, 6 cores
+- **Memory**: 64GB DDR4 RAM
+- **Storage**: SSD and HDD for persistent storage
+- **Networking**: Private IPs for cluster-internal traffic, university network for external access
 
-## Network Diagram
+## Key Technologies
+- **OS:** Ubuntu, chosen for familiarity and stability
+- **Kubernetes Distribution:** K3s for a lightweight yet production-compatible cluster
+- **Automation:** Ansible for infrastructure management, Helm for Kubernetes deployments
+- **Monitoring:** Prometheus (metrics collection), Grafana (visualization), KEPLER (energy consumption tracking)
 
-Show how servers are interconnected and the role of external networks (university VPN, etc.).
+## Monitoring Stack & Data Flow
+KEPLER collects energy metrics at both the container and node level. Prometheus scrapes these metrics and stores them as time series data, which is then visualized using Grafana dashboards.
 
-# Logical Architecture
+### Data Flow
+<img src="diagrams/data_flow_diagram.png" alt="drawing" width="800"/>
 
-How Kubernetes clusters, storage, and monitoring tools are logically arranged.
+- **KEPLER:** Measures power consumption at the process, container, and node level
+- **Prometheus:** Stores KEPLER’s metrics
+- **Grafana:** Provides real-time visualization of power consumption trends
 
-## Cluster Diagram
+## Repository Structure
+- `ansible/` – Playbooks for automated deployment
+- `helm/` – Helm charts for Kubernetes services
+- `scripts/` – Helper scripts for execution
+- `config/` – Configuration and encrypted credentials
+- `docs/` – Documentation for setup and architecture
+- `thesis/` – Academic research materials related to the project
 
-Logical view of the k3s cluster, nodes, and NFS storage.
+## Summary
+PowerStack is designed to analyze energy efficiency in Kubernetes environments by integrating KEPLER with a fully automated, monitored, and optimized infrastructure. The modular repository structure allows easy deployment and adaptation for different hardware environments.
 
-# Software Architecture
-
-Key components, integrations, and roles of tools like k3s, Rancher, and monitoring tools.
-
-## Deployment Diagram
-
-Show software tools like Rancher, monitoring, and energy measurement integrations.
-
-## Component Diagram:
-
-Highlight dependencies and relationships between services (e.g., k3s <-> NFS).
-
-# Energy Monitoring Layer
-
-Specifics on the integration of energy monitoring tools into the system.
-
-## Layered Diagram
-
-Show BIOS, OS, and software layers where monitoring tools interact.
-
-# Deployment and Automation
-
-Overview of how Ansible automates the setup and deployment.
-
-## Sequence Diagram
-
-Represent workflows like cluster setup, monitoring data flow, etc.
-
-## Flowchart
-
-For Ansible automation processes.
+---
+**Disclaimer**: This project is under active development. Features and configurations may change as improvements are made.

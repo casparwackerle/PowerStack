@@ -21,10 +21,10 @@ mkdir -p "$(dirname "$LOG_FILE")"
 
 # Ensure test file exists
 log "Write test file at $TEST_FILE"
-fio --name=writefile --filename=$TEST_FILE --size=1G --rw=write --bs=4k --numjobs=1 --direct=1 --iodepth=32 --ioengine=libaio --group_reporting
+fio --name=writefile --filename=$TEST_FILE --size=5G --rw=write --bs=4k --numjobs=1 --direct=1 --iodepth=32 --ioengine=libaio --group_reporting
 sync
 
-sleep 30
+sleep 600
 
 log "Disk I/O Stress test script started on node $NODE."
 
@@ -32,7 +32,7 @@ log "Disk I/O Stress test script started on node $NODE."
 log "Retrieving pod mapping on node $NODE..."
 TESTING_POD=$(kubectl get pods -n $NAMESPACE -o=jsonpath="{.items[?(@.spec.nodeName=='$NODE')].metadata.name}" | tr ' ' '\n' | grep "testing-high-mem" | head -n 1)
 
-# Ensure both pods were found
+# Ensure pod is found
 if [[ -z "$TESTING_POD" ]]; then
     log "Error: Could not find the necessary pods on node $NODE. Exiting..."
     exit 1

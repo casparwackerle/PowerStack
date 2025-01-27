@@ -10,3 +10,6 @@ ansible_vault:
     # - pwgen -s 64 1
   token: "replaceMe!"
   bootstrapPassword: "replaceMe!"
+  xclarityUser: "replaceMe!"
+  xclarityPassword: "replaceMe!"
+  grafanaAdminPassword: "replaceMe!"

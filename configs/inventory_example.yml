@@ -3,19 +3,28 @@ k3s_cluster:
     server:
       hosts:
         160.85.30.104:  # This is the public IP of the control plane node
+           node_name: ho1
            internal_ip: 192.168.0.104  # Internal IP for the control plane
            external_ip: 160.85.30.104  # External IP for the control plane
+           BMC_ip: 160.85.30.101
            disk_for_persistent_storage: /dev/sdd
     agent:
       hosts:
         160.85.30.105:  # Public IP of worker node 1
+           node_name: ho2
            internal_ip: 192.168.0.105  # Internal IP of worker node 1
+           BMC_ip: 160.85.30.102
+           disk_for_testing: /dev/sdb
         160.85.30.106:  # Public IP of worker node 2
+           node_name: ho3
            internal_ip: 192.168.0.106  # Internal IP of worker node 2
+           BMC_ip: 160.85.30.103
+           disk_for_testing: /dev/sdb
 
   # Required Vars
   vars:
     # ansible
+    control_node_name: ho1
     ansible_port: 22
     ansible_user: ubuntu
     k3s_version: v1.30.2+k3s1
@@ -23,6 +32,7 @@ k3s_cluster:
     api_endpoint: "{{ hostvars[groups['server'][0]]['ansible_host'] | default(groups['server'][0]) }}"
     extra_server_args: "--node-ip={{ hostvars[inventory_hostname]['internal_ip'] }}  --tls-san={{ hostvars[inventory_hostname]['external_ip'] }}"
     extra_agent_args: "--node-ip={{ hostvars[inventory_hostname]['internal_ip'] }}"
+    cluster_context: "powerstack"
     
     # rancher
     rancher_hostname: rancher.local
@@ -33,13 +43,45 @@ k3s_cluster:
     export_path: /mnt/data
 
     # kubernetes pv and pvc
+    storageclass_name: local-nfs
+    storage_accessmode: ReadWriteMany
+    
+    # persistentVolumeReclaimPolicy: Retain
     pv_name: nfs-pv
     pvc_name: nfs-pvc
-    storage_size: 150Gi
+    storageclass_size: 150Gi           # Must fit on SSD and be more than the sum of all PV
+    pv_size_grafana: 10Gi         
+    pvc_size_grafana: 10Gi        # CANNOT exceed corresponding PV size
+    pv_size_prometheus: 50Gi      
+    pvc_size_prometheus: 50Gi     # CANNOT exceed corresponding PV size
+    pv_size_alertmanager: 5Gi
+    pvc_size_alertmanager: 5Gi    # CANNOT exceed corresponding PV size
+    
+    # Monitoring Stack
+    monitoring_stack_repo_url: https://prometheus-community.github.io/helm-charts
+    #grafana_admin_password: {{ ansible_vault.grafanaAdminPassword }}
+    monitoring_namespace: monitoring
+    testing_namespace: testing  #careful: Testing scripts are not adjusted automatically
+    prometheus_scrape_interval: 10s
+
+    # NodePorts. MUST BE BETWEEN 30000 AND 32767
+    #rancher_custom_nodeport: 30001 # does not work, reachable on {{rancher_hostname
+    prometheus_custom_nodeport: 30002
+    grafana_custom_nodeport: 30003
+    alertmanager_custom_nodeport: 30004
+      
+    # Kepler
+    kepler_namespace: kepler
+    kepler_repo_url: https://sustainable-computing-io.github.io/kepler-helm-chart
+    
+    # benchmarking
+    benchmarking_namespace: benchmarking
+    k_bench_repo: https://github.com/vmware-tanzu/k-bench.git
+    perf_tests_repo: https://github.com/kubernetes/perf-tests.git
+    kubectl_version: v3.31.3
 
     # Optional vars
-
-    # cluster_context: k3s-ansible
+    
     # api_port: 6443
     # k3s_server_location: /var/lib/rancher/k3s
     # systemd_dir: /etc/systemd/system
