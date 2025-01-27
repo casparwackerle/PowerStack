@@ -48,7 +48,7 @@ While all passwords and credentials are encrypted, **this repository should not 
 ## Documentation
 **Disclaimer:** The most detailed documentation of this project is the accompanying University thesis. All other documentation in the form of ReadMe files is kept short.
 - The primary documentation for this is done as part of a university thesis. The most up-to-date version is here:
-[Powerstack: Implementation of n energy monitoring environmnet in Kubernetes](thesis/VT1/build/main.pdf)
+[Powerstack: Implementation of an energy monitoring environmnet in Kubernetes](thesis/VT1/build/main.pdf)
 - An short installation guide is provided here:
 - [Installation Guide](docs/installation-and-setup.md)
 - [Architecture and Design](docs/architecture-and-design.md)
