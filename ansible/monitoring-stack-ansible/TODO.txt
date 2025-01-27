@@ -1,3 +1,0 @@
-DONE - ensure all installation files are deleted on control machine and targets
-- node affinity for entire monitoring stack
-DONE - fix grafana default password encryption

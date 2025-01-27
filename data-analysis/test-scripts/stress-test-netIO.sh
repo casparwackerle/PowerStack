@@ -4,8 +4,8 @@
 NAMESPACE="testing"
 TEST_DURATION=1800
 SLEEP_DURATION=1
-CLIENT_NODE="ho2"
-SERVER_NODE="ho3"
+CLIENT_NODE="ho3"
+SERVER_NODE="ho2"
 TIMESTAMP=$(date '+%Y%m%d-%H%M%S')
 LOG_FILE="/opt/testing/stress-test-netIO-${TIMESTAMP}.log"
 
@@ -51,6 +51,8 @@ if [[ -z "$MAX_BW" ]]; then
 fi
 
 log "Max bandwidth detected: $MAX_BW Mbps"
+
+sleep 600
 
 # Function to run iperf3 with different loads
 run_network_stress_test() {

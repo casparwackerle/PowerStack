@@ -12,5 +12,5 @@
    - ../../../configs/vault.yml
   roles:
     - role: deploy-kepler
-#    - role: add-grafana-dashboard
+#    - role: add-grafana-dashboard   # currently not working, but this is easy to do by hand, and also grafana has persistent storage
     - role: post-install-cleanup
