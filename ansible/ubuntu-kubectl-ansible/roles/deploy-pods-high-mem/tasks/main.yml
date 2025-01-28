@@ -39,11 +39,11 @@
               args: [ "while true; do sleep 30; done;" ]
               resources:
                 requests:
-                  memory: "20Gi"
-                  cpu: "2.5"
+                  memory: "25Gi"
+                  cpu: "1"
                 limits:
-                  memory: "20Gi"
-                  cpu: "2.5"
+                  memory: "25Gi"
+                  cpu: "1"
     dest: /tmp/testing-high-mem-deployment.yml
 
 - name: Create a high-MEM deployment manifest
@@ -71,11 +71,11 @@
               args: [ "while true; do sleep 30; done;" ]
               resources:
                 requests:
-                  memory: "20Gi"
-                  cpu: "2.5"
+                  memory: "25Gi"
+                  cpu: "1"
                 limits:
-                  memory: "20Gi"
-                  cpu: "2.5"
+                  memory: "25Gi"
+                  cpu: "1"
     dest: /tmp/load-high-mem-deployment.yml
 
 - name: Deploy high-MEM Ubuntu containers as a Deployment

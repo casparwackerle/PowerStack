@@ -4,7 +4,7 @@
 NAMESPACE="testing"
 TEST_DURATION=1800
 SLEEP_DURATION=1
-TOTAL_vCPU=150m
+TOTAL_vCPU=1
 TOTAL_DRAM=25
 NODE="ho3"  # Ensure tests run on the same node
 TIMESTAMP=$(date '+%Y%m%d-%H%M%S')

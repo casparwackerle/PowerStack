@@ -4,19 +4,19 @@
 \chapter{Test Results}
 \label{Chapter5}
 
-This chapter presents the results of the test procedures conducted to analyze KEPLER-produced metrics. Each section corresponds to a specific resource type—CPU, Memory, Disk I/O, and Network I/O—with further division into container-level and node-level metrics. The results are discussed alongside their respective figures, which illustrate KEPLER-deduced power consumption and performance trends. 
+This chapter presents the results of the test procedures conducted to analyze KEPLER-produced metrics. Each section corresponds to a specific resource type—CPU, Memory, Disk I/O, and Network I/O—with further division into container-level and node-level metrics. The results are discussed alongside their respective figures, which illustrate KEPLER-deduced energy consumption and performance trends. 
 
 It is important to note that all KEPLER metrics exhibit high oscillations. A detailed analysis reveals that these oscillations follow a highly regular pattern, suggesting an issue with the metric publication intervals in KEPLER or the scraping intervals of Prometheus. The data has been analyzed as-is, with moving averages provided to improve readability. The implications of this irregularity will be discussed further in the Discussion chapter.
 
 For readability and to avoid confusion, two KEPLER metric concepts should be reiterated before discussing the results:
 \begin{itemize}
-    \item \textbf{\textit{Package} Metrics:} These metrics contain the entire CPU package, including all cores and uncore components.
-    \item \textbf{\textit{Platform} Metrics:} These metrics the entire node.
+    \item \textbf{Package Metrics:} These metrics contain the entire CPU package, including all cores and uncore components.
+    \item \textbf{Platform Metrics:} These metrics the entire node.
     \item \textbf{\textit{Other} Metrics:} These metrics contain the entire platform except the CPU package and DRAM.
 \end{itemize}
 
 \section{CPU Stress Test Results}
-\subsection{Container-Level CPU Metrics}
+\subsection{Container-Level CPU stress test metrics}
 
 A set of figures illustrating cache misses, CPU cycles, and CPU instructions during testing is provided in Figures~\ref{fig:cpu_kepler_container_cache_miss_total} to ~\ref{fig:cpu_kepler_container_cpu_cycles_total}.
 
@@ -44,20 +44,20 @@ These three figures show the cache misses, CPU cycles, and CPU instructions of t
 
 Since the CPU workload running on the rest of the cluster should not affect the test container’s workload, the metric values in the 'idle' and 'busy' cluster conditions should be the same. This is indeed the case, verifying that testing was conducted correctly.
 
-A figure illustrating KEPLER's deduced package power consumption is provided in Figure~\ref{fig:cpu_kepler_container_package_joules_total}.
+A figure illustrating KEPLER's deduced package energy consumption is provided in Figure~\ref{fig:cpu_kepler_container_package_joules_total}.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\textwidth]{Figures/diagrams/cpu/kepler_container_package_joules_total/cpu_kepler_container_package_joules_total_smoothed.png}
-    \caption[Container Package Power]{KEPLER container-level package power consumption.}
+    \caption[Container Package energy]{KEPLER container-level package energy consumption.}
     \label{fig:cpu_kepler_container_package_joules_total}
 \end{figure}
 
-The figure shows a clear upward trend in package power consumption, with distinct steps that correspond to the expected workload increases. A strong correlation is observed between KEPLER's reported package power consumption and the test workload. However, the relationship between power consumption and workload is non-linear: while a 10\% workload averages around 2.5 Watts, a 90\% workload results in only a doubling of power consumption despite the workload increasing by a factor of 9.
+The figure shows a clear upward trend in package energy consumption, with distinct steps that correspond to the expected workload increases. A strong correlation is observed between KEPLER's reported package energy consumption and the test workload. However, the relationship between energy consumption and workload is non-linear: while a 10\% workload averages around 2.5 Watts, a 90\% workload results in only a doubling of energy consumption despite the workload increasing by a factor of 9.
 
-Additionally, KEPLER's package power measurements remain consistent regardless of whether the node is idle or busy, showing no statistically significant difference.
+Additionally, KEPLER's package energy measurements remain consistent regardless of whether the node is idle or busy, showing no statistically significant difference.
 
-A set of figures illustrating container Joules, DRAM Joules, and other power consumption components is provided in Figures ~\ref{fig:cpu_kepler_container_joules_total} to ~\ref{fig:cpu_kepler_container_dram_joules_total}.
+A set of figures illustrating container energy consumption, DRAM energy consumption, and \textit{Other} energy consumption components is provided in Figures ~\ref{fig:cpu_kepler_container_joules_total} to ~\ref{fig:cpu_kepler_container_dram_joules_total}.
 
 \begin{figure}[H]
     \centering
@@ -68,7 +68,7 @@ A set of figures illustrating container Joules, DRAM Joules, and other power con
     \end{subfigure}
     \begin{subfigure}{0.49\textwidth}
         \includegraphics[width=\textwidth]{Figures/diagrams/cpu/kepler_container_other_joules_total/cpu_kepler_container_other_joules_total_smoothed.png}
-        \caption{Non-CPU/DRAM energy consumption}
+        \caption{\textit{Other} energy consumption}
         \label{fig:cpu_kepler_container_other_joules_total}
     \end{subfigure}
     \begin{subfigure}{0.49\textwidth}
@@ -79,19 +79,19 @@ A set of figures illustrating container Joules, DRAM Joules, and other power con
     \caption[Container-Level Energy Consumption]{KEPLER container-level energy consumption during a CPU stress test}
 \end{figure}
 
-The three figures for container Joules, DRAM Joules, and other power components (representing host components excluding CPU and DRAM) show less direct correlation with workload than the package power. 
+The three figures for container energy consumption, DRAM energy consumption, and \textit{Other} components (representing host components excluding CPU and DRAM) show less direct correlation with workload than the package power. 
 
 Observations:
 \begin{itemize}
-\item In figure ~\ref{fig:cpu_kepler_container_joules_total}, a slight upwards trend is detectable as the measured power consumption of the entire node rises by about 5 Watts. This change mirrors the increase in package power consumption from the previous figure ~\ref{fig:cpu_kepler_container_package_joules_total}, where an approximately 5 Watt increase can be seen.
-\item In figure ~\ref{fig:cpu_kepler_container_other_joules_total}, showing the "Other" (i.e. Non-CPU/DRAM) container energy consumption, no trend can be seen in the data. This is to be expected, since only the CPU itself was stressed. However, the high amount of the Non-CPU/DRAM power consumption surprises, given that it is roughly double the amount of the CPU Package Energy consumption.
+\item In figure ~\ref{fig:cpu_kepler_container_joules_total}, a slight upwards trend is detectable as the measured energy consumption of the entire node rises by about 5 Watts. This change mirrors the increase in package energy consumption from the previous figure ~\ref{fig:cpu_kepler_container_package_joules_total}, where an approximately 5 Watt increase can be seen.
+\item In figure ~\ref{fig:cpu_kepler_container_other_joules_total}, showing the "Other" (i.e. Non-CPU/DRAM) container energy consumption, no trend can be seen in the data. This is to be expected, since only the CPU itself was stressed. However, the high amount of the \textit{Other} energy consumption surprises, given that it is roughly double the amount of the CPU Package Energy consumption.
 \item The measured DRAM is not affected by CPU stress, which is as expected. With between 0.5 and 1 Watt, DRAM energy consumption is comparably low.
 \item During the second part of the experiment (i.e during testing with a busy node), all metrics seem to have a slightly more smooth curve.
 \end{itemize}
 
-\subsection{Node-Level CPU Metrics}
+\subsection{Node-Level CPU metrics}
 
-Figures illustrating node-level DRAM Joules, other component Joules, and package Joules are provided in Figure~\ref{fig:cpu_kepler_node_package_joules_total}.
+Figures illustrating node-level DRAM energy consumption, \textit{Other} component energy consumption, and package energy consumption are provided in Figure~\ref{fig:cpu_kepler_node_package_joules_total}.
 
 \begin{figure}[H]
     \centering
@@ -107,43 +107,44 @@ Figures illustrating node-level DRAM Joules, other component Joules, and package
     \end{subfigure}
     \begin{subfigure}{0.49\textwidth}
         \includegraphics[width=\textwidth]{Figures/diagrams/cpu/kepler_node_other_joules_total/cpu_kepler_node_other_joules_total_ho3.png}
-        \caption{Node Non-CPU/DRAM energy consumption}
+        \caption{Node \textit{Other}energy consumption}
         \label{fig:cpu_kepler_node_other_joules_total}
     \end{subfigure}
     \caption[Node-Level Energy Consumption]{KEPLER node-level energy consumption during a CPU stress test}
 \end{figure}
 
 
-In figures ~\ref{fig:cpu_kepler_node_package_joules_total} to ~\ref{fig:cpu_kepler_node_other_joules_total}, the total node power consumption is shown. At a node level, KEPLER distinugishes between idle and dynamic power consumption.
+In figures ~\ref{fig:cpu_kepler_node_package_joules_total} to ~\ref{fig:cpu_kepler_node_other_joules_total}, the total node energy consumption is shown. At a node level, KEPLER distinugishes between idle and dynamic energy consumption.
 
 Observations:
 \begin{itemize}
-\item The most strinking obervation is the relatively high idle power consumption of the node, seen in all figures. While figure ~\ref{fig:cpu_kepler_node_package_joules_total} shows the rising dynamic power consumption resulting from the CPU stress test, the idle power consumption still far exceeds the dynamic power.
-\item A key deduction is that the dynamic "Other"'-power consumption seen in figure ~\ref{fig:cpu_kepler_node_other_joules_total} is independent from the CPU stress test load. This further supports the conclusion that while "Other"' system components contribute most to the overall platform energy consumption, the are generally unaffected by CPU workload.
+\item The most strinking obervation is the relatively high idle energy consumption of the node, seen in all figures. While figure ~\ref{fig:cpu_kepler_node_package_joules_total} shows the rising dynamic energy consumption resulting from the CPU stress test, the idle energy consumption still far exceeds the dynamic energy.
+\item A key deduction is that the dynamic "Other"'-energy consumption seen in figure ~\ref{fig:cpu_kepler_node_other_joules_total} is independent from the CPU stress test load. This further supports the conclusion that while "Other"' system components contribute most to the overall platform energy consumption, the are generally unaffected by CPU workload.
 \end{itemize}
 
 \subsubsection{Overall Conclusions}
-The CPU stress test results demonstrate that KEPLER accurately captures workload-dependent variations in power consumption. Key takeaways from the analysis include:
+The CPU stress test results demonstrate that KEPLER accurately captures workload-dependent variations in energy consumption. Key takeaways from the analysis include:
 \begin{itemize}
-    \item KEPLER's CPU package power measurements exhibit a correlation with workload intensity, although the relationship is non-linear.
-    \item High idle power consumption at the node level suggests that a significant portion of energy use is independent of CPU workload.
-    \item The "Other" component power consumption remains largely static, reinforcing that non-CPU/DRAM components contribute primarily to baseline energy consumption rather than dynamic variations.
+    \item KEPLER's CPU package energy measurements exhibit a correlation with workload intensity, although the relationship is non-linear.
+    \item High idle energy consumption at the node level suggests that a significant portion of energy use is independent of CPU workload.
+    \item The "Other" component energy consumption remains largely static, reinforcing that \textit{Other} components contribute primarily to baseline energy consumption rather than dynamic variations.
 \end{itemize}
 
 
 % General obeservations: 
 % - energy consumption at 90\% load is never 9 times the energy consumption at 10\% load
-% - Node power: the idle energy consumption is incredibly high
+% - Node energy: the idle energy consumption is incredibly high
 %     check SPECpower, SERT
 %     KUBERNETES Overhead? Server overhead?
-% - There seems to be quite a high oscillation of power all KEPLER metrics, irrespective of testing load or tool
+% - There seems to be quite a high oscillation of energy all KEPLER metrics, irrespective of testing load or tool
 %     issue with scraping?
 %     issue with prometheus?
+
+ % other and container are always exactly the same by a factor 1.5???????????????'
     
 
 % CPU figures
 % thesis/Figures/diagrams/cpu/kepler_container_cache_miss_total/cpu_kepler_container_cache_miss_total_smoothed.png
-
 
 \section{Memory}
 
@@ -159,7 +160,7 @@ The CPU stress test results demonstrate that KEPLER accurately captures workload
     \end{subfigure}
     \begin{subfigure}{0.49\textwidth}
         \includegraphics[width=\textwidth]{Figures/diagrams/mem/kepler_container_other_joules_total/mem_kepler_container_other_joules_total_smoothed.png}
-        \caption{Non-CPU/DRAM energy consumption.}
+        \caption{\textit{Other} energy consumption.}
     \end{subfigure}
     \begin{subfigure}{0.49\textwidth}
         \includegraphics[width=\textwidth]{Figures/diagrams/mem/kepler_container_joules_total/mem_kepler_container_joules_total_smoothed.png}
@@ -189,7 +190,7 @@ Placeholder
     \centering
     \begin{subfigure}{0.49\textwidth}
         \includegraphics[width=\textwidth]{Figures/diagrams/mem/kepler_node_other_joules_total/mem_kepler_node_other_joules_total_ho2.png}
-        \caption{Non-CPU/DRAM energy consumption}
+        \caption{\textit{Other} energy consumption}
     \end{subfigure}
     \begin{subfigure}{0.49\textwidth}
         \includegraphics[width=\textwidth]{Figures/diagrams/mem/kepler_node_package_joules_total/mem_kepler_node_package_joules_total_ho2.png}
@@ -202,32 +203,127 @@ Placeholder
 
 \section{Disk I/O}
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=1\textwidth]{Figures/diagrams/diskIO/kepler_container_bpf_block_irq_total/diskIO_kepler_container_bpf_block_irq_total_smoothed.png}
-    \caption{Block IRQ Metrics during a disk I/O stress test}
-\end{figure}
+\subsection{Container-Level Disk I/O stress test metrics}
 
-Placeholder
+The following figures ~\ref{fig:cpu_kepler_container_cache_miss_total} to ~\ref{fig:diskIO_kepler_container_cpu_instructions_total} show the CPU metrics published by KEPLER during the Disk I/O stress experiment.
 
 \begin{figure}[H]
     \centering
-    \begin{subfigure}{1\textwidth}
+    \begin{subfigure}{0.49\textwidth}
+        \includegraphics[width=\textwidth]{Figures/diagrams/diskIO/kepler_container_bpf_block_irq_total/diskIO_kepler_container_bpf_block_irq_total_smoothed.png}
+        \caption{Block IRQ}
+        \label{fig:cpu_kepler_container_cache_miss_total}
+    \end{subfigure}
+    \begin{subfigure}{0.49\textwidth}
         \includegraphics[width=\textwidth]{Figures/diagrams/diskIO/kepler_container_cache_miss_total/diskIO_kepler_container_cache_miss_total_smoothed.png}
         \caption{Cache misses}
+        \label{fig:diskIO_kepler_container_cache_miss_total}
     \end{subfigure}
     \begin{subfigure}{0.49\textwidth}
         \includegraphics[width=\textwidth]{Figures/diagrams/diskIO/kepler_container_cpu_cycles_total/diskIO_kepler_container_cpu_cycles_total_smoothed.png}
         \caption{CPU instructions}
+        \label{fig:diskIO_kepler_container_cpu_cycles_total}
     \end{subfigure}
     \begin{subfigure}{0.49\textwidth}
         \includegraphics[width=\textwidth]{Figures/diagrams/diskIO/kepler_container_cpu_instructions_total/diskIO_kepler_container_cpu_instructions_total_smoothed.png}
         \caption{CPU cycles}
+        \label{fig:diskIO_kepler_container_cpu_instructions_total}
     \end{subfigure}
-    \caption{Container-level CPU metrics during a Disk I/O stress test}
+    \caption{Container-level CPU metrics during Disk I/O stress test}
 \end{figure}
 
-Placeholder
+All four figures behave as expected and can serve as a validation for the general test procedure.
+Notably, the Operations per second in the figures for cache misses, CPU instructions and CPU cycles no not scale linearly with with workload: The relative difference between the low-workload and high-workload test are roughly 330\% (cache misses), 250\% (CPU instructions) and 350\% (CPU cycles), all of which are far below the relative difference of 900\% for the applied load. 
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.49\textwidth}
+        \includegraphics[width=\textwidth]{Figures/diagrams/diskIO/kepler_container_package_joules_total/diskIO_kepler_container_package_joules_total_smoothed.png}
+        \caption{Package energy consumtion}
+        \label{fig:diskIO_kepler_container_package_joules_total}
+    \end{subfigure}
+    \begin{subfigure}{0.49\textwidth}
+        \includegraphics[width=\textwidth]{Figures/diagrams/diskIO/kepler_container_dram_joules_total/diskIO_kepler_container_dram_joules_total_smoothed.png}
+        \caption{DRAM energy consumption}
+        \label{fig:diskIO_kepler_container_dram_joules_total}
+    \end{subfigure}
+    \begin{subfigure}{0.49\textwidth}
+        \includegraphics[width=\textwidth]{Figures/diagrams/diskIO/kepler_container_other_joules_total/diskIO_kepler_container_other_joules_total_smoothed.png}
+        \caption{\textit{Other} energy consumption}
+        \label{fig:diskIO_kepler_container_other_joules_total}
+    \end{subfigure}
+    \begin{subfigure}{0.49\textwidth}
+        \includegraphics[width=\textwidth]{Figures/diagrams/diskIO/kepler_container_joules_total/diskIO_kepler_container_joules_total_smoothed.png}
+        \caption{Total container energy consumption}
+        \label{fig:diskIO_kepler_container_joules_total}
+    \end{subfigure}
+    \caption{Container-level energy consumption during a disk I/O stress test}
+\end{figure}
+
+Figures ~\ref{fig:diskIO_kepler_container_package_joules_total} to ~\ref{fig:diskIO_kepler_container_joules_total} show the KEPLER metrics for the energy consumtion of the package, DRAM, \textit{Other}-components and Total container energy consumption. Several Obersations can be made:
+\begin{itemize}
+    \item The KEPLER-measured values of all four figures seem to be almost in a bimodal distribution, where all values exibit either a \textit{low} or \textit{high}. While different rotation speeds on the HDD might have potentially explained the curve of \textit{Other} components' energy consumption and the total container energy consumption, it certainly does not explain the curves for Package energy consumption and DRAM.
+    \item In all four figures, the relative energy consumption looks almost identical irrespective of the measured component. This is especially true for the two figures of \textit{Other}-components and total container energy consumption which seem to be exaclty identical save for a multiplication factor of 1.5
+    \item All figures correlate very well to the test intervals on a time scale, demonstating that KEPLER does recognize the change in disk load in some form. 
+\end{itemize}
+
+The check what happens during repeated testing, the test was run a second time, the results of which are shown in figure ~\ref{fig:diskIO_kepler_container_cpu_joules_total_second_experiment} below.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.49\textwidth]{Figures/diagrams/diskIO2/kepler_container_package_joules_total/diskIO_kepler_container_package_joules_total_smoothed.png}
+    \caption[Container Package energy]{Container-level package energy consumption during a second experiment}
+    \label{fig:diskIO_kepler_container_cpu_joules_total_second_experiment}
+\end{figure}
+
+The following observations were similar to the first experiment:
+\begin{itemize}
+\item All joule-based metrics still displayed a bimodal distribution.
+\item All joule-based metrics would look identical save for their different scale.
+\item joule-based metrics would show an observable upwards trend.
+\end{itemize}
+
+\subsection{Node-Level disk I/O stress test metrics}
+
+The following figures~\ref{fig:cpu_kepler_node_package_joules_total} to ~\ref{fig:cpu_kepler_node_package_joules_total} show the node-level energy consumption for package, DRAM and \textit{Other} Components, divided into  idle and dynamic node energy consumption.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{1\textwidth}
+        \includegraphics[width=\textwidth]{Figures/diagrams/diskIO/kepler_node_package_joules_total/diskIO_kepler_node_package_joules_total_ho3.png}
+        \caption{Node Package energy consumption}
+        \label{fig:diskIO_kepler_node_package_joules_total}
+    \end{subfigure}
+    \begin{subfigure}{0.49\textwidth}
+        \includegraphics[width=\textwidth]{Figures/diagrams/diskIO/kepler_node_dram_joules_total/diskIO_kepler_node_dram_joules_total_ho3.png}
+        \caption{Node DRAM energy consumption}
+        \label{fig:diskIO_kepler_node_dram_joules_total}
+    \end{subfigure}
+    \begin{subfigure}{0.49\textwidth}
+        \includegraphics[width=\textwidth]{Figures/diagrams/diskIO/kepler_node_other_joules_total/diskIO_kepler_node_other_joules_total_ho3.png}
+        \caption{Node \textit{Other} energy consumption}
+        \label{fig:diskIO_kepler_node_other_joules_total}
+    \end{subfigure}
+    \caption[Node-Level Energy Consumption]{KEPLER node-level energy consumption during a Disk I/O stress test}
+\end{figure}
+
+Observations
+\begin{itemize}
+    \item For all pictured components, the differnce between idle and dynamic power is striking. Almost all of the energy comsumed by the node is consumed as idle Power.
+    \item The figures for node DRAM and \textit{Other} components don't show an upwards trend for dynamic energy comsumption. Figure ~\ref{fig:diskIO_kepler_node_package_joules_total} shows an upwards trend of roughly 50\% for dynamic energy consumption, which is still dwarved by the idle node energy consumption.
+\end{itemize}
+
+\subsubsection{Overall Conclusions}
+
+The following overall conclusions can be made for the KEPLER Metrics during a Disk I/O test.
+\begin{itemize}
+    \item KEPLER publishes believable metrics for Block IRQ, Cache misses, CPU instructions and CPU cycles during a disk I/O stress test.
+    \item The accuracy of KEPLER container-level joule-based metrics is debatable. While these metrics show an interesting bimodal distribution, they don't necessarily follow the disk I/O workload. They do however display an upwards trend.
+    \item KEPLERs container-level joule based metrics accurately recognize a \textit{change} in disk I/O workload, and might switch the average value at the same time. The test results do not indicate that this can be reliably predicted.
+    \item The node-level KEPLER metrics do not indicate any significant effect of disk I/O workload on DRAM or \textit{Other}-components. The slight increase in Package energy consumption is likely attributed to the CPU component of the test. The fact that the variations in energy consumption shown in container-level metrics cannot clearly be traced in eighter idle or dynamic node energy consumption raises further questions.
+    \item The hypothesis that disk I/O stress does not significantly contribute to node power cannot be rejected or proved. Further research is necessary.
+\end{itemize}
+
 
 \section{Network I/O}
 
