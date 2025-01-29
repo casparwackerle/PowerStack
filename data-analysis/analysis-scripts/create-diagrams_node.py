@@ -16,6 +16,7 @@ MOVING_AVERAGE_WINDOW = 10  # Configurable window size for smoothing
 NODE_METRICS = {
     "kepler_node_dram_joules_total",
     "kepler_node_package_joules_total",
+    "kepler_node_platform_joules_total",
     "kepler_node_other_joules_total",
 }
 
@@ -46,7 +47,7 @@ def parse_log(log_file):
                 load = int(match.group(4))
                 duration = int(match.group(5))
                 phase = match.group(6)
-                print(f"Matched phase: start={start_time}, load={load}, duration={duration}, phase={phase}")
+                # print(f"Matched phase: start={start_time}, load={load}, duration={duration}, phase={phase}")
                 test_phases.append({
                     "start": start_time,
                     "end": start_time + timedelta(seconds=duration),

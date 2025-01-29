@@ -4,10 +4,58 @@
 \chapter{Discussion} % Main chapter title
 \label{Chapter6}
 
-%\section{}
+\section{Conclusion and Evaluation}
 
-%\subsection{}
+\subsection{Evaluation of Cluster Setup}
 
-Conclusion
+The cluster setup has been a success and has proven viable for further Kubernetes testing. While implementing the entire setup in an automated manner introduced significant additional effort, the resulting cluster deployment functioned reliably throughout the entire project. The ability to tear down and re-deploy the cluster to any desired depth—ranging from Kubernetes deployments and configurations to a complete reinstallation—proved invaluable during testing. This ensured that any misconfigurations introduced during implementation could be entirely removed, preventing any residual effects from failed installations or incorrect configurations.
 
-Future work
+The automated cluster setup was explicitly designed to be easily transferable to different hardware, a feature that, while not tested in this project, significantly enhances its reusability. Future projects could adopt and modify the setup with minimal adjustments, allowing researchers and engineers to rapidly deploy an experimental Kubernetes cluster in diverse environments.
+
+One of the main constraints of this project was the decision not to implement a high-availability (HA) cluster. Given the project's focus on energy efficiency measurements and not on production-ready reliability, this was a valid trade-off. However, in large-scale production environments, HA clusters are the norm. Energy efficiency research in these environments would provide additional insights into how energy optimizations affect large, distributed clusters in real-world workloads. 
+
+Finally, graphical tools such as Rancher proved invaluable during the configuration and experimentation phases. Rancher's centralized UI provided a clear overview of the cluster state, significantly reducing the complexity of Kubernetes troubleshooting and management. While the project was fully automated, Rancher complemented the setup by allowing real-time monitoring and rapid identification of configuration issues.
+
+\subsection{Evaluation of Monitoring Setup}
+
+The monitoring setup proved to be effective for energy consumption testing. The use of Prometheus, the de facto standard for Kubernetes monitoring, ensured compatibility with a broad range of tools and provided access to a large knowledge base of community support, documentation, and third-party integrations. This was particularly beneficial for KEPLER, which is explicitly designed to integrate with Prometheus, making its deployment and data collection seamless.
+
+A notable limitation of Prometheus is the overhead it introduces. Due to its reliance on periodic metric scraping, it is best suited for system monitoring at multi-second or minute-level intervals. While this is sufficient for general observability, it is a limiting factor in high-resolution energy consumption analysis. KEPLER itself collects an extensive amount of data from eBPF and RAPL, but the necessity of reducing data density for Prometheus-compatible metrics results in a loss of granularity. This makes Prometheus an excellent tool for tracking long-term trends but suboptimal for capturing rapid changes in power consumption.
+
+The use of an NFS-based persistent storage solution on the Kubernetes control node proved successful. Throughout the project's duration—including multiple cluster redeployments—no data was lost. The NFS configuration allowed for a seamless storage experience, ensuring that Prometheus and Grafana retained their monitoring data even when the cluster was reset.
+
+While this monitoring setup is well-suited for research and experimentation, deploying it in a production environment would require significant modifications to ensure data integrity, resilience, and security. For example, Prometheus' data retention settings and storage backend would need to be adjusted for long-term reliability, authentication mechanisms would need to be strengthened, and redundancy mechanisms would need to be introduced to prevent data loss in the event of node failure.
+
+\subsection{Evaluation of KEPLER setup}
+
+\subsection{Evaluation of KEPLER metrics}
+
+\subsection{Credible Takeaways from the test results}
+
+\subsection{Overall conclusion}
+
+\section{Future Work}
+
+\subsection{Node metrics Verification using specialized hardware}
+
+\subsection{Further testing}
+
+\subsection{Detailed Analysis of KEPLERs mechanisms}
+
+
+
+
+% General obeservations: 
+% - energy consumption at 90\% load is never 9 times the energy consumption at 10\% load
+% - Node energy: the idle energy consumption is incredibly high
+%     check SPECpower, SERT
+%     KUBERNETES Overhead? Server overhead?
+% - There seems to be quite a high oscillation of energy all KEPLER metrics, irrespective of testing load or tool
+%     issue with scraping?
+%     issue with prometheus?
+
+ % other and container are always exactly the same by a factor 1.5???????????????'
+    
+
+% CPU figures
+% thesis/Figures/diagrams/cpu/kepler_container_cache_miss_total/cpu_kepler_container_cache_miss_total_smoothed.png
