@@ -160,7 +160,7 @@ The restriction level can be verified by checking the value of \texttt{/proc/sys
 
 \subsection{KEPLER Deployment with Ansible and Helm}
 
-KEPLER is deployed using the KEPLER Helm chart\parencite{kepler_helm_chart} from the\\\texttt{sustainable-computing-io/kepler-helm-chart} repository, with Ansible automating the configuration and deployment process. The deployment configuration is centralized in a Jinja template, which is rendered locally and copied to the control node before applying it.
+KEPLER was deployed using the KEPLER Helm chart\parencite{kepler_helm_chart} from the\\\texttt{sustainable-computing-io/kepler-helm-chart} repository, with Ansible automating the configuration and deployment process. The deployment configuration was centralized in a Jinja template, which was rendered locally and copied to the control node before applying it.
 
 Key configurations in the Helm values file include:
 \begin{itemize}
@@ -172,33 +172,32 @@ Key configurations in the Helm values file include:
 
 \subsection{Verifying KEPLER Metrics}
 
-After deployment, it is essential to verify that KEPLER is correctly collecting and exposing metrics. Verification involves the following steps:
+After deployment, it was essential to verify that KEPLER was correctly collecting and exposing metrics. Verification involves the following steps:
 
-\subsection{Prometheus scraping}
+\subsubsection{Prometheus scraping}
 
-Use the Prometheus web interface to check that KEPLER endpoints are being scraped successfully.
+After deploymnet, successful Prometheus scaping of the KEPLER endpoints can be verified using the Prometheus web interface. 
 
-\subsection{Metric availability}
+\subsubsection{Metric availability}
 
-Ensure that key metrics are available in Prometheus, and non-zero values are written. Each metric discloses exactly one \texttt{source}.
+All KEPLER metrics were checked individually in the Promehteus web interace to ensure that non-zero values were being written. Each metric would disclose a single metric, which was a welcome additional confirmation that the listed data source was being monitored correctly.
 
-\subsection{Kepler logs} 
+\subsubsection{Kepler logs} 
 
-Check the KEPLER logs to gain insight into the used sources:
-
+The KEPLER logs were inspected for insight into used data sources:
 \lstinputlisting[
     language=bash,
-    caption=External file: \texttt{kepler.log},
+    caption=\texttt{kepler.log},
     basicstyle=\ttfamily\tiny
 ]{Code/kepler.log}
 
-\subsubsection{Power from ACPI / IMPI}
+\subsubsection{Power metrics from ACPI / IMPI}
 
-In the event that both ACPI and IPMI were configured to measure platform power, KEPLER prefered to use IPMI as its primary data source. This is to be expected, since IPMI allows to measure power at a higher level than ACPI, and can get detailed power data for the entire plaform. In the absence of IPMI data, KEPLER uses ACPI as the only power data source. 
+In the event that both ACPI and IPMI were configured to measure platform power, KEPLER prefered to use IPMI as its primary data source, meaning that it would use the IPMI overall energy consumption, and calculate lower-level energy consumption using ACPI. This is to be expected, since IPMI allows to measure power at a higher level than ACPI, and can get detailed power data for the entire plaform. In the absence of IPMI data, KEPLER uses ACPI as the only power data source. 
 
 \subsubsection{Redfish issues}
 
-KEPLER was sporadically unable to correcly handle individual redfish data values. These incedents were sparse for different data values. Unfortunately, the source of this issue could not be eliminated in the context of this thesis. The log below shows an instance of this error
+KEPLER was sporadically unable to correcly handle individual redfish data values. These incedents were sparse for different data values. Unfortunately, the source of this issue could not be eliminated in the context of this thesis. The log below shows an instance of the following error:
 
 \begin{lstlisting}[language=bash]
 Failed to get power: json: cannot unmarshal number 3.07 into Go struct field Voltages.Voltages.ReadingVolts of type int

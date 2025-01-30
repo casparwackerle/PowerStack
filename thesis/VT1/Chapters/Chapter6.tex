@@ -33,10 +33,11 @@ The implementation of KEPLER in this project was largely straightforward, facili
 \subsubsection{General Observations}
 
 \begin{itemize}
+\item All metrics showed a high and consistent oscillation. Since all metrics are calculated from simple counters, this indicates a sync issue, possibly between KEPLER metrics publishing and Prometheu scrape intervals. While this does not reduce the credibility of the data, fixing it would greatly unprove the usability of the metrics.
 \item \textbf{CPU Energy Metrics:}
 KEPLER successfully captures workload-dependent energy variations, demonstrating a high correlation between CPU stress levels and estimated power consumption. Given that CPU is the dominant factor in overall server energy consumption, this is a significant strength of KEPLER.
 \item \textbf{Memory Energy Metrics:}
-Unlike CPU metrics, memory energy estimates did not show a clear correlation with applied workload. However, this is not necessarily a flaw in KEPLER’s methodology. Memory generally consumes a relatively small proportion of a server’s total power budget and often operates with near-constant power draw. Thus, the lack of a distinct correlation is not entirely unexpected.
+Unlike CPU metrics, memory energy estimates did not show a clear correlation with applied workload. However, this is not necessarily a flaw in KEPLER’s methodology. Memory generally consumes a relatively small proportion of a server’s total power budget and does not flutuate as distinctly as CPU energy consumtion. Thus, the lack of a drastic and distict correlation is not entirely unexpected. However, the experiment did not verify KEPLERs ability to measure memory energy consumption.
 \item \textbf{Disk I/O and Network I/O Metrics:}
 KEPLER’s energy estimates for these categories did not exhibit expected trends. Although the metrics responded to workload variations in a synchronized manner, the exact correlation remains unclear. In particular, disk and network energy consumption values were not directly proportional to the applied stress levels. This anomaly warrants further investigation, especially considering that HDD power consumption tends to be largely independent of workload intensity (insert reference here).
 \end{itemize}
@@ -45,7 +46,7 @@ KEPLER’s energy estimates for these categories did not exhibit expected trends
 
 \textbf{KEPLER’s package metrics appear to work well and provide believable results.} While the actual numbers were not verified in this project, the reported metrics closely correlate with CPU workload trends observed during testing.
 
-\textbf{Energy consumption does not scale proportionally with workload.} For package power, an increase from 10\% to 90\% workload resulted in only an approximate 250\% increase in KEPLER-measured energy consumption. This aligns with the general understanding that servers operate most efficiently at high utilization.
+\textbf{Energy consumption does not scale linearly with workload.} For package power, an increase from 10\% to 90\% workload resulted in only an approximate 250\% increase in KEPLER-measured energy consumption. This aligns with the general understanding that servers operate most efficiently at high utilization.
 
 \textbf{Idle energy consumption was consistently estimated to be much higher than dynamic energy consumption.} While it is known that older servers often have high idle power usage, KEPLER’s estimation that idle energy consumption reaches 90\% on a CPU-stressed server seems unlikely and warrants further investigation.
 

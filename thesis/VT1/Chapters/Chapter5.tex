@@ -325,8 +325,8 @@ The following overall conclusions can be drawn regarding KEPLER metrics during a
 
 \begin{itemize}
     \item KEPLER provides plausible metrics for Block IRQ, Cache Misses, CPU Instructions, and CPU Cycles during a Disk I/O stress test.
-    \item The accuracy of KEPLER’s container-level joule-based metrics is questionable. While they exhibit an intriguing bimodal distribution, they do not necessarily align with the Disk I/O workload. However, they do show an upward trend.
-    \item KEPLER’s container-level joule-based metrics reliably detect \textit{changes} in Disk I/O workload, but their predictability remains uncertain.
+    \item The accuracy of KEPLER’s container-level joule-based metrics is questionable. While they exhibit an intriguing bimodal distribution, they do not necessarily align with the Disk I/O workload.
+    \item KEPLER’s container-level joule-based metrics reliably \textit{detect} changes in Disk I/O workload, but their predictability remains uncertain.
     \item Node-level KEPLER metrics do not suggest any significant impact of Disk I/O workload on DRAM or \textit{Other} components.
     \item The fact that the variations in energy consumption shown in container-level metrics cannot clearly be traced in eighter idle or dynamic node energy consumption raises further questions.
     \item The hypothesis that disk I/O stress does not significantly contribute to node power cannot be rejected or proved. Further research is necessary.
