@@ -6,6 +6,7 @@
           "command": "pdflatex",
           "args": [
             "-output-directory=build",
+            "-jobname=powerstack",
             "-shell-escape",
             "-synctex=1",
             "-interaction=nonstopmode",

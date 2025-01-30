@@ -2,7 +2,7 @@
 /logs/
 /thesis/VT1/build/*
 # But do not ignore the main.pdf file
-!/thesis/VT1/build/main.pdf
+!/thesis/VT1/build/powerstack.pdf
 /data-analysis/analysis-scripts/data/*
 /data-analysis/analysis-scripts/diagrams/*
 /data-analysis/analysis-scripts/diagrams_120s/*
