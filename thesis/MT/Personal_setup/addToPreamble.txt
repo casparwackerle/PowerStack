@@ -1,0 +1,11 @@
+\immediate\write18{mkdir -p build}
+\AtBeginDocument{
+    \IfFileExists{./build/\jobname.aux}{\input{./build/\jobname.aux}}{}
+}
+
+\makeatletter
+\def\input@path{{./build/}}
+\makeatother
+
+\usepackage{etoolbox}
+\AtBeginDocument{\patchcmd{\include}{\@include}{\@input}{}{}}
