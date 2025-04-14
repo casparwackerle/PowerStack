@@ -1,4 +1,34 @@
 \chapter{Introduction and Context} % Main chapter title
 \label{Chapter1}
 
-\parencite{Powerstack}
+\section{Introduction and Context}
+
+\subsection{Cloud Computing and its impact on the global energy challenge}
+
+Global energy consumption is rising at an alarming pace, driven in part by the accelerating digital transformation of society. A significant share of this growth comes from data centers, which form the physical backbone of cloud computing. While the cloud offers substantial efficiency gains through resource sharing and dynamic scaling, its aggregate energy footprint is growing rapidly. While data center accounted for around 1.5\% (around 415 TWh) of the worlds electricity consumption in 2024, they are set to more than double by 2030\parencite{iea2025energyai}. That is slightly more than Japans's current electricity consumption today.
+
+This increase is fueled by the rising demand for compute-heavy workloads such as artificial intelligence, large-scale data processing, and real-time services. Meanwhile, traditional drivers of efficiency—such as Moore’s law and Dennard scaling—are slowing down\parencite{tomshardware2023mooreslaw}\parencite{cartesian2013dennard}. Improvements in data center infrastructure, like cooling and power delivery, have helped reduce energy intensity per operation\parencite{uptime2023pue}, but these gains are approaching diminishing returns. As a result, total data center energy use is expected to grow faster than before, even as efficiency per unit of compute continues to improve more slowly\parencite{masanet2020}.
+
+\subsection{Rise of the Container}
+
+Containers have become a core abstraction in modern computing, enabling lightweight, fast, and scalable deployment of applications. Compared to virtual machines, containers impose less overhead, start faster, and support finer-grained resource control. As such, they are widely used in microservice architectures and cloud-native environments\parencite{Potdar2020}.
+
+This trend is amplified by the growing popularity of Container-as-a-Service (CaaS) platforms, where containerized workloads are scheduled and managed at high density on shared infrastructure. Kubernetes has become the de facto orchestration tool for managing such workloads at scale. While containers are inherently more energy-efficient than virtual machines in many scenarios\parencite{Morabito2015}, their widespread use presents a new challenge: understanding and attributing their energy consumption accurately.
+
+\subsection{Container Energy Consumption Measurement Challenges}
+
+Energy consumption in containerized systems is inherently hard to measure due to the abstraction layers involved. Tools like RAPL (Running Average Power Limit) expose component-level energy metrics on modern Intel and AMD CPUs, but this information is not accessible from within containers or virtual machines. In public cloud environments, such telemetry is either not exposed or aggregated at coarse granularity, making direct measurement infeasible.
+
+Containers further complicate attribution: because they share the kernel and hardware resources, it is difficult to isolate the energy impact of one container from another. Only indirect metrics—such as CPU time, memory usage, or performance counters—are available, and even these may be incomplete or noisy depending on system configuration and workload behavior. Various tools exist that attempt to model container power usage based on these inputs, but rarely are their produced metrics transistent and verified.
+
+\subsection{Problem Definition}
+
+The growing importance of containers in cloud environments, combined with the difficulty of directly measuring their energy usage, motivates this work. In particular, this thesis investigates the questions:
+
+Which metrics and models allow for reliable power estimation and attribution in containerized systems?
+
+How can existing container energy consumption estimation tools be validated?
+
+To answer this, the study explores methods of measuring server energy consumption, analyzes container workload metrics, and evaluates modeling techniques that aim to bridge the gap between raw energy data and container-level attribution. The focus is on bare-metal Kubernetes environments, where full system observability allows for deeper analysis and model validation, serving as a foundation for future energy-aware cloud architectures.
+
+\subsection{Context of this thesis}
