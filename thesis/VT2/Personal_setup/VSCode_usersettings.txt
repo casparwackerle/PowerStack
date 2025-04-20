@@ -6,7 +6,6 @@
           "command": "pdflatex",
           "args": [
             "-output-directory=build",
-            "-jobname=powerstack",
             "-shell-escape",
             "-synctex=1",
             "-interaction=nonstopmode",
@@ -30,5 +29,7 @@
           }
       ],
       "latex-workshop.latex.autoBuild.run": "never",
-      "latex-workshop.view.pdf.viewer": "tab"
+      "latex-workshop.view.pdf.viewer": "tab",
+      "hediet.vscode-drawio.resizeImages": null,
+      "hediet.vscode-drawio.theme": "min"
 }
