@@ -1,0 +1,51 @@
+\chapter{Related work} % Main chapter title
+\label{Chapter2}
+
+\subsection{Intel RAPL}
+
+Intel Running Average Power Level (RAPL) is a feature introduced by Intel in their Sandy Bridge processors and provides a way to monitor and control the energy consumption of various components within their processor package\parencite{projectexigence_rapl}. The processor is divided into different power domains or "planes", representing specific components. These domains typically include CPU cores, integrated graphics and DRAM. RAPL provides hardware counters  and interfaces to read the energy consumption (and set power limits) for each domain. The energy consumption is measured in terms of processor-specific "energy units" (e.g. 61$\mu$J for Haswell and Skylake processors). These counters are updated approximately every millisecond. An adaptation of RAPL for AMD processors uses largely the same mechansms and the same MSR interface\parencite{amd_energy}, although it provides less information than Intel's RAPL\parencite{schone2021energy}, providing no DRAM energy consumption.
+
+With an increase in CPU complexity, RAPL
+
+Intel RAPL has been used extensively in research to measure energy consumption, 
+
+\subsubsection{Measurement Methodology}
+\parencite{schone2024energy}
+
+\subsubsection{Validation}
+- ON NEWEST ARCHITECTURE: STATES WITH LOW POWER CONSUMPTION -> INACCURATE \parencite{schone2024energy}
+Since its inception, RAPL has been subject of various validation studies, with the general concensus that it's accuracy could be considered "good enough"\parencite{raffin2024dissecting}. Notable works are Hackenberg et al, that in 2013 found RAPL accurate but missing timestamps\parencite{hackenberg2013power}, and in 2015 noticed a major improvement to RAPL accuracy, after Intel switched from a modeling approach to actual measurements for their Haswell architecture\parencite{hackenberg2015energy}. Desrochers et al concluded in a 2016 RAPL DRAM validation study\parencite{desrochers2016validation} that DRAM power measurement was reasonably accurate, especially on server-grade CPUs. They also found measurement quality to drop when measuring and idling system.
+
+More recently, Schöne et al found RAPL in the Alder Lake architecture to be generally consistent with external measurements, but missing DRAM measurements and exhibiting lower accuracy in low power scenarios\parencite{schone2024energy}. This is noteworthy also because Alder Lake is Intel's first heterogeneous processor, combining two different core architectures from the Core and Atom families (commonly referred to as P-Cores and E-cores) to improve performance and energy efficiency. While this heterogenity can improve performance and energy efficiency, it also increases complexit of scheduling decisions and power saving mechanisms. this complexity adds to the already complex architecture, featuring per-core Dynamic Voltage and frequency Scaling (DVFS), Idle states and Power Limiting / Thermal Proection.
+
+
+\subsubsection{Limitations and issues}
+Several limitations of RAPL were noticed in various research works. Since RAPL is continually improved by Intel as new Processors are released, some of these issues have since been improved or entirely solved. 
+
+\begin{itemize}
+    \item \textbf{Register overflow: }The 32-bit register can experience an overflow error\parencite{khan2018rapl}. This can be mitigated by sampling more frequently than the register takes to overflow. This interval can be calculated using the following equation: 
+    \begin{equation}
+        t_{\text{overflow}} = \frac{2^{32} \cdot E_u}{P}
+    \end{equation}
+    Here, $E_u$ is the energy unit used (61$\mu$J for haswell), and $P$ is the power consumption. On a Haswell processor consuming 84W, an overflow would occur every 52 minutes.
+    \item \textbf{DRAM Accuracy: }DRAM Accuracy can only reliably be used for the Haswell architecture\parencite{desrochers2016validation, khan2018rapl}, and may still exibit a constant power offset.
+    \item \textbf{Unpredictable Timings: }While the Intel documentation states that the RAPL time unit is 0.976ms, the actual intervals may vary. This is an issue since the measurements do not come with timestamps, making precise measurements difficult\parencite{khan2018rapl}. Several coping mechanisms have been used to mitigate this, notably \textit{busypolling} (busypolling the counter for updates, significantly compromizing overhead in terms of time and energy\parencite{hahnel2012measuring}), \textit{supersampling} (lowering the sampling interval, enlarging overhead and occasionaly creating duplicates that need to be filtered\parencite{khan2018rapl}), or \textit{high frequency sampling} (\textit{lowering} the sampling rate when the resulting data is still sufficient\parencite{servat2016detailed}).
+    \item \textbf{Lower idle power accuracy: } When measuring an idling server, RAPL tends to be less accurate\parencite{schone2024energy, desrochers2016validation}
+    \item \textbf{Side-channel attacks: } While the update rate of RAPL is usually 1ms, it can get as low as 50 $\mu$s for the PP= domain (processor cores) on desktop processors. This can be used to retrieve processed data in a side channel attack\parencite{lipp2021platypus, schone2024energy}. To mitigate this issue while retaining RAPL functionality, Intel implements a filtering technique via the ENERGY_FILTERING_ENABLE\parencite{intel2023, Table 2-2} entry. This filter adds random noise to the reported values. While this does not affect the average power consumption, point measurement power consumption can be affected.
+\end{itemize}
+
+RAPL has several limitations. 
+
+- counter overflow of the 32 bit register
+non atomic register updates
+"lack of individual core-level measurements"?????? ->fixed later??
+in virtualised environments like cloud instances, the RAPL readings may be intercepted or modified by the hypervisor, potentially affecting their accuracy
+    https://projectexigence.eu/green-ict-digest/running-average-power-limit-rapl/ (bad source)
+- Not all measuremnt methods are equally accurate?? -> \parencite{raffin2024dissecting}
+
+\subsubsection{Methods of measurement}
+Good comparison -> \parencite{raffin2024dissecting}
+- MSR / perf-events + eBPF / perf-events / powercap
+
+
+\subsection{RAPL-based tools}
