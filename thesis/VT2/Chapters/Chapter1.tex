@@ -17,6 +17,8 @@ This trend is amplified by the growing popularity of Container-as-a-Service (Caa
 
 \subsection{Container Energy Consumption Measurement Challenges}
 
+Knowing the energy consumed by a container on a server is the essential elemenent to a container-level energy efficiency assessment of both the container itself, as well as the environment surrounding it. An accurate energy consumption estimation is therefore required to validate and improve any potential energy efficiency improvements of a container enviromnent, from kubernetes system components (e.g. Kubernetes Schedulers) to the containers themselves.
+
 Energy consumption in containerized systems is inherently hard to measure due to the abstraction layers involved. Tools like RAPL (Running Average Power Limit) expose component-level energy metrics on modern Intel and AMD CPUs, but this information is not accessible from within containers or virtual machines. In public cloud environments, such telemetry is either not exposed or aggregated at coarse granularity, making direct measurement infeasible.
 
 Containers further complicate attribution: because they share the kernel and hardware resources, it is difficult to isolate the energy impact of one container from another. Only indirect metrics—such as CPU time, memory usage, or performance counters—are available, and even these may be incomplete or noisy depending on system configuration and workload behavior. Various tools exist that attempt to model container power usage based on these inputs, but rarely are their produced metrics transistent and verified.
@@ -25,10 +27,29 @@ Containers further complicate attribution: because they share the kernel and har
 
 The growing importance of containers in cloud environments, combined with the difficulty of directly measuring their energy usage, motivates this work. In particular, this thesis investigates the questions:
 
-Which metrics and models allow for reliable power estimation and attribution in containerized systems?
+\textbf{Question 1: Which metrics and models allow for reliable container-level power estimation?}
 
-How can existing container energy consumption estimation tools be validated?
+\textbf{Question 2: How should a software-based container energy consumption estimation tool be implemented?}
 
-To answer this, the study explores methods of measuring server energy consumption, analyzes container workload metrics, and evaluates modeling techniques that aim to bridge the gap between raw energy data and container-level attribution. The focus is on bare-metal Kubernetes environments, where full system observability allows for deeper analysis and model validation, serving as a foundation for future energy-aware cloud architectures.
+\textbf{Question 3: How can existng container energy consumption estimation tools be validated?}
+
+To answer these questions, this study explores methods of measuring server energy consumption, analyzes container workload metrics, and evaluates modeling techniques that aim to bridge the gap between raw energy data and container-level attribution. \textbf{The focus is on bare-metal Kubernetes environments, where full system observability allows for deeper analysis and model validation, serving as a foundation for future energy-aware cloud architectures.} 
 
 \subsection{Context of this thesis}
+
+This thesis is part of the Master's program in Computer Science at the Zurich University of Applied Sciences (ZHAW) and represents the second of two specialization projects ("VTs"). The preceding project (VT1) focused on the practical implementation of a test environment for energy efficiency research in Kubernetes clusters. This thesis (VT2) is meant to explore theoretical and methodolocical aspects of container energy consumption measurements in detail.
+
+Furhtermore, this thesis builds upon prior works focused on performance optimization and energy measurement. EVA1 covered topics such as operating system tools, statistics, and eBPF, while EVA2 explored energy measurement in computer systems, covering hardware, firmware, and software aspects. These foundational topics provide the basis for the current thesis but will not be revisited in detail.
+
+
+\subsection{Use of AI Tools}
+During the writing of this thesis, \textit{ChatGPT}\parencite{OpenAI_ChatGPT_2025} (Version 4o, OpenAI, 2025) was used as an auxiliary tool to enhance efficiency in documentation and technical writing. Specifically, it assisted in:
+\begin{itemize}
+\item Structuring and improving documentation clarity.
+\item Beautifying and formatting smaller code snippets.
+\item Assisting in LaTeX syntax corrections and debugging.
+\end{itemize}
+All AI-generated content was critically reviewed, edited, and adapted to fit the specific context of this thesis. \textbf{ChatGPT was not used for literature research, conceptual development, methodology design, or analytical reasoning.} The core ideas, analysis, and implementation details were developed independently.
+
+\subsection {Project Repository}
+All code, configurations, and automation scripts developed for this thesis are publicly available in the PowerStack\parencite{PowerStack} repository on GitHub. The repository contains Ansible playbooks for automated deployment, Kubernetes configurations, monitoring stack setups, and benchmarking scripts. This allows for full reproducibility of the test environment and facilitates further research or adaptation for similar projects.

@@ -1,6 +1,247 @@
-\chapter{Related work} % Main chapter title
+\chapter{State of the Art and Related Research} % Main chapter title
 \label{Chapter2}
 
-\section{Energy consumption of computer systems}
-\section{}
-\section{Estimating Container energy consumption}
+\section{Energy consumption measurement and efficiency on data center level}
+
+Energy consumption and efficiency on a data center level has been well-studied to the point where various Literature reviews were published\parencite{long2022review}\parencite{jin2020review}. The bigger part of this research is focused on the data center infrasturture (cooling and power), and with good reason, as the data center infrastructure is responsible for a large part of the energy consumption. While a large number of coarse-, medium- and fine-grained metrics for data center energy consumption exist, most data center operators have focused on improving coarse-grained mertrics (especially the \textit{Power Utilization Effectiveness, PUE}) with improvements to infrastructure. This has resulted in a PUE of 1.1 or lower in some cases\parencite{uptime2023pue}. Meanwhile, server energy efficiency has substantially improved, especially for parial load and idle power\parencite{tropgen202416}. This has allowed data center operators to improve energy efficiency by simply installing more efficient cooling and power systems and servers. Fine-grained metrics such as server component utilization rates or speed were generally not used in the context of energy efficiency, but rather as performance metrics to ensure customer satisfaction.
+
+\section{Energy consumption measurement on a server level}
+
+As a result of the energy efficiency improvements of both data center infrastructure and server hardware mentioned in the previous section, a shift has started towards evaluating the actual server load energy efficiency. Efficiency gains on this level compound into further gains at the data center level. The  method of resource-sharing of modern cloud computing (and especially the use of containers) have created great opportunities for server workload optimitation for energy efficiency, which in turn require power consumption measurements for evaluation. In the context of containers on multi-core processors, measuring the energy consumption of the entire server is insufficient, since it does not allow the attribution of consumped energy to specific containers or processes. While component-level power measurements provide finer measurements that could theoretically be modelled to display container energy consumption, they drastically raise the complexity for a number of reasons:
+
+\begin{itemize}
+    \item Component-level energy consumption measurement without external tools is far from easy. While some components provide estimation models (e.g. Intel RAPL or Nvidia SMI), others can only be estimated using their performance metrics. This will invariably lead to large measurement uncertainties, especially with the component hardware differences between generations and manufacturers.
+    \item The problem of attributing measured or estimated energy consumption to individual containers is in itself non-trivial: It not only requires a fine-grained time synchronization of energy consumption and used container resources due to the fast-switching nature most server components during any sort of multitasking.
+    \item A deep understanding of dynamic or static energy consumption is required: Depending on the energy consumption attribution model, a container might not only account the energy it actively used, but potentially also account for a fraction of the energy consumed for any shared overhead such as shared hardware components, or system resources (such as the Kubernetes system architecure). This idea can be further extended: containers could potentially be penalized for any unused server resources, as these unused capacity still consume energy. These different attribution models lead to a larger debate about the goals of the measurements.
+    \item Any server-level power models used to estimate the relation of individual component energy consumption suffers from the varity of different server configurations due to server specialization, such as Storage-, GPU-, or Memory-optimized servers.
+    \item 
+\end{itemize}
+
+The following sections of this chapter aim to present the current state-of-the-art in the various fields of research of the problem domains listed above. 
+
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+here, a sentence will introduce the subsections:
+\begin{itemize}
+    \item Hardware components: CPU / RAM / SoC / GPU / \dots
+    \item 
+\end{itemize}
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+Finally, section xxxxxxxxxxxxxxxxxxxxxxxxxxxx aims to give an overview of the currently existing implementations of software-based container-level energy consumption estimation.
+
+\section{Overview of Power Data collection}
+
+In a systematic review cloud servers power models, Lin et al\parencite{lin2020taxonomy} categorize power collection methods into 4 categories:
+\begin{table}[h]
+    \tiny
+    \caption{Comparison of power collection methods for cloud servers}
+    \label{tab:power_collection_methods}
+    \begin{tabular}{p{2cm} p{2cm} p{2.5cm} p{1.2cm} p{2cm} p{1.5cm}}
+        \toprule
+        \textbf{Key} & \textbf{Value} & \textbf{Description} & \textbf{Deployment Difficulty} & \textbf{Data Granularity} & \textbf{Data Credibility}\\\midrule
+        % pid & pid & Process ID\\
+        Based on instruments & Installation of extra devices & Bare-metal machines & Easy & Machine Level & Very high \\
+        \hline
+        Based on dedicated aquisition system & Specialized systems & Specified models of machines & Difficult & Machine or component-level & High \\
+        \hline
+        Based on software monitoring & Build-in power models & Bare-metal and virtual servers & Moderate & Machine, component, or VM level & Fair \\
+        \hline
+        Based on simulation & System simulation & Machine, component or VM level & Easy & Machine, component, or VM level & Low\\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Instrument-based power data aquisition}
+
+Instrument-based Data collection aquisition produces the hightest data credibility at a low granularity: These devices, installed externally (measuring the power supplied to the PDU) or internally (measuring the power flow between the PDU and motherboard) have been  the source of information for a number of studies. The approach to simply measure electric power at convenient hardware locations using dedicated equipment can of course be extended to provide additional granularity: For example, Desrocher et al\parencite{desrochers2016validation} custom-created a DIMM extender custom-fitted with Hall-sensor resistors and a linux measurement utility to measure power consumed by a DIMM memory module at 1kHz sampling rate using a \textit{WattsAppPro?} power meter and a \textit{Measurment Computing USB.1208FS-Plus} data aquisition board.
+
+This of course highlights a fundamental truth of instrument-based data collection: While it is possible to implement a measuring solution that provides high-granular and high-sampling rate power data, it is paired with an immense effort since solutions like this are not provided off-the-shelf. Unsuprisingly, this is most valuable for benchmarking or validation (Desrochers used this setup to validate Intel RAPL DRAM power estimations on three different systems). However, this methodology is (currently) unsuitable for deployment to data center servers due to its bad scalability and prohibitive costs. Hence, the primary role of instrument-based power data aquisiton is as a benchmarking and validation tool for research and development.
+
+\subsection{Dedicated Aquisition systems}
+\subsubsection{BMC Devices, IPMI and Redfish}
+Some manufacturers have developed specialized power data aquisition systems for their own server products. The baseboard management controller (BMC) is a typical dedicated aquisition system usually integrated with the motherboard, usually as part of the intelligent platform management interface (IPMI)\parencite{lin2020taxonomy}. It can be connected to the system bus, sensors and a number of components to provide power and temparature information about the CPU, memory, LAN port, fan, and the BMC itself. Some comprehensive management systems such as Dell iDRAC or Lenovo xClarity have been further developed to provide high-quality, fine-grained power data due to their close interoperation between system software and underlying hardware. BMC devices on modern servers often offer IPMI- or Redfish interfaces. While these interfaces use the same physical servers, their implementation differ significantly, where Redfish generally offers higher accuracy (e.g through the use of higher-bit formats, whereas IPMI often uses 8-bit raw numbers).
+
+In the context of container power consumption estimation, IPMI-implementations occupy an interesting role. In 2016, Kavanagh et al\parencite{kavanagh2016accuracy} found the accuracy of IMPI power data to be relatively inaccurate when compared with an external power meter, mainly due to the large measurement window size of 120 to 180 seconds and the inaccurate assessment of the idle power. They concluded that IMPI power data was still useful when a longer averaging window was used, and the initial datapoints discounted. In a later study, they suggest combining the measurements of IPMI and Intel RAPL (which they find to underestimate the power consumption) for a reasonable approximation of true measurement\parencite{kavanagh2019rapid}. Kavanagh's findings have been cited in various studies, often to negate the use of IPMI for power measurement. When used, it sometimes is chosed because it was the "simplest power metric to read"\parencite{white2020monitoring} in the context of entire data centers.
+
+Redfish is a modern Out-of-band System Management, first released in 2015 explicitely to replace IPMI \parencite{thomas-krenn-redfish}. It uses a RESTful API and JSON data format, making queries with code easier. In 2019, Wang et al\parencite{wang2019empirical} directly compared IPMI and redfish power data to a reading of a high accuracy power analyzer, and found Redfish to be more accurate than IPMI, with a MAPE of 2.9\%, while also finding a measurement latency of about 200ms. They also found measurements to be more accurate in higher power ranges, which they attribute to the improved latency.
+
+In conclusion, BMC power data aquired over Redfish provides a simple simple and comparatively easy way to measure system power based on various physical system sensors. Its biggest strenght lies in easy implementation and general availability. In the context of container energy consumption, BMC power data lacks the short sampling rates necessary to measure a a highly dynamcic container setup, but can prove useful as a validation or cross-reference dataset for longer intervals exceeding 120 seconds. Unfortunately, the data quality of BMC power data depends on the actual system, and  power models can be significantly improved by initial calibration with an external power measurement device\parencite{kavanagh2016accuracy}.
+
+\subsubsection{Intel RAPL}
+
+
+\section{Server Power models}
+In the absence of actual power data, power consumption models can be formulated that essentially map variables (such as CPU, Memory utilization) related to a server's state to its power consumption. 
+Due to the strong correlation between CPU uzilization and server power, a great number of models use CPU metrics as the only indicator of server power. Fan et al\parencite{fan2007power} proposed a linear interpolation between idle power and full power, which they further refine into a non-linear form, with a parameter $\gamma$ to be fitted to minimize mean square error. Similar research was done to further reduce error by introducting more complex non-linear models, such as Hsu and Poole\parencite{hsu2011power}, who studied the SPECpower\textunderscore ssj2008-dataset of systems released between December 2007 and August 2010, and suggested the adaptation of two non-linear terms:
+\begin{equation}
+    P_{\text{server}} = \alpha_0 + \alpha_1 u_{\text{cpu}} + \alpha_2 \left( u_{\text{cpu}} \right)^{\gamma_0} + \alpha_3 \left( 1 - u_{\text{cpu}} \right)^{\gamma_1}
+\end{equation}
+
+While models like these might work well when custom-fitted to specific, multi-purpose servers, they have since been surpassed by the more common approach of modelling server power is to consider it an assembly of its components, such as Song et al\parencite{song2013unified} propose as:
+\begin{equation}
+    P_{\text{server}} = P_{\text{cpu}} + P_{\text{memory}} + P_{\text{disk}} + P_{\text{NIC}} + C
+\end{equation}
+, where C denotes the server's base power, which includes the power consumption of other components (regarded as static). This approach can easily be extended to include various other components such as GPUs, FPGAs or other connected components.
+
+
+....
+
+
+
+
+In a systematic review cloud servers power models, Lin et al\parencite{lin2020taxonomy} state that the common way
+
+
+\section{Power data collection}
+
+see Lin et al for overview -> instruments / dedicated aquisition system / software monitoring and calculation / simulation
+
+\subsection{CPU}
+
+\subsection{Memory}
+
+\subsection{Storage}
+
+\subsection{Networking}
+
+\section{Container energy estimation based on hardware power estimation}
+% see lin et al
+
+
+
+\begin{comment}
+- multiple papers have tried to attribute component-level 
+\end{comment}
+
+% \section{Introduction}
+% \begin{itemize}
+%     \item Motivation for accurate energy consumption measurement in containerized environments
+%     \item Scope of this chapter
+%     \item Structure of the chapter
+% \end{itemize}
+
+% \section{Validation of Energy Measurement Methods}
+% \subsection{Overview of Measurement Interfaces}
+% \begin{itemize}
+%     \item Intel RAPL (Running Average Power Limit)
+%     \item BMC Interfaces (e.g., Redfish, IPMI)
+%     \item Wall Power Meters (e.g., smart PDUs, power sockets)
+% \end{itemize}
+
+% \subsection{Cross-Validation Studies}
+% \begin{itemize}
+%     \item Comparison between RAPL, BMC, and Wall Power
+%     \item Known inaccuracies and calibration techniques
+%     \item Resolution and update frequency
+% \end{itemize}
+
+% \subsection{Limitations and Challenges}
+% \begin{itemize}
+%     \item Hardware-specific behaviors
+%     \item Temporal resolution vs accuracy
+%     \item External factors (thermal throttling, BIOS settings)
+% \end{itemize}
+
+% \section{System-Level Energy Measurement Tools}
+% \subsection{Overview of Common Tools}
+% \begin{itemize}
+%     \item PowerTOP
+%     \item ipmitool and Redfish CLI tools
+%     \item perf, turbostat, msr-tools
+% \end{itemize}
+
+% \subsection{Capabilities and Use Cases}
+% \begin{itemize}
+%     \item Server power monitoring
+%     \item Power modeling and estimation
+%     \item Energy-aware scheduling (non-containerized)
+% \end{itemize}
+
+% \subsection{Strengths and Limitations}
+% \begin{itemize}
+%     \item Overhead and granularity
+%     \item Portability across hardware
+%     \item Integration with monitoring stacks (e.g., Prometheus)
+% \end{itemize}
+
+% \section{Taxonomy of Energy Measurement Approaches}
+% \subsection{Measurement Dimensions}
+% \begin{itemize}
+%     \item Direct vs Indirect Measurement
+%     \item Real-time vs Offline Analysis
+%     \item Hardware-Level vs OS-Level vs Application-Level
+%     \item Static Models vs Dynamic Instrumentation
+% \end{itemize}
+
+% \subsection{Attribution Granularity}
+% \begin{itemize}
+%     \item Node-level, Process-level, Container-level
+%     \item Component breakdown (CPU, memory, I/O, network)
+% \end{itemize}
+
+% \section{Container-Level Energy Consumption Measurement}
+% \subsection{Challenges in Container Environments}
+% \begin{itemize}
+%     \item Resource sharing and cgroup isolation
+%     \item Transient workloads and short-lived containers
+%     \item Scheduler noise and runtime variability
+% \end{itemize}
+
+% \subsection{Strategies for Energy Attribution}
+% \begin{itemize}
+%     \item Per-process accounting and aggregation
+%     \item Performance counters and sampling
+%     \item Machine learning and model-based inference
+% \end{itemize}
+
+% \subsection{Tools and Frameworks}
+% \begin{itemize}
+%     \item \textbf{Kepler}: BPF-based metrics and ML models
+%     \item \textbf{Scaphandre}: powercap interface and Prometheus export
+%     \item \textbf{PowerAPI}, \textbf{PowerVisor}, other academic tools
+% \end{itemize}
+
+% \subsection{Evaluation and Comparison}
+% \begin{itemize}
+%     \item Accuracy and validation methods
+%     \item Measurement overhead
+%     \item Deployment complexity and scalability
+% \end{itemize}
+
+% \section{Use Cases and Evaluation Criteria}
+% \subsection{Real-World Applications}
+% \begin{itemize}
+%     \item Data center energy reporting
+%     \item Cost-aware scheduling and autoscaling
+%     \item SLA monitoring and anomaly detection
+% \end{itemize}
+
+% \subsection{Evaluation Dimensions}
+% \begin{itemize}
+%     \item Precision and granularity
+%     \item Resource overhead
+%     \item Hardware and software portability
+%     \item Ease of integration
+% \end{itemize}
+
+% \section{Limitations and Open Research Questions}
+% \begin{itemize}
+%     \item Lack of standardization and benchmarks
+%     \item Difficulty in attributing non-CPU power usage
+%     \item Trade-offs between overhead and accuracy
+%     \item Need for reproducibility across diverse platforms
+% \end{itemize}
+
+% \section{Industrial Practices and Emerging Trends}
+% \begin{itemize}
+%     \item Open Compute Project (OCP) standards
+%     \item Google, Microsoft, Amazon energy-aware systems (if publicly available)
+%     \item Sustainability metrics and reporting frameworks (e.g., Scope 2 emissions)
+% \end{itemize}
+
+% \section{Summary}
+% \begin{itemize}
+%     \item Recap of covered measurement methods and tools
+%     \item Key insights into container-level energy measurement
+%     \item Motivation for the approach used in this thesis
+% \end{itemize}
