@@ -1,0 +1,60 @@
+\chapter{Table templates}
+\label{tables}
+
+
+%controlled width
+\begin{tabular}{ | m{5em} | m{1cm}| m{1cm} | } 
+    \hline
+    cell1 dummy text dummy text dummy text& cell2 & cell3 \\ 
+    \hline
+    cell1 dummy text dummy text dummy text & cell5 & cell6 \\ 
+    \hline
+    cell7 & cell8 & cell9 \\ 
+    \hline
+\end{tabular}
+
+%auto width
+\begin{tabular}{ |c|c|c| } 
+    \hline
+    cell1 dummy text dummy text dummy text& cell2 & cell3 \\ 
+    \hline
+    cell1 dummy text dummy text dummy text & cell5 & cell6 \\ 
+    \hline
+    cell7 & cell8 & cell9 \\ 
+    \hline
+\end{tabular}
+
+% and with heading line
+
+%controlled width
+\begin{tabular}{ | m{5em} | m{1cm}| m{1cm} | } 
+    \hline
+    cell1 dummy text dummy text dummy text& cell2 & cell3 \\ 
+    \Xhline{1.5pt}
+    cell1 dummy text dummy text dummy text & cell5 & cell6 \\ 
+    \hline
+    cell7 & cell8 & cell9 \\ 
+    \hline
+\end{tabular}
+
+%auto width
+\begin{tabular}{ |c|c|c| } 
+    \hline
+    cell1 dummy text dummy text dummy text& cell2 & cell3 \\ 
+    \Xhline{1.5pt}
+    cell1 dummy text dummy text dummy text & cell5 & cell6 \\ 
+    \hline
+    cell7 & cell8 & cell9 \\ 
+    \hline
+\end{tabular}
+
+\begin{tabularx}{0.8\textwidth} { 
+  | >{\raggedright\arraybackslash}X 
+  | >{\centering\arraybackslash}X 
+  | >{\raggedleft\arraybackslash}X | }
+ \hline
+ item 11 & item 12 & item 13 \\
+ \hline
+ item 21  & item 22  & item 23  \\
+\hline
+\end{tabularx}
