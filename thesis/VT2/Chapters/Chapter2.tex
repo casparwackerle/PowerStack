@@ -7,7 +7,7 @@ Energy consumption and efficiency on a data center level has been well-studied t
 
 \section{Energy consumption measurement on a server level}
 
-As a result of the energy efficiency improvements of both data center infrastructure and server hardware mentioned in the previous section, a shift has started towards evaluating the actual server load energy efficiency. Efficiency gains on this level compound into further gains at the data center level. The  method of resource-sharing of modern cloud computing (and especially the use of containers) have created great opportunities for server workload optimitation for energy efficiency, which in turn require power consumption measurements for evaluation. In the context of containers on multi-core processors, measuring the energy consumption of the entire server is insufficient, since it does not allow the attribution of consumped energy to specific containers or processes. While component-level power measurements provide finer measurements that could theoretically be modelled to display container energy consumption, they drastically raise the complexity for a number of reasons:
+As a result of the energy efficiency improvements of both data center infrastructure and server hardware mentioned in the previous section, a shift has started towards evaluating the actual server load energy efficiency. Efficiency gains on this level compound into further gains at the data center level. The method of resource-sharing of modern cloud computing (and especially the use of containers) have created great opportunities for server workload optimitation for energy efficiency, which in turn require power consumption measurements for evaluation. In the context of containers on multi-core processors, measuring the energy consumption of the entire server is insufficient, since it does not allow the attribution of consumped energy to specific containers or processes. While component-level power measurements provide finer measurements that could theoretically be modelled to display container energy consumption, they drastically raise the complexity for a number of reasons:
 
 \begin{itemize}
     \item Component-level energy consumption measurement without external tools is far from easy. While some components provide estimation models (e.g. Intel RAPL or Nvidia SMI), others can only be estimated using their performance metrics. This will invariably lead to large measurement uncertainties, especially with the component hardware differences between generations and manufacturers.
@@ -32,33 +32,9 @@ Finally, section xxxxxxxxxxxxxxxxxxxxxxxxxxxx aims to give an overview of the cu
 \section{Overview of Power Data collection}
 
 In a systematic review cloud servers power models, Lin et al\parencite{lin2020taxonomy} categorize power collection methods into 4 categories:
-% % \begin{table}[h]
-% %     \tiny
-
-%     %\begin{tabular}{p{2cm} p{2cm} p{2.5cm} p{1.2cm} p{2cm} p{1.5cm}}
-%     \begin{tabular}{ |c|c|c|c|c|c| } 
-%     \textbf{Key} & \textbf{Value} & \textbf{Description} & \textbf{Deployment Difficulty} & \textbf{Data Granularity} & \textbf{Data Credibility}\\
-%         \Xhline{1.5pt}
-%         Based on instruments & Installation of extra devices & Bare-metal machines & Easy & Machine Level & Very high \\
-%         \hline
-%         Based on dedicated aquisition system & Specialized systems & Specified models of machines & Difficult & Machine or component-level & High \\
-%         \hline
-%         Based on software monitoring & Build-in power models & Bare-metal and virtual servers & Moderate & Machine, component, or VM level & Fair \\
-%         \hline
-%         Based on simulation & System simulation & Machine, component or VM level & Easy & Machine, component, or VM level & Low\\
-%         \hline
-%     \caption{Comparison of power collection methods for cloud servers}
-%     \label{tab:power_collection_methods}
-%     \end{tabular}
-% % \end{table}
-
-
-
-
-
 \begin{table}[h]
     \tiny
-    \begin{tabular}{ m{2em} | m{2cm}| m{2.5cm} | m{1.2m} | m{2cm}| m{1.5cm} }
+    \begin{tabular}{ |p{2cm} | p{2cm} | p{2.5cm} | p{1.2cm} | p{2cm} | p{1.5cm} |} 
         \hline
         \textbf{Key} & \textbf{Value} & \textbf{Description} & \textbf{Deployment Difficulty} & \textbf{Data Granularity} & \textbf{Data Credibility}\\
         \Xhline{1.5pt}
@@ -71,21 +47,15 @@ In a systematic review cloud servers power models, Lin et al\parencite{lin2020ta
         Based on simulation & System simulation & Machine, component or VM level & Easy & Machine, component, or VM level & Low\\
         \hline
     \end{tabular}
-    \caption{Comparison of power collection methods for cloud servers}
+    \caption[Comparison of power collection methods for cloud servers]{Comparison of power collection methods for cloud servers}
     \label{tab:power_collection_methods}
 \end{table}
 
 
 
-
-
-
-
-
-
 \subsection{Instrument-based power data aquisition}
 
-Instrument-based Data collection aquisition produces the hightest data credibility at a low granularity: These devices, installed externally (measuring the power supplied to the PDU) or internally (measuring the power flow between the PDU and motherboard) have been  the source of information for a number of studies. The approach to simply measure electric power at convenient hardware locations using dedicated equipment can of course be extended to provide additional granularity: For example, Desrocher et al\parencite{desrochers2016validation} custom-created a DIMM extender custom-fitted with Hall-sensor resistors and a linux measurement utility to measure power consumed by a DIMM memory module at 1kHz sampling rate using a \textit{WattsAppPro?} power meter and a \textit{Measurment Computing USB.1208FS-Plus} data aquisition board.
+Instrument-based Data collection aquisition produces the hightest data credibility at a low granularity: These devices, installed externally (measuring the power supplied to the PDU) or internally (measuring the power flow between the PDU and motherboard) have been the source of information for a number of studies. The approach to simply measure electric power at convenient hardware locations using dedicated equipment can of course be extended to provide additional granularity: For example, Desrocher et al\parencite{desrochers2016validation} custom-created a DIMM extender custom-fitted with Hall-sensor resistors and a linux measurement utility to measure power consumed by a DIMM memory module at 1kHz sampling rate using a \textit{WattsAppPro?} power meter and a \textit{Measurment Computing USB.1208FS-Plus} data aquisition board.
 
 This of course highlights a fundamental truth of instrument-based data collection: While it is possible to implement a measuring solution that provides high-granular and high-sampling rate power data, it is paired with an immense effort since solutions like this are not provided off-the-shelf. Unsuprisingly, this is most valuable for benchmarking or validation (Desrochers used this setup to validate Intel RAPL DRAM power estimations on three different systems). However, this methodology is (currently) unsuitable for deployment to data center servers due to its bad scalability and prohibitive costs. Hence, the primary role of instrument-based power data aquisiton is as a benchmarking and validation tool for research and development.
 
@@ -95,22 +65,21 @@ Some manufacturers have developed specialized power data aquisition systems for 
 
 In the context of container power consumption estimation, IPMI-implementations occupy an interesting role. In 2016, Kavanagh et al\parencite{kavanagh2016accuracy} found the accuracy of IMPI power data to be relatively inaccurate when compared with an external power meter, mainly due to the large measurement window size of 120 to 180 seconds and the inaccurate assessment of the idle power. They concluded that IMPI power data was still useful when a longer averaging window was used, and the initial datapoints discounted. In a later study, they suggest combining the measurements of IPMI and Intel RAPL (which they find to underestimate the power consumption) for a reasonable approximation of true measurement\parencite{kavanagh2019rapid}. Kavanagh's findings have been cited in various studies, often to negate the use of IPMI for power measurement. When used, it sometimes is chosed because it was the "simplest power metric to read"\parencite{white2020monitoring} in the context of entire data centers.
 
-Redfish is a modern Out-of-band System Management, first released in 2015 explicitely to replace IPMI \parencite{thomas-krenn-redfish}. It uses a RESTful API and JSON data format, making queries with code easier. In 2019, Wang et al\parencite{wang2019empirical} directly compared IPMI and redfish power data to a reading of a high accuracy power analyzer, and found Redfish to be more accurate than IPMI, with a MAPE of 2.9\%, while also finding a measurement latency of about 200ms. They also found measurements to be more accurate in higher power ranges, which they attribute to the improved latency.
+Redfish is a modern Out-of-band Management System, first released in 2015 explicitely to replace IPMI \parencite{thomas-krenn-redfish}. It uses a RESTful API and JSON data format, making queries with code easier. In 2019, Wang et al\parencite{wang2019empirical} directly compared IPMI and redfish power data to a reading of a high accuracy power analyzer, and found Redfish to be more accurate than IPMI, with a MAPE of 2.9\%, while also finding a measurement latency of about 200ms. They also found measurements to be more accurate in higher power ranges, which they attribute to the improved latency.
 
-In conclusion, BMC power data aquired over Redfish provides a simple simple and comparatively easy way to measure system power based on various physical system sensors. Its biggest strenght lies in easy implementation and general availability. In the context of container energy consumption, BMC power data lacks the short sampling rates necessary to measure a a highly dynamcic container setup, but can prove useful as a validation or cross-reference dataset for longer intervals exceeding 120 seconds. Unfortunately, the data quality of BMC power data depends on the actual system, and  power models can be significantly improved by initial calibration with an external power measurement device\parencite{kavanagh2016accuracy}.
+In conclusion, BMC power data aquired over Redfish provides a simple simple and comparatively easy way to measure system power based on various physical system sensors. Its biggest strenght lies in easy implementation and general availability. In the context of container energy consumption, BMC power data lacks the short sampling rates necessary to measure a a highly dynamcic container setup, but can prove useful as a validation or cross-reference dataset for longer intervals exceeding 120 seconds. Unfortunately, the data quality of BMC power data depends on the actual system, and power models can be significantly improved by initial calibration with an external power measurement device\parencite{kavanagh2016accuracy}.
 
 \subsection{Power Monitoring Counters: Intel RAPL}
 
-Intel Running Average Power Level (RAPL) is a Power Monitoring Counter (PMC)-based feature introduced by Intel and provides a way to monitor and control the energy consumption of various components within their processor package\parencite{projectexigence_rapl}.  An adaptation of RAPL for AMD processors uses largely the same mechansms and the same interface\parencite{amd_energy}, although it provides less information than Intel's RAPL\parencite{schone2021energy}, providing no DRAM energy consumption.
+Intel Running Average Power Level (RAPL) is a Power Monitoring Counter (PMC)-based feature introduced by Intel and provides a way to monitor and control the energy consumption of various components within their processor package\parencite{projectexigence_rapl}. An adaptation of RAPL for AMD processors uses largely the same mechansms and the same interface\parencite{amd_energy}, although it provides less information than Intel's RAPL, providing no DRAM energy consumption\parencite{schone2021energy}.
 
-Intel RAPL has been used extensively in research to measure energy consumption\parencite{kennes2023measuring} despite some objections about its accuracy, which will be discussed sections~\ref{sec:raplvalidation} and ~\ref{sec:rapllimitations}. The general concencus is that RAPL is \textit{good enough} for most scientific work in the field of server energy consumption and efficiency. As Raffin et at\parencite{raffin2024dissecting} point out, it is mostly used \textit{like a black box without deep knowledge of its behavior}, resulting in implementation mistakes. For this reason, the next section~\ref{sec:raplmethodology} presents an overview of the RAPL fundamentals. Finally, section~\ref{sec:rapltools} discusses the currently available RAPL-based tools.
+Intel RAPL has been used extensively in research to measure energy consumption\parencite{kennes2023measuring} despite some objections about its accuracy, which will be discussed sections~\ref{sec:raplvalidation} and ~\ref{sec:rapllimitations}. The general concencus is that RAPL is \textit{good enough} for most scientific work in the field of server energy consumption and efficiency. As Raffin et at\parencite{raffin2024dissecting} point out, it is mostly used \textit{like a black box without deep knowledge of its behavior}, resulting in implementation mistakes. For this reason, the next section~\ref{sec:raplmethodology} presents an overview of the RAPL fundamentals.Finally, section~\ref{sec:rapltools} discusses the currently available RAPL-based tools.
 
-\subsubsection{How RAPL works, and how it's used}
+\subsubsection{RAPL measuerment methods}
 \label{sec:raplmethodology}
-\parencite{schone2024energy}, \parencite{raffin2024dissecting}
-This subsection provides an overview of how RAPL works and is used. It is based on the official Intel documentation\parencite[Section 16.10]{intel-sdm} and the works of Raffin et al \parencite{raffin2024dissecting} (2024) and Schöne et al \parencite{schone2024energy} (2024).
+This subsection provides an overview of how RAPL works and is used. It is based on the Intel rchitectures Software Developer’s Manual\parencite[Section 16.10]{intel-sdm} and the works of Raffin et al \parencite{raffin2024dissecting} (2024) and Schöne et al \parencite{schone2024energy} (2024).
 
-Running Average Power Limit (RAPL) is a power management interface in Intel CPUs. Apart from power limiting and thermal management, it also allows to measure the energy consumed by various components (or \textit{domains}). These domains individual CPU cores, integrated graphics (in non-server CPUs) and DRAM, as well as \textit{package}, refering to the whole CPU die. While it initially used models to estimate energy use\parencite{hackenberg2015energy}, it now uses physical measurements. The processor is divided into different power domains or "planes", representing specific components, seen in figure~\ref{fig:rapl_domains}  
+Running Average Power Limit (RAPL) is a power management interface in Intel CPUs. Apart from power limiting and thermal management, it also allows to measure the energy consumed by various components (or \textit{domains}). These domains individual CPU cores, integrated graphics (in non-server CPUs) and DRAM, as well as \textit{package}, refering to the whole CPU die. While it initially used models to estimate energy use\parencite{hackenberg2015energy}, it now uses physical measurements. The processor is divided into different power domains or "planes", representing specific components, seen in figure~\ref{fig:rapl_domains}. Notably, not all domains are present in all systems: Both client-grade systems feature the \textit{Package} and \textit{PP0 core} domains, server grade processors typically don't show the \textit{PP1 uncore}-domain typically used for integrated GPUs, and client-grade processors don't show the \textit{DRAM} domain. The \textit{PSYS} domain for the "whole machine" is ill defined and only exists on client-grade systems. In an experiment with recent Lenovo and Alienware laptops, Raffin et al found that the \textit{PSYS} domain reported the total consumption of the laptop, including display, dedicated GPU and other domains. Regardless, this thesis will focus on the RAPL power domains available to server-grade processors.
 
 \begin{figure}[ht]
     \centering
@@ -122,45 +91,52 @@ Running Average Power Limit (RAPL) is a power management interface in Intel CPUs
 
 RAPL provides hardware counters to read the energy consumption (and set power limits) for each domain. The energy consumption is measured in terms of processor-specific "energy units" (e.g. 61$\mu$J for Haswell and Skylake processors). The counters are exposed to the operating system through model-specific registers (MSRs) and are updated approximately every millisecond. The main advantages of RAPL are that no external powermeters are required, nor a privileged access to the BMC (which could be used to power off the server). RAPL is more accurate than any untuned statistical estimation model.
 
-Various interfaces can be used to extract measurements: One can use the low-level MSR directly, or choose a higher-level interface provided by the operating system. Linux provides both the Power Capping framework (powercap) and the Performance Counters subsystem (perf-events). The perf-events interface can be read either from user space or from kernel space using eBPF. eBPF (\textit{extended Berkeley Packet filter}) allows the injection of code into a kernel. Triggering the an eBPF program by a call to the \texttt{rdmsr x86} instruction would prevent a mode switch and theoretically lower measurement overhead. This method is visualized in figure~\ref{fig:rapl_perf_eBPF}
+Various measurement methods can be used to extract RAPL measurements. In a detailed comparison, Raffin et al\parencite{raffin2024dissecting} outline their individual features and tradeoffs, which are summarize in figure~\ref{fig:rapl_interfaces_tradeoffs}:
+\begin{itemize}
+    \item The \textbf{Model-Specific Register (MSR)} interface provides low-level access to RAPL energy counters but is complex and hardware-dependent. Developers must manually determine register offsets and unit conversions based on processor model and vendor documentation. This method lacks safeguards, requires deep processor knowledge, and is error-prone, with incorrect readings difficult to detect. Although read-only access poses no risk to system stability, MSRs expose sensitive data and are thus restricted to privileged users (e.g., \texttt{root} or \texttt{CAP\_SYS\_RAWIO}). Fine-grained access control is not supported natively, though the \texttt{msr-safe} module offers limited mitigation.
+    \item The \textbf{Power Capping (powercap)} framework is a high-level Linux kernel interface that exposes RAPL energy data through the sysfs filesystem, making it accessible from userspace. It simplifies energy measurements by automatically handling unit conversions and domain discovery, requiring minimal hardware knowledge. Though domain hierarchy can be confusing (especially with DRAM domains appearing nested under the package domain) powercap remains user-friendly and scriptable. It supports fine-grained access control via file permissions and offers good adaptability to hardware changes, provided the measurement tool doesn't rely on hard-coded domain structures.
+    \item The \textbf{perf-events} subsystem provides a higher-level Linux interface for accessing RAPL energy counters as counting events. It supports overflow correction and requires less hardware-specific knowledge than MSR. Each RAPL domain must be opened per CPU socket using \texttt{perf\_event\_open}, and values are polled from userspace. While it lacks a hierarchical structure like powercap and may be harder to use in certain languages or scripts, it remains adaptable and robust across different architectures. Fine-grained access control is possible via kernel capabilities or \texttt{perf\_event\_paranoid} settings. 
+    \item \textbf{eBPF} enables running custom programs in the Linux kernel, and in this context, it is used to directly read RAPL energy counters from within kernel space, potentially reducing measurement overhead by avoiding user-kernel context switches. The implementation attaches an eBPF program to a CPU clock event, using \texttt{perf\_event\_open} to access energy counters and buffering results for userspace polling (is visualized in figure~\ref{fig:rapl_perf_eBPF}).While offering the same overflow protection as regular \texttt{perf-events}, this approach is significantly more complex, prone to low-level errors (especially in C), and requires elevated privileges (\texttt{CAP\_BPF} or \texttt{root}). It also lacks portability, as it demands manual adaptation to kernel features and domain counts, limiting its maintainability across systems.
+\end{itemize}
 \begin{figure}[H]
     \centering
     \begin{subfigure}{0.48\textwidth}
         \includegraphics[width=\textwidth]{Figures/rapl_perf_eBPF.png}
-        \caption[RAPL perf-event eBPF mechanism]{Measurement mechanism based on perf-events and eBPF\parencite{raffin2024dissecting}.}
+        \caption[RAPL perf-event eBPF mechanism]{RAPL perf-event eBPF mechanism}
         \label{fig:rapl_perf_eBPF}
     \end{subfigure}
+    \hfill
     \begin{subfigure}{0.48\textwidth}
+        \vspace{1.5em}
         \includegraphics[width=\textwidth]{Figures/rapl_interfaces_tradeoffs.png}
-        \caption[Comparison of RAPL measurement mechanisms]{Comparison of RAPL measurement mechanisms\parencite{raffin2024dissecting}.}
+        \caption[RAPL measurement mechanisms comparison]{RAPL measurement mechanisms comparison}
         \label{fig:rapl_interfaces_tradeoffs}
     \end{subfigure}
+    \caption[RAPL measurements: eBPF and comparison]{RAPL measurements: eBPF and comparison\parencite{raffin2024dissecting}}
+    \label{tab:measurement_mechanisms}
 \end{figure}
-In a detailed comparison, Raffin et al conclude that while the different interface involve different features and tradeoffs, which are summarize in figure~\ref{fig:rapl_interfaces_tradeoffs}
-
-
-
-
-
-
-
-
-
-
+In their research, Raffin et al conclude that all four mechanisms have small or negligible impact on the running time of their benchmarks. Based on their findings, formulate the following recommendations:
+\begin{itemize}
+    \item Measuring frequencies should be adapted to the state of the node, preventing high measurement overhead, due to a reduction in time spent in low-power states. Under heavy load, a highfrequencay can be used in order to capture more information.
+    \item \texttt{perf-events} is the overall recommeded measurement method with good efficiency, latency and overflow protection. Powercap is less efficient, but provides a simpler sysfs API.
+    \item Even though \texttt{perf-events} and eBPF-measurement method seems to be the most energy-efficient, it is not recommended in light of its complexity. For the same reason, the MSR method is not recommeded, as it raises complexity while counter-intuitively being slower than \texttt{perf-events}
+\end{itemize}
 
 \subsubsection{Validation}
 \label{sec:raplvalidation}
 Since its inception, RAPL has been subject of various validation studies, with the general concensus that it's accuracy could be considered "good enough"\parencite{raffin2024dissecting}. Notable works are Hackenberg et al, that in 2013 found RAPL accurate but missing timestamps\parencite{hackenberg2013power}, and in 2015 noticed a major improvement to RAPL accuracy, after Intel switched from a modeling approach to actual measurements for their Haswell architecture\parencite{hackenberg2015energy}. Desrochers et al concluded in a 2016 RAPL DRAM validation study\parencite{desrochers2016validation} that DRAM power measurement was reasonably accurate, especially on server-grade CPUs. They also found measurement quality to drop when measuring and idling system.
 
-A critical point in the RAPL validation was the introduction of the Alder Lake architecture, marking Intel's first heterogeneous processor, combining two different core architectures from the Core and Atom families (commonly referred to as P-Cores and E-cores) to improve performance and energy efficiency. While this heterogenity can improve performance and energy efficiency, it also increases complexity of scheduling decisions and power saving mechanisms, adding to the already complex architecture, featuring per-core Dynamic Voltage and frequency Scaling (DVFS), Idle states and Power Limiting / Thermal Proection.
+A critical point in the RAPL validation was the introduction of the Alder Lake architecture, marking Intel's first heterogeneous processor, combining two different core architectures from the Core and Atom families (commonly referred to as P-Cores and E-cores) to improve performance and energy efficiency. While this heterogenity can improve performance and energy efficiency, it also increases complexity of scheduling decisions and power saving mechanisms, adding to the already complex architecture, featuring per-core Dynamic Voltage and frequency Scaling (DVFS), Idle states and Power Limiting / Thermal Protection.
 
 
 
-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-THIS NEEDS TO BE PUT INTO THE CONTEXT OF RAFFIN 2024: SCHÖNE ONLY MEASURED AT 0.8GHz ON A CONSUMER i9.
-ACCORDING TO RAFFIN, ANYTHING FRQUENCY RELATED IS EXTREMELY IMPORTANT.
+xxxxxxxxxxxxxxxxxxxxxxx \parencite{fahad2019comparative}(2019) ???????? (NO, ALDER LAKE WAS 2021)
+BUT CHECK IT OUT ANYWAY
+maybe include \parencite{alt2024experimental} (RECENT DRAM VALIDATION)
 
-Schöne et al\parencite{schone2024energy} found RAPL in the Alder Lake architecture to be generally consistent with external measurements, but exhibiting lower accuracy in low power scenarios. The following figure~\ref{fig:rapl_vs_PSU_validation} shows these inaccuracies drastically, albeit on a conusmer-grade Intel Core i9-12900K processor measured at the base frequency of 0.8GHz. XXXXXXXXXXXXXXXXXXXXXXXX MISSING CONTEXT
+
+
+Schöne et al\parencite{schone2024energy} found RAPL in the Alder Lake architecture to be generally consistent with external measurements, but exhibiting lower accuracy in low power scenarios. The following figure~\ref{fig:rapl_vs_PSU_validation} shows these inaccuracies, albeit tested on a conusmer-grade Intel Core i9-12900K processor measured at the base frequency of 0.8GHz.
 \begin{figure}[ht]
     \centering
     \includegraphics[width=0.7\textwidth]{Figures/rapl_vs_PSU_validation.png}
@@ -168,8 +144,6 @@ Schöne et al\parencite{schone2024energy} found RAPL in the Alder Lake architect
     \caption[RAPL validation: CPU vs. PSU]{RAPL and reference power consumption sampled at 100 ms / 50 ms intervals respectively. Double precision matrix multiplication kernel at 0.8GHz running for 60s each at increasing number of active threads\parencite{schone2024energy}.}
     \label{fig:rapl_vs_PSU_validation}
 \end{figure}
-
-
 
 \subsubsection{Limitations and issues}
 \label{sec:rapllimitations}
@@ -182,18 +156,18 @@ Several limitations of RAPL were noticed in various research works. Since RAPL i
     \end{equation}
     Here, $E_u$ is the energy unit used (61$\mu$J for haswell), and $P$ is the power consumption. On a Haswell processor consuming 84W, an overflow would occur every 52 minutes. Intel acknowledges this in the official documentation, stating that the register has a \textit{wraparound time of around 60 seconds when power consumption is high}\parencite{intel-sdm}
     This is solvable with a simple correction, provided that the measurement interfals are small enough: For two successive measurements $m_{\text{prev}}$ and $m_{\text{current}}$, the actual measured difference is given by
-    % \begin{equation}
-    %     \Delta m =
-    %     \begin{cases}
-    %     m_{\text{current}} - m_{\text{prev}} + C & \text{if } m_{\text{current}} < m_{\text{prev}} \\
-    %     m_{\text{current}} - m_{\text{prev}} & \text{otherwise}
-    %     \end{cases}
-    % \end{equation}
+    \begin{equation}
+        \Delta m =
+        \begin{cases}
+        m_{\text{current}} - m_{\text{prev}} + C & \text{if } m_{\text{current}} < m_{\text{prev}} \\
+        m_{\text{current}} - m_{\text{prev}} & \text{otherwise}
+        \end{cases}
+    \end{equation}
     where C is a correction constant that depends on the chosen mechanism:
     
     \begin{table}[h]
         \small
-        \begin{tabular}{ |c|c| }
+        \begin{tabular}{|p{4cm}|p{9cm}|}
             \hline
             \textbf{mechanism} & \textbf{constant C}\\
             \Xhline{1.5pt}
@@ -214,43 +188,23 @@ Several limitations of RAPL were noticed in various research works. Since RAPL i
     \item \textbf{Unpredictable Timings: }While the Intel documentation states that the RAPL time unit is 0.976ms, the actual intervals may vary. This is an issue since the measurements do not come with timestamps, making precise measurements difficult\parencite{khan2018rapl}. Several coping mechanisms have been used to mitigate this, notably \textit{busypolling} (busypolling the counter for updates, significantly compromizing overhead in terms of time and energy\parencite{hahnel2012measuring}), \textit{supersampling} (lowering the sampling interval, increasing overhead and occasionaly creating duplicates that need to be filtered\parencite{khan2018rapl}), or \textit{high frequency sampling} (\textit{lowering} the sampling rate when the resulting data is still sufficient\parencite{servat2016detailed}).
     \item \textbf{Lower idle power accuracy: } When measuring an idling server, RAPL tends to be less accurate\parencite{schone2024energy, desrochers2016validation}.
     \item \textbf{Side-channel attacks: } While the update rate of RAPL is usually 1ms, it can get as low as 50 $\mu$s for the PP0 domain (processor cores) on desktop processors\parencite{schone2024energy}. This can be used to retrieve processed data in a side channel attack\parencite{lipp2021platypus, schone2024energy}. To mitigate this issue while retaining RAPL functionality, Intel implements a filtering technique via the \texttt{ENERGY\_FILTERING\_ENABLE}\parencite[Table 2-2]{intel2023} entry. This filter adds random noise to the reported values. For the PP0 domain, this raises the temporal granularity to about 8ms. While this does not affect the average power consumption, point measurement power consumption can be affected. Figure~\ref{fig:rapl_filter_granularity_loss} shows the effect of the filter, clearly indicating the loss granularity resulting from the activation of the filter.
-\end{itemize}
-\begin{figure}[H]
-    \label{fig:rapl_filter_granularity_loss}
-    \caption[Observable loss of granularity caused by the activation of \texttt{ENERGY\_FILTERING\_ENABLE}]{Observable loss of granularity caused by the activation of \texttt{ENERGY\_FILTERING\_ENABLE}\parencite{schone2024energy}}
-    \centering
-    \begin{subfigure}{0.48\textwidth}
-        \includegraphics[width=\textwidth]{Figures/rapl_filter_granularity_loss_time.png}
-        \caption{Distribution of time between updates: With an enabled filter, the PP0 domain only provides updates every 8 ms, otherwise RAPL values are updated every 1 ms. If the load is too low, some updates might be skipped, e.g., the next update for PP0 and an enabled filter is at 16 ms.}
-        \label{fig:rapl_filter_granularity_loss_time}
-    \end{subfigure}
-    \begin{subfigure}{0.48\textwidth}
-        \includegraphics[width=\textwidth]{Figures/rapl_filter_granularity_loss_energy.png}
-        \caption{The minimal increase of a measurement is 1 energy unit of 61.035 $\mu$J. Enabling the filter leads to a significant influence on measurements for the PP0 domain and a measureable influence on PCKG measurements.}
-        \label{fig:rapl_filter_granularity_loss_energy}
-    \end{subfigure}
-\end{figure}
-
-
-
-
-
-
-
-RAPL has several limitations. 
-
-- counter overflow of the 32 bit register
-non atomic register updates
-"lack of individual core-level measurements"?????? ->fixed later??
-in virtualised environments like cloud instances, the RAPL readings may be intercepted or modified by the hypervisor, potentially affecting their accuracy
-    https://projectexigence.eu/green-ict-digest/running-average-power-limit-rapl/ (bad source)
-- Not all measuremnt methods are equally accurate?? -> \parencite{raffin2024dissecting}
-
-\subsubsection{Methods of measurement}
-Good comparison -> \parencite{raffin2024dissecting}
-- MSR / perf-events + eBPF / perf-events / powercap
-
-
+    \begin{figure}[H]
+        \centering
+        \begin{subfigure}[t]{0.48\textwidth}
+            \includegraphics[width=\textwidth]{Figures/rapl_filter_granularity_loss_time.png}
+            \caption{Distribution of time between updates: With an enabled filter, the PP0 domain only provides updates every 8 ms, otherwise RAPL values are updated every 1 ms. If the load is too low, some updates might be skipped, e.g., the next update for PP0 and an enabled filter is at 16 ms.}
+            \label{fig:rapl_filter_granularity_loss_time}
+        \end{subfigure}
+        \hfill
+        \begin{subfigure}[t]{0.48\textwidth}
+            \includegraphics[width=\textwidth]{Figures/rapl_filter_granularity_loss_energy.png}
+            \caption{The minimal increase of a measurement is 1 energy unit of 61.035~$\mu$J. Enabling the filter leads to a significant influence on measurements for the PP0 domain and a measurable influence on PCKG measurements.}
+            \label{fig:rapl_filter_granularity_loss_energy}
+        \end{subfigure}
+        \caption[Observable loss of granularity caused by the activation of \texttt{ENERGY\_FILTERING\_ENABLE}]{Observable loss of granularity caused by the activation of \texttt{ENERGY\_FILTERING\_ENABLE}\parencite{schone2024energy}}
+        \label{fig:rapl_filter_granularity_loss}
+    \end{figure}
+\end{itemize} 
 
 \section{Server Power models}
 In the absence of actual power data, power consumption models can be formulated that essentially map variables (such as CPU, Memory utilization) related to a server's state to its power consumption. 
@@ -289,25 +243,37 @@ see Lin et al for overview -> instruments / dedicated aquisition system / softwa
 \section{Container energy estimation based on hardware power estimation}
 % see lin et al
 
-\subsection{Tools}
-\subsubsection{RAPL-based tools}
+\section{Tools}
+\subsection{RAPL-based tools}
 \label{sec:rapltools}
 \begin{itemize}
     \item \parencite{jay2023experimental} An experimental comparison of software-based power meters (focus on CPU / GPU)
     \item \parencite{kavanagh2019rapid} Rapid and accurate energy models through calibration with IPMI and RAPL
-    \item \parencite{scaphandre_documentation} Scaphandre
-    \item \parencite{feieni2020smartwatts} Smartwatts: Self-Calibrating Software-Defined Power Meter for containers
+    \item \parencite{scaphandre_documentation} Scaphandre. Does not handle overflows correctly (https://github.com/hubblo-org/scaphandre/issues/280)
+    \item \parencite{fieni2020smartwatts} Smartwatts: Self-Calibrating Software-Defined Power Meter for containers
     \item \parencite{joularjx} JoularJX: jaba-based agent for power monitoring at the code level
     \item \parencite{kepler_energy}: KEPLER
     \item \parencite{aipowermeter}: "AI power meter": Library to measure energy usage of machine learning programs, uses RAPL for CPU and nvidia-smi for GPU
-    \item \parencite{codecarbon} CodeCarbon: Python package, estimates GPU + CPU + RAM: uses pynvml, ram RATIO (3W for 8G) and RAPL
+    \item \parencite{codecarbon} CodeCarbon: Python package, estimates GPU + CPU + RAM: uses pynvml, ram RATIO (3W for 8G) and RAPL. According to Raffin2024, this tool does not account for the MSR overflow: https://github.com/mlco2/codecarbon/issues/322 -> apparently fixed now
     \item \parencite{powertop}: powertop
     \item \parencite{greencodingdocs}: Green metrics tool: measuring energy and CO2 consumption of software through a software life cycle anslysis (SLCA): Metric providers: RAPL, IPMI, PSU, Docker, Temperature, CPU, ... (sone external devices)
+    
+    according to raffin2024: simplified versions of scaphandre and codecarbon hhve 3\%, 0.5\% overhead at 10Hz
+    according to \parencite{jay2023experimental}, the full versions have between 2 and 7\% at 1Hz.
+
 \parencite{fieni2024powerapi}: PowerAPI: Python framework for building software-defined power
 \end{itemize}
 \begin{comment}
 - multiple papers have tried to attribute component-level 
 \end{comment}
+
+
+
+
+\section{"data fusion of power data and cpu metrics}
+- Estimating the consumption of a single function has been proven to be possible in 2012: M. Hähnel, B. Döbel, M. Völp, and H. Härtig, “Measuring energy consumption for short code paths using RAPL,”, \parencite{hahnel2012measuring}
+
+
 
 % \section{Introduction}
 % \begin{itemize}
