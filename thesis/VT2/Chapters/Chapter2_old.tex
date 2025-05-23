@@ -16,6 +16,20 @@ As a result of the energy efficiency improvements of both data center infrastruc
     \item Any server-level power models used to estimate the relation of individual component energy consumption suffers from the varity of different server configurations due to server specialization, such as Storage-, GPU-, or Memory-optimized servers.
 \end{itemize}
 
+The following sections of this chapter aim to present the current state-of-the-art in the various fields of research of the problem domains listed above. 
+
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+here, a sentence will introduce the subsections:
+\begin{itemize}
+    \item Hardware components: CPU / RAM / SoC / GPU / \dots
+    \item 
+\end{itemize}
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+Finally, section xxxxxxxxxxxxxxxxxxxxxxxxxxxx aims to give an overview of the currently existing implementations of software-based container-level energy consumption estimation.
+
+\section{Overview of Power Data collection}
+
 In a systematic review cloud servers power models, Lin et al\parencite{lin2020taxonomy} categorize power collection methods into 4 categories:
 \begin{table}[h]
     \tiny
@@ -36,10 +50,6 @@ In a systematic review cloud servers power models, Lin et al\parencite{lin2020ta
     \label{tab:power_collection_methods}
 \end{table}
 
-The following sections of this chapter aim to present the current state-of-the-art in the various fields of research of the problem domains listed above, focussing on different measurement approches: Direct hardware measurements, In-band measurement techniques and model-based estimation. The following sections are organized by measurement approach, foregoing organization by server component. For this reason, section~\ref{sec:component_specific_summaries} provides a brief summary of component-specific energy consumption measurement techniques.
-
-\section{Direct Hardware Measurement}
-
 \subsection{Instrument-based power data aquisition}
 
 Instrument-based Data collection aquisition produces the hightest data credibility at a low granularity: These devices, installed externally (measuring the power supplied to the PDU) or internally (measuring the power flow between the PDU and motherboard) have been the source of information for a number of studies. The approach to simply measure electric power at convenient hardware locations using dedicated equipment can of course be extended to provide additional granularity: For example, Desrocher et al\parencite{desrochers2016validation} custom-created a DIMM extender custom-fitted with Hall-sensor resistors and a linux measurement utility to measure power consumed by a DIMM memory module at 1kHz sampling rate using a \textit{WattsAppPro?} power meter and a \textit{Measurment Computing USB.1208FS-Plus} data aquisition board.
@@ -47,7 +57,6 @@ Instrument-based Data collection aquisition produces the hightest data credibili
 This of course highlights a fundamental truth of instrument-based data collection: While it is possible to implement a measuring solution that provides high-granular and high-sampling rate power data, it is paired with an immense effort since solutions like this are not provided off-the-shelf. Unsuprisingly, this is most valuable for benchmarking or validation (Desrochers et al used their setup to validate Intel RAPL DRAM power estimations on three different systems). However, this methodology is (currently) unsuitable for deployment to data center servers due to its bad scalability and prohibitive costs. Hence, the primary role of instrument-based power data aquisiton is as a benchmarking and validation tool for research and development.
 
 \subsection{Dedicated Aquisition systems}
-
 \subsubsection{BMC Devices, IPMI and Redfish}
 Some manufacturers have developed specialized power data aquisition systems for their own server products. The baseboard management controller (BMC) is a typical dedicated aquisition system usually integrated with the motherboard, usually as part of the intelligent platform management interface (IPMI)\parencite{lin2020taxonomy}. It can be connected to the system bus, sensors and a number of components to provide power and temparature information about the CPU, memory, LAN port, fan, and the BMC itself. Some comprehensive management systems such as Dell iDRAC or Lenovo xClarity have been further developed to provide high-quality, fine-grained power data due to their close interoperation between system software and underlying hardware. BMC devices on modern servers often offer IPMI- or Redfish interfaces. While these interfaces use the same physical servers, their implementation differ significantly, where Redfish generally offers higher accuracy (e.g through the use of higher-bit formats, whereas IPMI often uses 8-bit raw numbers).
 
@@ -56,10 +65,6 @@ In the context of container power consumption estimation, IPMI-implementations o
 Redfish is a modern Out-of-band Management System, first released in 2015 explicitely to replace IPMI \parencite{thomas-krenn-redfish}. It uses a RESTful API and JSON data format, making queries with code easier. In 2019, Wang et al\parencite{wang2019empirical} directly compared IPMI and redfish power data to a reading of a high accuracy power analyzer, and found Redfish to be more accurate than IPMI, with a MAPE of 2.9\%, while also finding a measurement latency of about 200ms. They also found measurements to be more accurate in higher power ranges, which they attribute to the improved latency.
 
 In conclusion, BMC power data aquired over Redfish provides a simple simple and comparatively easy way to measure system power based on various physical system sensors. Its biggest strenght lies in easy implementation and general availability. In the context of container energy consumption, BMC power data lacks the short sampling rates necessary to measure a a highly dynamcic container setup, but can prove useful as a validation or cross-reference dataset for longer intervals exceeding 120 seconds. Unfortunately, the data quality of BMC power data depends on the actual system, and power models can be significantly improved by initial calibration with an external power measurement device\parencite{kavanagh2016accuracy}.
-
-\section{In-Band Measurement Techniques}
-
-In-band measurement techniques refer to methods of power consumption monitoring that utilize built-in telemetry capabilities of system components to collect energy usage data directly from within the host system. Unlike external power meters or BMCs like IPMI, which operate independently of the main system, in-band techniques leverage on-die sensors and software interfaces to gather power metrics in real-time. These techniques provide fine-grained data with minimal additional hardware, making them well-suited for scalable environments like Kubernetes clusters. However, their accuracy and granularity are often dependent on the hardware's internal estimation algorithms, which may introduce uncertainties compared to direct measurement methods.
 
 \subsection{Intel RAPL}
 
@@ -237,6 +242,7 @@ GPU virtualization technologies enable efficient multi-tenant use of GPU resourc
 
 Modern GPUs are equipped with \textbf{built-in power sensors} that enable real-time energy measurement. For instance, Nvidia GPUs expose power metrics through the \textit{Nvidia System Management Interface (nvidia-smi)}, which reports instantaneous power draw, temperature, and memory usage \cite{nvidia_smi_docs}. This interface allows for programmatic access to GPU power consumption, making it a common choice for monitoring and energy profiling in both standalone and containerized environments \cite{nvidia_mig_user_guide}.
 
+
 In 2024, Yang et al. conducted a comprehensive study on the accuracy and reliability of NVIDIA's built-in power sensors, examining over 70 different models\cite{yang2024accurate}. He concludes that previous research placed excessive trust in nvidia-NVML, overlooking the importance of measurement methodology. The study revealed several critical findings:
 \begin{itemize}
     \item \textbf{Sampling Limitations:} Nvidia NVML gives the option to specify a sampling frequency in units of milliseconds. However, on certain models, such as the A100 and H100, power is sampled only around 25\% of the time, introducing potential inaccuracies in total energy consumption estimations.
@@ -305,7 +311,7 @@ However, the current state of GPU energy consumption measurement presents signif
 
 In the context of this thesis, GPU energy consumption is acknowledged as an important yet currently impractical aspect of container energy measurement. The relative immaturity of fine-grained, scalable monitoring solutions for GPUs, combined with the relatively small role of GPUs in Kubernetes clusters, justifies this exclusion. Although the utilization of GPU accelerators in Kubernetes environments is expected to grow, current measurement methods do not yet support the level of precision and scalability required for effective implementation. As such, this thesis will focus on more readily measurable server components, with the understanding that future advancements in GPU power analysis may enable their integration into Kubernetes-based energy efficiency strategies.
 
-\section{Model-based estimation techniques}
+\section{Server Power models}
 In the absence of actual power data, power consumption models can be formulated that essentially map variables (such as CPU, Memory utilization) related to a server's state to its power consumption. 
 Due to the strong correlation between CPU uzilization and server power, a great number of models use CPU metrics as the only indicator of server power. Fan et al\parencite{fan2007power} proposed a linear interpolation between idle power and full power, which they further refine into a non-linear form, with a parameter $\gamma$ to be fitted to minimize mean square error. Similar research was done to further reduce error by introducting more complex non-linear models, such as Hsu and Poole\parencite{hsu2011power}, who studied the SPECpower\textunderscore ssj2008-dataset of systems released between December 2007 and August 2010, and suggested the adaptation of two non-linear terms:
 \begin{equation}
@@ -324,20 +330,10 @@ While models like these might work well when custom-fitted to specific, multi-pu
 
 
 
-
-\section{storage: Notes}
-- the storage part of a datacenter consists of storage controllers and directly-attachted storage
-
-
-
-
 In a systematic review cloud servers power models, Lin et al\parencite{lin2020taxonomy} state that the common way
-\section{Container energy estimation based on hardware power estimation}
-% see lin et al
 
 
-\section{Component-specific summaries}
-\label{sec:component_specific_summaries}
+\section{Power data collection}
 
 see Lin et al for overview -> instruments / dedicated aquisition system / software monitoring and calculation / simulation
 
@@ -345,8 +341,42 @@ see Lin et al for overview -> instruments / dedicated aquisition system / softwa
 
 \subsection{Memory}
 
-\subsection{GPU}
+\subsection{Storage}
 
-\subsection{Storage devices}
 
-\subsection{Network devices}
+
+\subsection{Networking}
+
+\section{Container energy estimation based on hardware power estimation}
+% see lin et al
+
+\section{Tools}
+\subsection{RAPL-based tools}
+\label{sec:rapltools}
+\begin{itemize}
+    \item \parencite{jay2023experimental} An experimental comparison of software-based power meters (focus on CPU / GPU)
+    \item \parencite{van2025powersensor3} fast accurate opensource: PowerSensor3 enables real-time power measurements of SoC boards and PCIe cards, including GPUs, FPGAs, NICs, SSDs, and domain-specific AI and ML accelerators
+    \item \parencite{kavanagh2019rapid} Rapid and accurate energy models through calibration with IPMI and RAPL
+    \item \parencite{scaphandre_documentation} Scaphandre. Does not handle overflows correctly (https://github.com/hubblo-org/scaphandre/issues/280)
+    \item \parencite{fieni2020smartwatts} Smartwatts: Self-Calibrating Software-Defined Power Meter for containers
+    \item \parencite{joularjx} JoularJX: jaba-based agent for power monitoring at the code level
+    \item \parencite{kepler_energy}: KEPLER
+    \item \parencite{aipowermeter}: "AI power meter": Library to measure energy usage of machine learning programs, uses RAPL for CPU and nvidia-smi for GPU
+    \item \parencite{codecarbon} CodeCarbon: Python package, estimates GPU + CPU + RAM: uses pynvml, ram RATIO (3W for 8G) and RAPL. According to Raffin2024, this tool does not account for the MSR overflow: https://github.com/mlco2/codecarbon/issues/322 -> apparently fixed now
+    \item \parencite{powertop}: powertop
+    \item \parencite{greencodingdocs}: Green metrics tool: measuring energy and CO2 consumption of software through a software life cycle anslysis (SLCA): Metric providers: RAPL, IPMI, PSU, Docker, Temperature, CPU, ... (sone external devices)
+    
+    according to raffin2024: simplified versions of scaphandre and codecarbon hhve 3\%, 0.5\% overhead at 10Hz
+    according to \parencite{jay2023experimental}, the full versions have between 2 and 7\% at 1Hz.
+
+\parencite{fieni2024powerapi}: PowerAPI: Python framework for building software-defined power
+\end{itemize}
+\begin{comment}
+- multiple papers have tried to attribute component-level 
+\end{comment}
+
+
+
+
+\section{"data fusion of power data and cpu metrics}
+- Estimating the consumption of a single function has been proven to be possible in 2012: M. Hähnel, B. Döbel, M. Völp, and H. Härtig, “Measuring energy consumption for short code paths using RAPL,”, \parencite{hahnel2012measuring}
