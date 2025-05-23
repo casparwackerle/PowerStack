@@ -1,0 +1,38 @@
+\chapter{title} % Main chapter title
+\label{ChapterX}
+
+
+\subsection{Storage Devices}
+Various sudies have investigated the power consumption of Storage devices. In 2008, Hylick et al\parencite{hylickAnalysisHardDrive2008a} investigated real-time HDD energy consumption and found significant differences in power consumption between standby, idle and active power states. Cho et al\parencite{choDesignTradeoffsSSDs2015} propose various energy estimation models for SSDs after measuring and comparing the energy consumtption of different models. 
+
+In constrast to CPU or GPU components, storage devices (HDD, DDS or NVMe-drives) cannot make use of physical power sensors. While a BMC-measurement-based solution would technically be feasable, real-world implementation is impractical: While a BMC might me able to measure the power supply to a storage device, it typically is not exposed through IPMI or redfish. Such measurements would further be compllicated by the use of backplane devices, making measurements for individual devices impossible. For these reasons, storage device energy consumption is typically modelled, not measured (see section ~\ref{sec:storageModeling}). 
+
+
+\subsection{Storage devices}
+\label{sec:storageModeling}
+Storage device power consumption is influenced in a number of ways, such as device type (HDD, SSD, VNMe), hardware construction, NAND flash cell types and Layering Type, DRAM cache size, SATA interface generation (if applicable), Storage capacity and performance characteristics, power state, I/O request patterns and many other factors\parencite{hylickAnalysisHardDrive2008a, choDesignTradeoffsSSDs2015, storedbits_ssd_power, shinPowerConsumptionCharacterization}. To simplify this, manufacturers often provide Power figures during idle, standby, read/write or peak situations in Watts, in addition to other performance metrics. While this is useful information for system designers choosing suitable server components, it provides little in the context of this thesis, lacking generalizability and granularity. The many differences amongst storage devices make them difficult to model. Several models have been introduced to model HHDsor SSDs\parencite{choDesignTradeoffsSSDs2015, liWhichStorageDevice2014}. 
+
+\subsubsection{Borba et al: GSPN Modeling for hybrid storage systems (active power states)}
+In 2022, Borba et al\parencite{borbaModelingApproachEstimating2022} proposed a number of models based on generalized stochastic Petri nets (GSPN) for performance and energy consumption evaluation for individual and Hybrid (HDD + SSD) storage systems. GSPN is a suitable formalism for storage system design, as, differently from queueing network models (for instance), synchronization, resource sharing, and conflicts are naturally represented. Also, phase approximation technique may be applied for modeling non-exponential activities (detailed in next section), and events with zero delays (e.g., workload selection) may adopt immediate transitions. 
+
+The authors propose a single-storage model (either for a single storage device or a hybrid system as a blackbox) and a multiple storage model.
+
+The Hybrid storage power consumption model proposed by Borba is parameterized by I/O type (read/write), access pattern (sequential/random), object size (4KB, 1MB), and thread concurrency. The model explicitely imcorporates power consumption per operation (e.g. random-read-4KB on SSD).
+
+\paragraph{Limitations}
+The authors acknowledge that a large number of devices significantly increases modeling complexity due to state space size explosion and recommend simulation as a viable workaround. Additionally, the authors acknowledge their focus on active energy states (not idle, standby states or state transitions), treating them as delays between requests. 
+
+
+
+
+
+
+
+
+- BMC / IPMI voltage and current sensors
+    Backplane power (not individual devices)
+    entirely depends to server vendor and firmware
+- NVMe Power States (nvme-cli)
+- NVMe Drives with Telemetry Support (enterprise drives may expose instant power, temp, voltage/current/...)
+
+
