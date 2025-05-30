@@ -305,11 +305,29 @@ However, the current state of GPU energy consumption measurement presents signif
 
 In the context of this thesis, GPU energy consumption is acknowledged as an important yet currently impractical aspect of container energy measurement. The relative immaturity of fine-grained, scalable monitoring solutions for GPUs, combined with the relatively small role of GPUs in Kubernetes clusters, justifies this exclusion. Although the utilization of GPU accelerators in Kubernetes environments is expected to grow, current measurement methods do not yet support the level of precision and scalability required for effective implementation. As such, this thesis will focus on more readily measurable server components, with the understanding that future advancements in GPU power analysis may enable their integration into Kubernetes-based energy efficiency strategies.
 
+\subsection{Storage Devices}
+Various sudies have investigated the power consumption of Storage devices. In 2008, Hylick et al\parencite{hylickAnalysisHardDrive2008a} investigated real-time HDD energy consumption and found significant differences in power consumption between standby, idle and active power states. Cho et al\parencite{choDesignTradeoffsSSDs2015} propose various energy estimation models for SSDs after measuring and comparing the energy consumption of different models. The most notabble model-based energy consumption estimation methanisms are presented in section~\ref{sec:model-based_storage_power}
+
+In constrast to CPU or GPU components, storage devices (HDD, DDS or NVMe-drives) cannot make use of physical power sensors. While a BMC-measurement-based solution would technically be feasable, real-world implementation is impractical: While a BMC might me able to measure the power supply to a storage device, it typically is not exposed through IPMI or redfish. Such measurements would further be compllicated by the use of backplane devices, making measurements for individual devices impossible. For these reasons, storage device energy consumption is typically modelled, not measured (see section ~\ref{sec:storageModeling}).
+
+While storage devices don't expose any energy-consumption specific metrics, many other related metrics are available (and can be used for modeling approaches):
+\begin{itemize}
+    \item \texttt{NVMe-cli}\parencite{nvmecli_github} exposes many metrics of NVMe-drives, including the maximum power draw for each power state (including idle power), the number of power states supported, the current power state and temperature, and others.
+    \item \texttt{smartctl}\parencite{smartmontools_github} exposes metrics of the \textit{SMART (Self-Monitoring, Analysis and Reporting Technology)}-Functionality implemented in many modern storage drives. While these metrics are vendor-specific, they often include temperature metrics, throughput, and other metrics. Often, HDD speed is exposed. Notably, \textit{SMART} metrics are typically more focussed on lifecycle information such as power-on hours, wear indicators and others.
+    \item Many other performance metrics are exposed by various tools such as \texttt{iostat}, \texttt{sar}, \texttt{/proc/diskstats}, and \texttt{blkstat}, such as read/write IOPS, throughput, queue length, latency, utilization, and others. Additional information (such as the interface) is also exposed.
+\end{itemize}
 
 
 
 
-\section{Server Power models}
+
+
+
+
+
+
+
+\section{Model-based estimation techniques}
 In the absence of actual power data, power consumption models can be formulated that essentially map variables (such as CPU, Memory utilization) related to a server's state to its power consumption. 
 Due to the strong correlation between CPU uzilization and server power, a great number of models use CPU metrics as the only indicator of server power. Fan et al\parencite{fan2007power} proposed a linear interpolation between idle power and full power, which they further refine into a non-linear form, with a parameter $\gamma$ to be fitted to minimize mean square error. Similar research was done to further reduce error by introducting more complex non-linear models, such as Hsu and Poole\parencite{hsu2011power}, who studied the SPECpower\textunderscore ssj2008-dataset of systems released between December 2007 and August 2010, and suggested the adaptation of two non-linear terms:
 \begin{equation}
@@ -326,16 +344,201 @@ While models like these might work well when custom-fitted to specific, multi-pu
 ....
 
 
+\subsection{Model-based estimation techniques for storage devices}
+\label{sec:model-based_storage_power}
+
+\subsubsection{Generalization-based estimation}
+There is an urgent need in the storage industry for research into the area of workload-dependant power estimation\parencite{allaloufStorageModelingPower2009}. Estimating the energy consumption of a storage device challenging especially due to the great variation between different devices. Some of these model variables can be determined on a running server system (e.g. device type, I/O operation type, access pattern, workload intensity, state and more), while other variables are unknown to to the server (e.g Flash Transition Layer and flash factor, NAND organization, garbage collection, and more.) A large storage device market has lead to a high variation in devices with sometimes drastically different target uses (e.g. low-latency storage devices, high-concurrency storage devices, low-power storage devices).
+
+Storage controllers further complicate the energy consumption estimation of storage devices by introducing an additional layer of abstraction between the operating system and the physical storage hardware. Their internal operations consume energy independently of the actual read/write workload observed by the host system. This makes it difficult to directly correlate application-level I/O activity with actual device-level power usage. Moreover, in many server configurations, multiple drives are managed behind a single controller, obscuring per-device energy attribution and introducing variability that model-based estimations often cannot accurately capture.
+
+As a result, research into storage device energy consumption measurement that is generally applicable to all devices has been limited. For practical applications, generalizations are often used, such as the following tables~\ref{tab:Storage_power_HDD} to ~\ref{tab:Storage_power_NVMe}. While these approximations cannot be used in the context of this thesis, they may serve as an initial guideline.
+
+\begin{table}[H]
+    \centering
+
+    \begin{subtable}[t]{\textwidth}
+        \centering
+        \begin{tabular}{ |c|c|c|c| } 
+            \hline
+            \textbf{HDD Type} & \textbf{Read/write power (W)} & \textbf{Idle Power (W)} & \textbf{Standby Power (W)} \\
+            \Xhline{1.5pt}
+            HDD (2.5'' SATA) & 1.5 -- 3.0 & 0.5 -- 1.2 & 0.1 -- 0.3 \\
+            \hline
+            HDD (3.5'' SATA) & 6 -- 12 & 4 -- 8 & 0.5 -- 2.0 \\
+            \hline
+            HDD (Enterprise) & 7 -- 15 & 5 -- 10 & 0.5 -- 2.5 \\
+            \hline
+        \end{tabular}
+        \caption[Typical HDD power consumption]{Typical HDD power consumption\parencite{storedbits_hdd}}
+        \label{tab:Storage_power_HDD}
+    \end{subtable}
+
+    \vspace{1em}
+
+    \begin{subtable}[t]{\textwidth}
+        \centering
+        \begin{tabular}{ |c|c|c|c| } 
+            \hline
+            \textbf{HDD Type} & \textbf{Read/write power (W)} & \textbf{Idle Power (W)} & \textbf{Standby Power (W)} \\
+            \Xhline{1.5pt}
+            5400 RPM HDD & 6 -- 9 & 4 -- 6 & 0.5 -- 1.5 \\
+            \hline
+            7200 RPM HDD & 8 -- 12 & 6 -- 8 & 0.6 -- 1.8 \\
+            \hline
+            10,000+ RPM HDD & 10 -- 16 & 8 -- 12 & 1.0 -- 2.5 \\
+            \hline
+        \end{tabular}
+        \caption[Common HDD RPM power consumption]{Common HDD RPM power consumption\parencite{storedbits_hdd}}
+        \label{tab:Storage_power_HDD_RPM}
+    \end{subtable}
+
+    \vspace{1em}
+
+    \begin{subtable}[t]{\textwidth}
+        \centering
+        \begin{tabular}{ |c|c|c|c| } 
+            \hline
+            \textbf{SSD Type} & \textbf{Read Power (W)} & \textbf{Write Power (W)} & \textbf{Idle Power (W)} \\
+            \Xhline{1.5pt}
+            2.5'' SATA & 4.5 -- 8 & 4.5 -- 8 & 0.30 -- 2 \\
+            \hline
+            mSATA & 1 -- 5 & 4 -- 8 & 0.20 -- 2 \\
+            \hline
+            M.2 SATA & 2.5 -- 6 & 4 -- 9 & 0.40 -- 2 \\
+            \hline
+        \end{tabular}
+        \caption[Typical SATA SSD power consumption]{Typical SATA SSD power consumption\parencite{storedbits_ssd}}
+        \label{tab:Storage_power_SSD}
+    \end{subtable}
+
+    \vspace{1em}
+
+    \begin{subtable}[t]{\textwidth}
+        \centering
+        \begin{tabular}{ |c|c|c|c| } 
+            \hline
+            \textbf{NVMe Type} & \textbf{Read/write power (W)} & \textbf{Peak Power (W)} & \textbf{Standby Power (W)} \\
+            \Xhline{1.5pt}
+            M.2 NVMe PCIe 3.0 & 3 -- 5 & 6 -- 9 & 0.4 -- 1.5 \\
+            \hline
+            M.2 NVMe PCIe 4.0 & 5 -- 7 & 8 -- 12 & 0.5 -- 2 \\
+            \hline
+            M.2 NVMe PCIe 5.0 & 8 -- 12 & 12 -- 18 & 0.8 -- 3 \\
+            \hline
+        \end{tabular}
+        \caption[Typical NVMe SSD power consumption]{Typical NVMe SSD power consumption\parencite{storedbits_ssd}}
+        \label{tab:Storage_power_NVMe}
+    \end{subtable}
+
+    \caption[Power consumption for storage types]{Power consumption for various storage device types.}
+    \label{tab:Storage_power_grouped}
+\end{table}
+
+Apart from simple estimations like shown in tables~\ref{tab:Storage_power_HDD} to ~\ref{tab:Storage_power_NVMe}, a few works have concentrated on the energy consumption of individual storage devices. In 2015, Cho et al developed Energysim\parencite{choDesignTradeoffsSSDs2015}, an SSD energy modeling framework avancing the understanding of component-level (i.e. the subcomponents of a storage device) energy consumption in storage devices. Its validation against real-world SSD measurements against an Intel X25-M yielded a less than 8\% error. The work underscores the difficulty of modeling storage energy accurately due to high variability across architectures and workloads. Unfortunately, Energysim uses many model parameters such as NAND organization, idle and active current consumption, and as a result cannot reneralized to other storage devices where these are unknown.
+
+In 2014, Li and Long\parencite{liWhichStorageDevice2014} present a workload-aware modeling framework to estimate the energy consumption of storage systems, challenging the assumption that SSDs are inherently more energy-efficient than HDDs. By classifying I/O workloads into capability workloads (performance-driven) and capacity workloads (storage size-driven), they develop mathematical models that account for the number of devices needed, workload execution time, and device power states (active, idle, standby). Their validation, based on empirical measurements using Seagate HDDs and a Samsung SSD, shows that SSDs are generally more efficient for high-performance workloads, while HDDs can outperform SSDs in archival or low-access scenarios—particularly when effective power management (e.g., spin-down) is employed. Unfortunately, similar to the research by Cho et al, the presented models make use of various non-generalizable variables, most notably a devices idle, standby and busy power consumption. In the context of these thesis, these are unknown and the presented model consequently cannot be applied.
+
+\subsubsection{GSPN Modeling for hybrid storage systems (active power states)}
+In 2022, Borba et al\parencite{borbaModelingApproachEstimating2022} proposed a number of models based on generalized stochastic Petri nets (GSPN) for performance and energy consumption evaluation for individual and Hybrid (HDD + SSD) storage systems. GSPN is a suitable formalism for storage system design, as, differently from queueing network models (for instance), synchronization, resource sharing, and conflicts are naturally represented. Also, phase approximation technique may be applied for modeling non-exponential activities, and events with zero delays (e.g., workload selection) may adopt immediate transitions. 
+
+The authors propose a single-storage model (either for a single storage device or a hybrid system as a blackbox) and a multiple storage model.
+
+The Hybrid storage power consumption model proposed by Borba is parameterized by I/O type (read/write), access pattern (sequential/random), object size (4KB, 1MB), and thread concurrency. The model explicitely imcorporates power consumption per operation (e.g. random-read-4KB on SSD).
+
+The following notation is adoped:
+\begin{itemize}
+    \item $E\{\#p\}$ represents the mean value of the inner expression, in which $\#p$ denotes the number of tokens in place.
+    \item $W(T)$ represents the firing rate associated with transition $T$.
+    \item $\eta : T_{\text{imm}} \rightarrow [0, 1]$ maps each immediate transition ($t \in T_{\text{imm}}$) to a normalized weight. Weights represent the transition firing probablilty in a conflict set.
+    \item $pRequests(N)$ denotes the amount of concurrent requests from simultaneous clients (workers)
+\end{itemize}
+
+Single-device storage energy consumption is estimated as follows:
+\begin{align}
+    EP_w = \kappa \cdot (&EP_{w1} \cdot \alpha \cdot \beta 
+        + EP_{w2} \cdot (1 - \alpha) \cdot \beta \notag \\
+        &+ EP_{w3} \cdot \alpha \cdot (1 - \beta) 
+        + EP_{w4} \cdot (1 - \alpha) \cdot (1 - \beta))
+\end{align}
+\begin{align}
+    EP_r = (1 - \kappa) \cdot (&EP_{r5} \cdot \alpha \cdot \beta 
+        + EP_{r6} \cdot (1 - \alpha) \cdot \beta \notag \\
+        &+ EP_{r7} \cdot \alpha \cdot (1 - \beta) 
+        + EP_{r8} \cdot (1 - \alpha) \cdot (1 - \beta))
+\end{align}
+\begin{equation}
+    EC = (EP_w + EP_r) \cdot TH \cdot \text{time}
+\end{equation}
+where $EP_w$ and $EP_r$ are the mean power consumption for a read ($r$) or write ($w$) operation, which is estimated using the mean power of each workload feature. For instance, $EP_{w1}$ denotes the power of a write operation ($w$) using random access ($\alpha$) and a small object ($\beta$). System throughput (i.e., IOPS) is estimated as $TH = E\{\#p_{\text{Ack}}\} \times W(t_{\text{Communicating}})$.For the single device model, the following weights are taken into account:
+$\eta(t_{\text{Write}}) = \kappa$;  
+$\eta(t_{\text{Read}}) = 1 - \kappa$;  
+$\eta(t_{\text{Random}}) = \alpha$;  
+$\eta(t_{\text{Sequential}}) = 1 - \alpha$;  
+$\eta(t_{\text{Small}}) = \beta$; and  
+$\eta(t_{\text{Large}}) = 1 - \beta$.
+
+The marking of place $pResource (R)$ (for both read or write activity) may denote the adopted technology. For instance, for traditional SSDs (SATA interface), the marking place $pResource$ is 1, as only one operation it the time is carried out. Concerning SSDs-NVMe, $pResource$ assumes the number of threads of concurrently processing I/O requests (generally 8).
+
+The proposed multi-storage model expands the model for multiple devices:
+\begin{equation}
+    EC_h = \left( \sum_{d=0}^{n} \eta(tForward_d) \cdot EP_d \right) \cdot TH_h \cdot \text{time}
+\end{equation}
+where the immediate transitions $tForward_d$ denote a request redirection to storage $d$.
+
+\paragraph{Validation}
+The model proposed by Borba et al. was validated using controlled experiments with the Fio benchmarking tool, which generated synthetic I/O workloads to measure and correlate storage system performance and energy consumption across varying request sizes, access patterns, and read/write ratios. Model estimates consistently falling within the 95\% confidence intervals of observed system metrics. This statistical consistency indicates that the model's predictions are not significantly different from real-world values, supporting its applicability for performance and energy analysis in large-scale storage systems.
+
+\paragraph{Limitations}
+The authors acknowledge that a large number of devices significantly increases modeling complexity due to state space size explosion and recommend simulation as a viable workaround. Additionally, the authors acknowledge their focus on active energy states (not idle, standby states or state transitions), treating them as delays between requests. 
+
+In a running server system, this approach could be adapted to create an accurate and fine-grained energy consumption estimation of a read/write workload on specific storage devices, albeit with limitations:
+
+\begin{itemize}
+    \item Instead of needing to be estimated, (device-specific) throughput ($TH$) can be measured.
+    \item An intial calibration run is necessary to experimentally determine the respective device-specific variables.
+    \item In a multi-storage device server, the resulting state explosion may lead to significan calculation overhead, resulting also in higher energy consumption of the measurement itself.
+    \item Instead of modelling transitions to a storage device as a function (as done in $\eta(tForward_d)$), device usage would actively need to be measured, which would essentially transform the multi-storage model into a simple addition of single-storage models. This would drastically reduce the number of total states, making calculations less demanding.
+    \item Due to the authors not considering idle and standby-states, a small, constant idle power consumption would need to be added to the model. This is especially important for accurate storage device power consumption modeling on idling or overprovisioned servers.
+\end{itemize}
+
+\subsubsection{Issues with model-based estimation techniques in the context of this thesis}
+This thesis pursues two inherently conflicting objectives: achieving high-resolution, accurate energy consumption measurements while simultaneously developing a solution that remains broadly applicable across heterogeneous server environments without requiring extensive manual calibration, or the manual input of complex device-specific information. Striking a balance between these goals is particularly challenging in the context of model-based energy estimation for storage devices: Due to the wide variability among devices for a variety of factors, energy consumption models must necessarily abstract away much of the underlying complexity. Developing a model that is simultaneously fine-grained, highly accurate, and universally applicable across different storage technologies is, in practice, an unattainable goal.
+
+As a result, any model integrated into a general-purpose energy estimation framework must err on the side of relative simplicity to preserve generality. While this approach diminishes the precision of storage-specific energy attribution, it remains valuable for broader optimization tasks. For instance, autoscaling mechanisms, load balancers, and schedulers can still benefit significantly from approximate energy profiles when storage is not the primary bottleneck. Likewise, cluster administrators aiming to improve energy efficiency holistically, or developers seeking to optimize their workloads, can gain useful directional insights even from coarse-grained models.
+
+However, this simplicity imposes significant limitations for use cases that require storage-specific energy optimization. General-purpose models are ill-suited for evaluating the energy efficiency of different device types, testing firmware-level adjustments, or validating the impact of power-saving features such as low-power states. In such scenarios, the model’s abstraction may not just be insufficient, but actively misleading.
+
+In the context of this thesis, this limitation is considered acceptable. The overarching objective is to facilitate scalable and portable energy estimation mechanisms for containerized environments, not to provide a diagnostic tool for hardware-level storage energy analysis. Nonetheless, this constraint should be kept in mind when interpreting the results and assessing their suitability for storage-centric evaluation tasks.
 
 
 
-\section{storage: Notes}
+
+
+
+- BMC / IPMI voltage and current sensors
+    Backplane power (not individual devices)
+    entirely depends to server vendor and firmware
+- NVMe Power States (nvme-cli)
+- NVMe Drives with Telemetry Support (enterprise drives may expose instant power, temp, voltage/current/...)
 - the storage part of a datacenter consists of storage controllers and directly-attachted storage
 
 
 
 
+
+
+
+
+
+
+
+
+
 In a systematic review cloud servers power models, Lin et al\parencite{lin2020taxonomy} state that the common way
+
+
+
 \section{Container energy estimation based on hardware power estimation}
 % see lin et al
 

@@ -424,7 +424,6 @@
   doi = {10.1145/2989081.2989088},
   urldate = {2025-05-21},
   abstract = {Recent Intel processors support the Running Average Power Level (RAPL) interface, which among other things provides estimated energy measurements for the CPUs, integrated GPU, and DRAM. These measurements are easily accessible by the user, and can be gathered by a wide variety of tools, including the Linux perf\_event interface. This allows unprecedented easy access to energy information when designing and optimizing energy-aware code.While greatly useful, on most systems these RAPL measurements are estimated values, generated on the fly by an on-chip energy model. The values are not documented well, and the results (especially the DRAM results) have undergone only limited validation.We validate the DRAM RAPL results on both desktop and server Haswell machines, with multiple types of DDR3 and DDR4 memory. We instrument the hardware to gather actual power measurements and compare them to the RAPL values returned via Linux perf\_event. We describe the many challenges encountered when instrumenting systems for detailed power measurement.We find that the RAPL results match overall energy and power trends, usually by a constant power offset. The results match best when the DRAM is being heavily utilized, but do not match as well in cases where the system is idle, or when an integrated GPU is using the memory.We also verify that Haswell server machines produce more accurate results, as they include actual power measurements gathered through the integrated voltage regulator.}
-  isbn = {978-1-4503-4305-3},
 }
 @inproceedings{kavanagh2016accuracy,
   title = {Accuracy of {{Energy Model Calibration}} with {{IPMI}}},
@@ -810,4 +809,76 @@
   urldate = {2025-05-19},
   abstract = {The performance requirements and amount of work of an I/O workload affect the number of storage devices and the run time needed by the workload, and should be included in the calculation of the cost or energy consumption of storage devices. This paper introduces models to calculate the cost and energy consumption of storage devices for running a variety of workloads, categorized by their dominant requirements. Measurements of two latest hard disk and solid-state drive (SSD) are included to illustrate the models in practice. Contrary to common belief, SSD is not the energy efficient choice for many workloads.},
   keywords = {Bandwidth,device,energy,Energy consumption,Energy measurement,Equations,Lead,Mathematical model,measurement,model,Power measurement,workload}
+}
+@inproceedings{allaloufStorageModelingPower2009,
+  title = {Storage Modeling for Power Estimation},
+  booktitle = {Proceedings of {{SYSTOR}} 2009: {{The Israeli Experimental Systems Conference}}},
+  author = {Allalouf, Miriam and Arbitman, Yuriy and Factor, Michael and Kat, Ronen I. and Meth, Kalman and Naor, Dalit},
+  year = {2009},
+  month = may,
+  series = {{{SYSTOR}} '09},
+  pages = {1--10},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  doi = {10.1145/1534530.1534535},
+  urldate = {2025-05-18},
+  abstract = {Power consumption is a major issue in today's datacenters. Storage typically comprises a significant percentage of datacenter power. Thus, understanding, managing, and reducing storage power consumption is an essential aspect of any efforts that address the total power consumption of datacenters. We developed a scalable power modeling method that estimates the power consumption of storage workloads. The modeling concept is based on identifying the major workload contributors to the power consumed by the disk arrays.To estimate the power consumed by a given host workload, our method translates the workload to the primitive activities induced on the disks. In addition, we identified that I/O queues have a fundamental influence on the power consumption. Our power estimation results are highly accurate, with only 2\% deviation for typical random workloads with small transfer sizes (up to 8K), and a deviation of up to 8\% for workloads with large transfer sizes. We successfully integrated our modeling into a power-aware capacity planning tool to predict system power requirements and integrated it into an online storage system to provide online estimation for the power consumed.},
+  isbn = {978-1-60558-623-6}
+}
+@online{storedbits_hdd,
+  author       = {{StoreDbits}},
+  title        = {{Hard Drive Power Consumption (HDD)}},
+  year         = {2023},
+  url          = {https://storedbits.com/hard-drive-power-consumption/},
+  note         = {Accessed May 2025}
+}
+@online{storedbits_ssd,
+  author       = {{StoreDbits}},
+  title        = {{SSD Power Consumption}},
+  year         = {2023},
+  url          = {https://storedbits.com/ssd-power-consumption/},
+  note         = {Accessed May 2025}
+}
+@article{choDesignTradeoffsSSDs2015,
+  title = {Design {{Tradeoffs}} of {{SSDs}}: {{From Energy Consumption}}'s {{Perspective}}},
+  shorttitle = {Design {{Tradeoffs}} of {{SSDs}}},
+  author = {Cho, Seokhei and Park, Changhyun and Won, Youjip and Kang, Sooyong and Cha, Jaehyuk and Yoon, Sungroh and Choi, Jongmoo},
+  year = {2015},
+  month = mar,
+  journal = {ACM Trans. Storage},
+  volume = {11},
+  number = {2},
+  pages = {8:1--8:24},
+  issn = {1553-3077},
+  doi = {10.1145/2644818},
+  urldate = {2025-05-18},
+  abstract = {In this work, we studied the energy consumption characteristics of various SSD design parameters. We developed an accurate energy consumption model for SSDs that computes aggregate, as well as component-specific, energy consumption of SSDs in sub-msec time scale. In our study, we used five different FTLs (page mapping, DFTL, block mapping, and two different hybrid mappings) and four different channel configurations (two, four, eight, and 16 channels) under seven different workloads (from large-scale enterprise systems to small-scale desktop applications) in a combinatorial manner. For each combination of the aforementioned parameters, we examined the energy consumption for individual hardware components of an SSD (microcontroller, DRAM, NAND flash, and host interface). The following are some of our findings. First, DFTL is the most energy-efficient address-mapping scheme among the five FTLs we tested due to its good write amplification and small DRAM footprint. Second, a significant fraction of energy is being consumed by idle flash chips waiting for the completion of NAND operations in the other channels. FTL should be designed to fully exploit the internal parallelism so that energy consumption by idle chips is minimized. Third, as a means to increase the internal parallelism, increasing way parallelism (the number of flash chips in a channel) is more effective than increasing channel parallelism in terms of peak energy consumption, performance, and hardware complexity. Fourth, in designing high-performance and energy-efficient SSDs, channel switching delay, way switching delay, and page write latency need to be incorporated in an integrated manner to determine the optimal configuration of internal parallelism.}
+}
+@inproceedings{liWhichStorageDevice2014,
+  title = {Which {{Storage Device Is}} the {{Greenest}}? {{Modeling}} the {{Energy Cost}} of {{I}}/{{O Workloads}}},
+  shorttitle = {Which {{Storage Device Is}} the {{Greenest}}?},
+  booktitle = {2014 {{IEEE}} 22nd {{International Symposium}} on {{Modelling}}, {{Analysis}} \& {{Simulation}} of {{Computer}} and {{Telecommunication Systems}}},
+  author = {Li, Yan and Long, Darrell D.E.},
+  year = {2014},
+  month = sep,
+  pages = {100--105},
+  issn = {2375-0227},
+  doi = {10.1109/MASCOTS.2014.20},
+  urldate = {2025-05-19},
+  abstract = {The performance requirements and amount of work of an I/O workload affect the number of storage devices and the run time needed by the workload, and should be included in the calculation of the cost or energy consumption of storage devices. This paper introduces models to calculate the cost and energy consumption of storage devices for running a variety of workloads, categorized by their dominant requirements. Measurements of two latest hard disk and solid-state drive (SSD) are included to illustrate the models in practice. Contrary to common belief, SSD is not the energy efficient choice for many workloads.},
+  keywords = {Bandwidth,device,energy,Energy consumption,Energy measurement,Equations,Lead,Mathematical model,measurement,model,Power measurement,workload}
+}
+@misc{nvmecli_github,
+  author       = {{Linux NVMe Maintainers}},
+  title        = {{nvme-cli: NVMe management command line interface}},
+  year         = {2025},
+  howpublished = {\url{https://github.com/linux-nvme/nvme-cli}},
+  note         = {Accessed May 2025}
+}
+@misc{smartmontools_github,
+  author       = {{smartmontools developers}},
+  title        = {{smartmontools: Control and monitor storage systems using S.M.A.R.T.}},
+  year         = {2025},
+  howpublished = {\url{https://github.com/smartmontools/smartmontools/}},
+  note         = {Accessed May 2025}
 }
