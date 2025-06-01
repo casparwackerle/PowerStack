@@ -343,16 +343,21 @@ While models like these might work well when custom-fitted to specific, multi-pu
 
 ....
 
+general issue \parencite{lin2020taxonomy}: There have been extensive studies on hardware-centric power models. However, it can be observed that the interactions between the components are not considered in most research at either the machine level or the component level. Considering the complexity of the workload on a cloud server, it is necessary to investigate the correlation between the power consumption of different components and take that into account. For example, the power characteristic of the CPU could be entirely different in memory-intensive (while low disk usage) jobs and in IO-intensive jobs.
+
 
 \subsection{Model-based estimation techniques for storage devices}
 \label{sec:model-based_storage_power}
 
 \subsubsection{Generalization-based estimation}
-There is an urgent need in the storage industry for research into the area of workload-dependant power estimation\parencite{allaloufStorageModelingPower2009}. Estimating the energy consumption of a storage device challenging especially due to the great variation between different devices. Some of these model variables can be determined on a running server system (e.g. device type, I/O operation type, access pattern, workload intensity, state and more), while other variables are unknown to to the server (e.g Flash Transition Layer and flash factor, NAND organization, garbage collection, and more.) A large storage device market has lead to a high variation in devices with sometimes drastically different target uses (e.g. low-latency storage devices, high-concurrency storage devices, low-power storage devices).
+There is an urgent need in the storage industry for research into the area of workload-dependant power estimation\parencite{allaloufStorageModelingPower2009}. Estimating the energy consumption of a storage device is challenging especially due to the great variation between different devices. Some of these model variables can be determined on a running server system (e.g. device type, I/O operation type, access pattern, workload intensity, state and more), while other variables are unknown to the server (e.g. Flash Transition Layer and flash factor, NAND organization, garbage collection, and more). A large storage device market has led to a high variation in devices with sometimes drastically different target uses (e.g. low-latency storage devices, high-concurrency storage devices, low-power storage devices).
 
 Storage controllers further complicate the energy consumption estimation of storage devices by introducing an additional layer of abstraction between the operating system and the physical storage hardware. Their internal operations consume energy independently of the actual read/write workload observed by the host system. This makes it difficult to directly correlate application-level I/O activity with actual device-level power usage. Moreover, in many server configurations, multiple drives are managed behind a single controller, obscuring per-device energy attribution and introducing variability that model-based estimations often cannot accurately capture.
 
-As a result, research into storage device energy consumption measurement that is generally applicable to all devices has been limited. For practical applications, generalizations are often used, such as the following tables~\ref{tab:Storage_power_HDD} to ~\ref{tab:Storage_power_NVMe}. While these approximations cannot be used in the context of this thesis, they may serve as an initial guideline.
+\paragraph{Scope clarification} 
+In this thesis, only storage devices physically installed in the server are considered for power estimation. This includes devices such as HDDs, SSDs, and NVMe drives directly attached to the server. Dedicated external storage systems such as Storage Area Networks (SAN) or Network-Attached Storage (NAS) are not within the scope of this analysis. While such systems are important in data center environments, their energy consumption is not attributable at the granularity required for the workload-level estimation pursued in this thesis.
+
+As a result, research into storage device energy consumption measurement that is generally applicable to all devices has been limited. For practical applications, generalizations are often used, such as the following tables~\ref{tab:Storage_power_HDD} to~\ref{tab:Storage_power_NVMe}. While these approximations cannot be used in the context of this thesis, they may serve as an initial guideline.
 
 \begin{table}[H]
     \centering
@@ -502,7 +507,7 @@ In a running server system, this approach could be adapted to create an accurate
     \item Due to the authors not considering idle and standby-states, a small, constant idle power consumption would need to be added to the model. This is especially important for accurate storage device power consumption modeling on idling or overprovisioned servers.
 \end{itemize}
 
-\subsubsection{Issues with model-based estimation techniques in the context of this thesis}
+\subsubsection{Issues with model-based storage device estimation techniques}
 This thesis pursues two inherently conflicting objectives: achieving high-resolution, accurate energy consumption measurements while simultaneously developing a solution that remains broadly applicable across heterogeneous server environments without requiring extensive manual calibration, or the manual input of complex device-specific information. Striking a balance between these goals is particularly challenging in the context of model-based energy estimation for storage devices: Due to the wide variability among devices for a variety of factors, energy consumption models must necessarily abstract away much of the underlying complexity. Developing a model that is simultaneously fine-grained, highly accurate, and universally applicable across different storage technologies is, in practice, an unattainable goal.
 
 As a result, any model integrated into a general-purpose energy estimation framework must err on the side of relative simplicity to preserve generality. While this approach diminishes the precision of storage-specific energy attribution, it remains valuable for broader optimization tasks. For instance, autoscaling mechanisms, load balancers, and schedulers can still benefit significantly from approximate energy profiles when storage is not the primary bottleneck. Likewise, cluster administrators aiming to improve energy efficiency holistically, or developers seeking to optimize their workloads, can gain useful directional insights even from coarse-grained models.
@@ -511,31 +516,62 @@ However, this simplicity imposes significant limitations for use cases that requ
 
 In the context of this thesis, this limitation is considered acceptable. The overarching objective is to facilitate scalable and portable energy estimation mechanisms for containerized environments, not to provide a diagnostic tool for hardware-level storage energy analysis. Nonetheless, this constraint should be kept in mind when interpreting the results and assessing their suitability for storage-centric evaluation tasks.
 
+\subsection{Model-based estimation techniques for network devices}
+
+Estimating the total power consumption of a network infrastructure requires a clear definition of system boundaries. Since most server clusters operate within larger, interconnected systems, a full assessment of network energy consumption—such as for CO\textsubscript{2} footprint calculations—is generally infeasible. This thesis limits the system boundary to the server itself, considering only internal network components, primarily the Network Interface Card (NIC). While this allows detailed modeling of NIC power usage, it excludes broader network activity, such as inter-node communication in multi-node clusters.
+
+Although the overall energy consumption of a data center network could be estimated by including access, aggregation, and core switches, attributing this consumption to specific workloads remains highly challenging. This chapter therefore focuses on model-based methods for estimating NIC-level power as a proxy for server-side network energy usage.
+
+\subsubsection{NIC power consumption characteristics}
+While a lot of research was done to analyze the power consumption of network equipment like switches, routers or gateways, NICs have not received as much attention. While there are several methods that modern NICs employ to save power (e.g. PCIe Link power states and D-states, \textit{Active State Power Management (ASPM)}) or \textit{Energy Efficient Ethernet (EEE)}, there are not widely available mechanisms for fine-grained NIC power consumption estimation. As a consequence, NIC power can only be approximated based on the few available metrics, 
+
+Sohan et al\parencite{sohanCharacterizing10Gbps2010} measured and compared the power consumption of six 10 Gbps and four multiport 1 Gbps NICs at a fine-grained level. While he does not provide a method to estimate NIC energy consumption, and notices great variation in power consumption between different NICs. Unfortunately, it cannot be ruled out that some of the results are cherry-picked: Solarflare-NICs tend to dominate the introduced metics, and a Communication spokesperson is prominently credited with contact information. Regardless, some findings are found irrespective of the NIC manufacturer, and remain consistent with other literature sources\parencite{gough2015energy}. While these findings cannot directly contribute to a potential NIC power consumption estimation approach, they are relevant to understand underlying mechanisms and to assess the relative importance of the NIC compared to other server components.
+\begin{itemize}
+    \item Idle Power
+    \begin{itemize}
+        \item The measured NICs show a power consumption of between 5--20W
+        \item Link connection status has little effect on idle energy consumption
+        \item Physical media influences power consumption: CX4 models have the lowest power consumpttion due to the simple design of the CX4 interconnect. This is followed by Fober models. Finally the Base-T models consume significantly more power due to the signal processing component int he card.
+    \end{itemize}
+    \item Active Power
+    \begin{itemize}
+        \item There is very little difference in the power usage of an active NIC compared to an idle one. For all measured NICS, the differenc in power usage was less than 1W.
+        \item Throughput performance varied widely, and no correlation between power usage and performance was observed.
+        \item Power consumption increases in correlation to the number of ports. 
+    \end{itemize}
+\end{itemize}
+
+In 2012, Basmadjian et al\parencite{basmadjianCloudComputingIts2012} modelled a NIC by separating NIC power consumption into idle mode and dynamic mode (same as they did for their CPU and RAM models). If $P_{NIC_{idle}}$ is the power of the idle interface and $P_{NIC_{dynamic}}$ is the power when active, the total NIC energy consumption would be given by
+\begin{equation}
+    E_{NIC} = P_{NIC_{idle}}T_{idle} + P_{NIC_{dynamic}}T_{dynamic}
+\end{equation}
+where $T_{idle}$ and $T_{dynamic}$ are the total idle and dynamic times, respectively. Consequently, the average power during period $T$ would be given by
+\begin{align}
+    P_{\text{NIC}} &= \frac{(T - T_{\text{dynamic}}) P_{NIC_{idle}} + P_{NIC_{dynamic}} T_{\text{dynamic}}}{T}\\
+                   &= P_{NIC_{idle}} + (P_{NIC_{dynamic}} - P_{NIC_{idle}})\rho
+\end{align}
+where $\rho=\frac{T_{\text{dynamic}}}{T}$ is the channel utilization.
+
+When correlating --> this still does not tell us how to actually estimate the NIC power consumption, but it might provide a good model :/
+
+
+
+\parencite{arjonaarocaMeasurementbasedAnalysisEnergy2014} %not really
+% yessssssssss
 
 
 
 
 
-- BMC / IPMI voltage and current sensors
-    Backplane power (not individual devices)
-    entirely depends to server vendor and firmware
-- NVMe Power States (nvme-cli)
-- NVMe Drives with Telemetry Support (enterprise drives may expose instant power, temp, voltage/current/...)
-- the storage part of a datacenter consists of storage controllers and directly-attachted storage
 
 
 
+xxxxxxxxxxxxxxxxxxxxx\\
+In a systematic review cloud servers power models, Lin et al\parencite{lin2020taxonomy} state that the common way\\
+xxxxxxxxxxxxxxxxxxxxx\\
 
 
 
-
-
-
-
-
-
-
-In a systematic review cloud servers power models, Lin et al\parencite{lin2020taxonomy} state that the common way
 
 
 
