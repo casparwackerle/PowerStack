@@ -340,6 +340,8 @@ While models like these might work well when custom-fitted to specific, multi-pu
 \end{equation}
 , where C denotes the server's base power, which includes the power consumption of other components (regarded as static). This approach can easily be extended to include various other components such as GPUs, FPGAs or other connected components.
 
+\parencite{katalEnergyEfficiencyCloud2022}: different servers have widely different distribution of power between different components
+
 
 ....
 
@@ -523,7 +525,7 @@ Estimating the total power consumption of a network infrastructure requires a cl
 Although the overall energy consumption of a data center network could be estimated by including access, aggregation, and core switches, attributing this consumption to specific workloads remains highly challenging. This chapter therefore focuses on model-based methods for estimating NIC-level power as a proxy for server-side network energy usage.
 
 \subsubsection{NIC power consumption characteristics}
-While a lot of research was done to analyze the power consumption of network equipment like switches, routers or gateways, NICs have not received as much attention. While there are several methods that modern NICs employ to save power (e.g. PCIe Link power states and D-states, \textit{Active State Power Management (ASPM)}) or \textit{Energy Efficient Ethernet (EEE)}, there are not widely available mechanisms for fine-grained NIC power consumption estimation. As a consequence, NIC power can only be approximated based on the few available metrics, 
+While a lot of research was done to analyze the power consumption of network equipment like switches, routers or gateways, NICs (especially non-wireless NICs) have not received as much attention. While there are several methods that modern NICs employ to save power (e.g. PCIe Link power states and D-states, \textit{Active State Power Management (ASPM)}) or \textit{Energy Efficient Ethernet (EEE)}, there are not widely available mechanisms for fine-grained NIC power consumption estimation. As a consequence, NIC power can only be approximated based on the few available metrics, 
 
 Sohan et al\parencite{sohanCharacterizing10Gbps2010} measured and compared the power consumption of six 10 Gbps and four multiport 1 Gbps NICs at a fine-grained level. While he does not provide a method to estimate NIC energy consumption, and notices great variation in power consumption between different NICs. Unfortunately, it cannot be ruled out that some of the results are cherry-picked: Solarflare-NICs tend to dominate the introduced metics, and a Communication spokesperson is prominently credited with contact information. Regardless, some findings are found irrespective of the NIC manufacturer, and remain consistent with other literature sources\parencite{gough2015energy}. While these findings cannot directly contribute to a potential NIC power consumption estimation approach, they are relevant to understand underlying mechanisms and to assess the relative importance of the NIC compared to other server components.
 \begin{itemize}
@@ -551,6 +553,12 @@ where $T_{idle}$ and $T_{dynamic}$ are the total idle and dynamic times, respect
                    &= P_{NIC_{idle}} + (P_{NIC_{dynamic}} - P_{NIC_{idle}})\rho
 \end{align}
 where $\rho=\frac{T_{\text{dynamic}}}{T}$ is the channel utilization.
+
+In 2016, De Maio et al\parencite{demaioModellingEnergyConsumption2016} proposed a network energy consumption model for node-to-node transfers in order to estimate the entire energy consumption required for virtual machine migration. Unfortnuately their model does not specifically handle NIC energy consumption, opting for modelling the entire node energy consumption of the node.
+
+Another approach is presented by Dargie and Wen\parencite{dargieProbabilisticModelEstimating2013} in 2013, who use stochastic modelling to examine the relationship between the utilization of a NIC and its power consumption, expressing these quantities as random variables or processes. They use curve fitting to determine the relationship between utilization and measured energy consumption of their specific NIC, after creating a data set using a SPECpower benchmark. They assume a uniformly distributed bandwidth utilization in the interval [0,125] MBps. This assumption shows the age of this research. Interestingly, their model shows only a slight effect of utilization on the predicted power consumption, mirroring the findings of Sohan et al.
+
+Conclusively, the author of this thesis is not aware of a model to reliably estimate NIC power consumption. Fortunately, it apprears that NIC power consumption does not greatly depend on utilization, making simple, non-workload dependent estimation mechanisms more feasable.
 
 When correlating --> this still does not tell us how to actually estimate the NIC power consumption, but it might provide a good model :/
 
