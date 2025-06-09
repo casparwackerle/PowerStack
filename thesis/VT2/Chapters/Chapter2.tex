@@ -49,6 +49,7 @@ This of course highlights a fundamental truth of instrument-based data collectio
 \subsection{Dedicated Aquisition systems}
 
 \subsubsection{BMC Devices, IPMI and Redfish}
+\label{sec:BMC_devices}
 Some manufacturers have developed specialized power data aquisition systems for their own server products. The baseboard management controller (BMC) is a typical dedicated aquisition system usually integrated with the motherboard, usually as part of the intelligent platform management interface (IPMI)\parencite{lin2020taxonomy}. It can be connected to the system bus, sensors and a number of components to provide power and temparature information about the CPU, memory, LAN port, fan, and the BMC itself. Some comprehensive management systems such as Dell iDRAC or Lenovo xClarity have been further developed to provide high-quality, fine-grained power data due to their close interoperation between system software and underlying hardware. BMC devices on modern servers often offer IPMI- or Redfish interfaces. While these interfaces use the same physical servers, their implementation differ significantly, where Redfish generally offers higher accuracy (e.g through the use of higher-bit formats, whereas IPMI often uses 8-bit raw numbers).
 
 In the context of container power consumption estimation, IPMI-implementations occupy an interesting role. In 2016, Kavanagh et al\parencite{kavanagh2016accuracy} found the accuracy of IMPI power data to be relatively inaccurate when compared with an external power meter, mainly due to the large measurement window size of 120 to 180 seconds and the inaccurate assessment of the idle power. They concluded that IMPI power data was still useful when a longer averaging window was used, and the initial datapoints discounted. In a later study, they suggest combining the measurements of IPMI and Intel RAPL (which they find to underestimate the power consumption) for a reasonable approximation of true measurement\parencite{kavanagh2019rapid}. Kavanagh's findings have been cited in various studies, often to negate the use of IPMI for power measurement. When used, it sometimes is chosed because it was the "simplest power metric to read"\parencite{white2020monitoring} in the context of entire data centers.
@@ -67,13 +68,12 @@ The \textit{Advanced Configuration and Power Interface (ACPI)} is a standardized
 
 Although ACPI defines these power states, their actual implementation is processor-specific, and the interface does not provide real-time telemetry. As such, ACPI does not expose instantaneous power consumption values. Any attempt to estimate power based on ACPI would require detailed knowledge of processor-specific behavior, including the mapping between frequency, voltage, and power—information that is not exposed through ACPI. As a result, limited research was conducted on this topic.
 
-In theory, one could attempt to use ACPI's \texttt{_PSS} (Performance Supported States) table, which lists available P-states along with nominal voltage, frequency, and optionally estimated maximum power dissipation, to perform rough CPU power estimation \cite{pss_usage_study}. This method would involve tracking CPU residency in each performance state and applying simple integration models to estimate total energy. However, due to the static nature of \texttt{_PSS} entries and the lack of temporal precision, such estimates would be inherently coarse-grained and typically inaccurate for modern processors with dynamic voltage and frequency scaling or turbo modes.
+In theory, one could attempt to use ACPI's \texttt{\_PSS} (Performance Supported States) table, which lists available P-states along with nominal voltage, frequency, and optionally estimated maximum power dissipation, to perform rough CPU power estimation. This method would involve tracking CPU residency in each performance state and applying simple integration models to estimate total energy. However, due to the static nature of \texttt{\_PSS} entries and the lack of temporal precision, such estimates would be inherently coarse-grained and typically inaccurate for modern processors with dynamic voltage and frequency scaling or turbo modes.
 
 Consequently, ACPI is rarely used in contemporary power estimation contexts. Its primary role remains in system configuration and power state control rather than accurate energy quantification. In modern Intel processors, the Running Average Power Limit (RAPL) interface provides a more appropriate solution for in-band power measurement. This makes RAPL the preferred tool for energy-aware computing research and production environments alike.
 
-
 \subsection{Intel RAPL}
-
+\label{sec:RAPL}
 Intel Running Average Power Level (RAPL) is a Power Monitoring Counter (PMC)-based feature introduced by Intel and provides a way to monitor and control the energy consumption of various components within their processor package\parencite{projectexigence_rapl}. An adaptation of RAPL for AMD processors uses largely the same mechansms and the same interface\parencite{amd_energy}, although it provides less information than Intel's RAPL, providing no DRAM energy consumption\parencite{schone2021energy}. Unfortunately RAPL does not have a detailed low-level implementation documentation, and the exact methodology of the RAPL calculations remain unknown\parencite{jay2023experimental}.
 
 Intel RAPL has been used extensively in research to measure energy consumption\parencite{kennes2023measuring} despite some objections about its accuracy, which will be discussed sections~\ref{sec:raplvalidation} and ~\ref{sec:rapllimitations}. The general concencus is that RAPL is \textit{good enough} for most scientific work in the field of server energy consumption and efficiency. As Raffin et at\parencite{raffin2024dissecting} point out, it is mostly used \textit{like a black box without deep knowledge of its behavior}, resulting in implementation mistakes. For this reason, the next section~\ref{sec:raplmethodology} presents an overview of the RAPL fundamentals.Finally, section~\ref{sec:rapltools} discusses the currently available RAPL-based tools.
@@ -338,32 +338,37 @@ Peripherals like the Network Interace Card (NIC) are almost always connected via
 \end{itemize}
 Unfortunately, device power states are not in any way related to physical power specifications: While a specific power state might be useful for simple deductions (e.g. if a device is idling or active), no power figures can be deduced. In the event that a device's idle or maximum power are known, power states might potentially be used for a first estimation (i.e. an idling device is unlikely to consume its specified maximum power, and vice versa), but since a device's power characteristics cannot reliably estimated (especially beyond just NICs), devices power states cannot be used to reliably estimate device power consumption. An attempt at the estimation of NIC power consumption is covered in section \ref{sec:NIC_modeling}.
 
-
-
-
-
-
-
 \section{Model-based estimation techniques}
-In the absence of actual power data, power consumption models can be formulated that essentially map variables (such as CPU, Memory utilization) related to a server's state to its power consumption. 
+In the absence of actual power data, power consumption models can be formulated that map variables (such as CPU or Memory utilization) related to a server's state to its power consumption. 
 Due to the strong correlation between CPU uzilization and server power, a great number of models use CPU metrics as the only indicator of server power. Fan et al\parencite{fan2007power} proposed a linear interpolation between idle power and full power, which they further refine into a non-linear form, with a parameter $\gamma$ to be fitted to minimize mean square error. Similar research was done to further reduce error by introducting more complex non-linear models, such as Hsu and Poole\parencite{hsu2011power}, who studied the SPECpower\textunderscore ssj2008-dataset of systems released between December 2007 and August 2010, and suggested the adaptation of two non-linear terms:
 \begin{equation}
     P_{\text{server}} = \alpha_0 + \alpha_1 u_{\text{cpu}} + \alpha_2 \left( u_{\text{cpu}} \right)^{\gamma_0} + \alpha_3 \left( 1 - u_{\text{cpu}} \right)^{\gamma_1}
 \end{equation}
 
-While models like these might work well when custom-fitted to specific, multi-purpose servers, they have since been surpassed by the more common approach of modelling server power is to consider it an assembly of its components, such as Song et al\parencite{song2013unified} propose as:
+The division of server power consumption into idle (generally static) and dynamic power (modeled with many different methods thoughought related research) has historically been a popular suggestion\parencite{beloglazovChapter3Taxonomy2011}. Other, broadly similar attempts to model server energy consumption based on only a few variables exist, such as modeling server consumption based on CPU frequency\parencite{elnozahyEnergyEfficientServerClusters2003}.
+
+\subsection{Component-level Power models}
+
+While models like the ones listed above might work well when custom-fitted to specific, multi-purpose servers, they have since been surpassed by the more common approach of modelling server power is to consider it an assembly of its components, such as Song et al\parencite{song2013unified} propose as:
 \begin{equation}
     P_{\text{server}} = P_{\text{cpu}} + P_{\text{memory}} + P_{\text{disk}} + P_{\text{NIC}} + C
 \end{equation}
 where C denotes the server's base power, which includes the power consumption of other components (regarded as static). This approach can easily be extended to include various other components such as GPUs, FPGAs or other connected components.
 
-\parencite{katalEnergyEfficiencyCloud2022}: different servers have widely different distribution of power between different components
+\subsubsection{Advantages and disadvantages of component-level power models}
+A component-based approach to modeling server power consumption offers increased granularity and adaptability across a diverse range of server architectures. Modern data centers deploy heterogeneous hardware configurations optimized for specific workloads, such as CPU-intensive computing nodes, GPU-accelerated servers for machine learning, or memory-rich systems for in-memory databases. These configurations lead to vastly different power distribution profiles across components\parencite{katalEnergyEfficiencyCloud2022}. By modeling the energy consumption of individual components, it becomes possible to reflect these structural differences more accurately. Additionally, such models can reveal energy characteristics that would be obscured in aggregate metrics (for instance, a workload that imposes significant stress on storage devices without engaging the CPU may go undetected in simplistic, CPU-centric models). Finally, component-level analysis enables more precise evaluation of energy optimization techniques: the impact of mechanisms like dynamic voltage and frequency scaling (DVFS) or idle power states can be assessed not just in isolation but in terms of their contribution to overall server efficiency.
 
+Despite offering finer granularity, component-based power modeling faces several inherent challenges. While servers are composed of individual components, they function as tightly integrated systems in which no component operates in isolation. The power consumption of one subsystem often depends on the behavior of others (for example, memory access patterns can influence CPU power states, and I/O activity may trigger CPU wake-ups or increased cache usage). These inter-component interactions are difficult to capture accurately and are frequently overlooked in component-level models\parencite{lin2020taxonomy}, leading to potentially misleading or incomplete estimations. Furthermore, the development of detailed and accurate models for each component is significantly more complex than holistic server-level modeling. Such models often require extensive empirical data, sophisticated estimation techniques, and continuous updates to remain valid across hardware generations. This not only increases the research burden but also demands a higher level of expertise for interpretation and practical application, compared to simpler, utilization-based models.
 
-....
+\subsection{CPU}
 
-general issue \parencite{lin2020taxonomy}: There have been extensive studies on hardware-centric power models. However, it can be observed that the interactions between the components are not considered in most research at either the machine level or the component level. Considering the complexity of the workload on a cloud server, it is necessary to investigate the correlation between the power consumption of different components and take that into account. For example, the power characteristic of the CPU could be entirely different in memory-intensive (while low disk usage) jobs and in IO-intensive jobs.
+Existing CPU power models generally model CPU power as a combination of other, existing power figures. Fan et al\parencite{fan2007power} propose a linear interpolation between idle power and full power based on CPU utilization. Basmadjian et al\parencite{basmadjianMethodologyPredictPower2011} observe that individual cores in a multi-core CPU can be modeled as individual cores, in addition to an overall CPU idle consumption. Non-linear models are also widely adopted, with Lou et al\parencite{LuoEnergyModeling2014} proposing a polynomial model as a univariate function of CPU utilization. Other models include individual CPU components\parencite{basmadjian2012evaluating, sarood2014maximizing} for more fidelity.
 
+While these models may be helpful to examine the dynamics of CPU power consumption in relation to different inputs, they are not helpful in finding CPU power consumption of an unknown CPU, i.e. without previously known idle or maximum power consumption. The existance of a model capable to accurately estimation CPU power consumption based solely on generalizable input factors (such as utilization or frequency) is questionable due to the great variance in architectures and technologies, as well as technological progress. Unsurprisingly, the author of this thesis was not able to find a model to estimate CPU power consumption.
+
+\subsection{Memory}
+
+Many Memory power models were proposed in literature, many of them with an idle and a dynamic component of memory power consumption. While the idle power consumption is generally assumed to be known, dynamic memory power consumption has been modeled to depend on memory usage\parencite{lin2018cloud} or memory accesses\parencite{arroba2014server}, the number of cache misses\parencite{kansal2010virtual}, memory state\parencite{basmadjianMethodologyPredictPower2011}, or other factors. Similar to the CPU models presented in the previous section, these models do not propose generalizable models able to predict memory consumption in situations where idle or maximum memory consumption is not previously known, instead focussing on examining power consumption dynamics. The same objections preventing generalizable CPU models apply to memory models as well, namely great variety, specialization and technological progress. As a result, no model-based approaches exist that are capable of accurately estimating memory power consumption based solely on performance metrics.
 
 \subsection{Storage devices}
 \label{sec:model-based_storage_power}
@@ -580,12 +585,49 @@ where $BW_i$ is the bandwidth of application i, $BW_{\text{aggregated}}$ is the 
 In contrast to the formulae presented by Basmadjian and Arjona Aroca, the formulae not only account for time intervals, but also bandwidth used. As a result, the formulae presented by Baneshi et al represent the current best approach to estimate NIC power consumption, even though this estimation still requires an initial guess of the idle and maximum power consumption. The author of this thesis is not aware of a more detailed formuala currently available. A generalizable formula for estimating overall NIC power consumption is unlikely to exist due to the vast variety of NICs, and the great differences between manufacturers (as found by Sohan et al). 
 
 \subsection{Other devices}
-\parencite{basmadjianCloudComputingIts2012}: Well-known formula for fans
-Issues: we don't know the fan diameter -> assumtions?  40mm?
-%many also simplify and state that the fans are a fixed portion of the server Pfan = \alpha x Pserver
+While much of the research on server energy consumption focuses on primary components such as the CPU, memory, storage, and network interfaces, a complete energy model must also account for additional hardware subsystems. These include the motherboard, power supply unit (PSU), system fans, and potentially other auxiliary devices. Though their individual energy consumption may appear minor compared to high-performance components, they collectively contribute a non-negligible share to the overall server power draw.
 
+Despite their importance, these secondary components have received limited attention in energy modeling literature. In most cases, they are either omitted or treated as part of the residual power not attributable to the main computational subsystems.
 
+The motherboard, for instance, includes voltage regulators, chipset logic, and peripheral interfaces. While these components may not be individually monitored, the Baseboard Management Controller (BMC) (see section ~\ref{sec:BMC_devices})may expose aggregated power telemetry via vendor-specific sensors or interfaces like IPMI or Redfish. However, this level of detail varies greatly across hardware platforms and is seldom fine-grained enough for component-level attribution.
+\subsubsection{PSU}
+The power supply unit (PSU) is another often-overlooked consumer. When modeling the power usage of a PSU itself (distinct from the power it delivers to other components), the key factor is its conversion efficiency. PSUs consume more power than they deliver due to losses during AC–DC transformation and voltage regulation. According to Basmadjian et al. \parencite{basmadjianCloudComputingIts2012}, the power consumed by the PSU can be approximated for various scenarios:
+If the monitoring system provides information at the PSU level, its power consumption is given by
+\begin{equation}
+    P_{PSU} = \frac{measuredPower \cdot (100 - e)}{100}
+\end{equation}
+where $e$ is the efficiency of the PSU.
 
+If the monitoring system proves information at the server level, the power consumption of any of the $n$ PSU is given by the following formuala, assuming that measured power is evenly distributed among PSUs:
+\begin{equation}
+    P_{PSU} = \frac{\frac{measuredPower}{n} \cdot (100 - e)}{100}
+\end{equation}
+
+If the monitoring system does not provide PSU power consumption, it can be deduced by
+\begin{equation}
+    P_{PSU} = \frac{P_{Mainboard} + P_{Fans}}{n \cdot e} \cdot 100 - \frac{P_{Mainboard} + P_{Fans}}{n}
+\end{equation}
+
+\subsubsection{Fans}
+Cooling systems, particularly fans, also represent a meaningful share of the total energy budget. Most servers employ multiple fans controlled via Pulse-Width Modulation (PWM). While the BMC or operating system tools (e.g. \texttt{lm-sensors}) often report fan RPM or PWM duty cycle, actual fan power consumption is rarely exposed directly. Furthermore, RPM alone is insufficient to estimate power accurately, as fan power depends on physical factors such as the fan diameter, pressure increase or air flow delived\parencite{basmadjianCloudComputingIts2012}:
+\begin{equation}
+\label{for:fanpower}
+    P_{Fan} = d_p \cdot q = \frac{F}{A} \cdot \frac{V}{t} = \frac{F \cdot d}{t}
+\end{equation}
+where $p_d$ denotes total pressure increase of the fan (Pa or N/m\textsuperscript{2}), $q$ denotes the air volume flow (m\textsuperscript{3}/s), $F$ denotes force (N), $A$ denotes fan area (m\textsuperscript{2}), $V$ denotes volume (m\textsuperscript{3}), and $t$ denotes time (seconds).
+
+Based on observations, $F$ is proportional with to the sqare of $RPM$. This can be combined with formula ~\ref{for:fanpower}:
+\begin{equation}
+    P_{Fan} = \frac{c \cdot RPM\textsuperscript{2} \cdot d}{3600}
+\end{equation}
+where for each individual fan, $c = \frac{3600 \cdot P_{Max}}{RPM_{Max}\textsuperscript{2} \cdot d}$ remains constant.
+
+Unfortunately, with the wide variety of fans in servers (especially with fan size restrictions due to server heights), these formulae are only helpful when paired with more detailed information on fan characteristics like Maximum RPM and Power. While these can more reasonably be assumed, this remains a rough estimation at best.
+
+\subsubsection{Attribution of secondary component power consumption to individual workloads}
+Despite these measurement limitations, estimating the energy consumption of secondary components is often less critical for attributing energy to workloads. This is because components like fans, mainboards, and PSUs primarily support the operation of primary subsystems. Their power consumption scales with the activity level of CPU, memory, disk, and networking devices: more computation leads to higher heat dissipation, increased power delivery, and thus greater fan and PSU activity.
+
+Consequently, if the total server power consumption is known—for example, via wall power monitoring or BMC/Redfish readings—the residual power (i.e., total power minus the sum of measured CPU, RAM, disk, and network power) can be reasonably attributed to power delivery and thermal management subsystems. This residual can then be proportionally distributed among active workloads based on the power consumption of the primary components they utilize. In this context, fine-grained modeling of secondary components becomes unnecessary for workload attribution, as their energy use correlates closely with that of the primary subsystems they support.
 
 \subsection{Issues with model-based power estimation techniques}
 This thesis pursues two inherently conflicting objectives: achieving high-resolution, accurate energy consumption measurements while simultaneously developing a solution that remains broadly applicable across heterogeneous server environments without requiring extensive manual calibration, or the manual input of complex device-specific information. Striking a balance between these goals is particularly challenging in the context of model-based energy estimation for devices that do not expose power telemtry data: Due to the wide variability among devices for a variety of factors, energy consumption models must necessarily abstract away much of the underlying complexity. Developing a model that is simultaneously fine-grained, highly accurate, and universally applicable across different technologies is, in practice, an unattainable goal.
@@ -596,13 +638,18 @@ However, this simplicity imposes significant limitations for use cases that requ
 
 In the context of this thesis, this limitation is considered acceptable. The overarching objective is to facilitate scalable and portable energy estimation mechanisms for containerized environments, not to provide a diagnostic tool for hardware-level energy analysis. Nonetheless, this constraint should be kept in mind when interpreting the results and assessing their suitability for device-centric evaluation tasks.
 
+\section{Power Modeling based on Machine Learning Algorithms}
 
-xxxxxxxxxxxxxxxxxxxxx\\
-In a systematic review cloud servers power models, Lin et al\parencite{lin2020taxonomy} state that the common way\\
-xxxxxxxxxxxxxxxxxxxxx\\
+In a taxonomy of power consumption modeling approaches, Lin et al\parencite{lin2020taxonomy} analyze various machine learning-based power models in current literature, categorizing them into supervised, unsupervised, and reinforcement learning. A detailed reiteration of this taxonomy (as well as a methodological overview of machine learning and neural networks) is omitted here.
 
+In the context of this thesis, machine learning-based approaches are not considered for the following reasons:
+\begin{itemize}
+\item The author was unable to identify a promising and reliable approach that is sufficiently generalizable to function across a wide range of server configurations. Likewise, no component-level models were found that met these criteria. While it is certainly possible to train machine learning models to estimate energy consumption for specific server setups with high accuracy, the aim of this thesis is to provide generalizable estimation methods applicable to varied systems.
+\item Machine learning fundamentally relies on large datasets that are both highly accurate and granular, ideally matching the quality expectations of the resulting model. As discussed in previous sections, such high-quality training data is rarely available in the domain of fine-grained power measurement. When such datasets do exist, they typically reflect highly specific hardware and workload configurations, making them unsuitable for generalization. Although it would be theoretically possible to generate a large dataset by systematically benchmarking thousands of CPUs, memory modules, GPUs, storage, and network devices across millions of configurations, such an undertaking is not practically feasible. Furthermore, any such dataset would require ongoing expansion to remain representative of new hardware generations.
+\item Finally, many of the technical implementation details underlying key telemetry features remain proprietary or undocumented. A notable example is the RAPL interface, whose internal workings are not publicly disclosed. At the same time, existing RAPL metrics already offer abstracted energy readings suitable for direct integration into power estimation tools, eliminating the need for an intermediate machine learning-based step.
+\end{itemize}
 
-
+In theory, machine learning-based power estimation models hold significant promise and may one day be realized. Such models could leverage complex, nonlinear relationships between hardware components and workloads—relationships that are inherently difficult or even impossible to capture through traditional analytical models. The predictive and adaptive capabilities of machine learning offer the potential for highly accurate, fine-grained estimations across a broad range of configurations. However, as of today, the development of such a comprehensive and generalizable model remains out of reach. Realizing this vision would require extensive collaboration between original equipment manufacturers, cloud providers, data center operators, and research institutions to generate, standardize, and share high-quality telemetry data across diverse hardware and workload scenarios. Given the role of cloud computing in the current economic landscape, where proprietary knowledge and performance optimization constitute a competitive advantage at the corporate, national, and geopolitical levels, such broad cooperation appears unlikely. Consequently, machine learning remains a promising but currently impractical direction for universal server power modeling.
 
 
 
