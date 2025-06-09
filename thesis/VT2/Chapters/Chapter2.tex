@@ -63,7 +63,13 @@ In-band measurement techniques refer to methods of power consumption monitoring 
 
 \subsection{ACPI}
 
-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+The \textit{Advanced Configuration and Power Interface (ACPI)} is a standardized interface that facilitates power management and hardware configuration by allowing the operating system to control hardware states such as processor sleep, throttling, and performance modes \cite{uefi_acpi_6_6}. It plays a significant role in processor performance tuning by exposing C-states (idle), P-states (performance), and T-states (throttling) which the OS can leverage to adjust the processor's activity, frequency, and voltage.
+
+Although ACPI defines these power states, their actual implementation is processor-specific, and the interface does not provide real-time telemetry. As such, ACPI does not expose instantaneous power consumption values. Any attempt to estimate power based on ACPI would require detailed knowledge of processor-specific behavior, including the mapping between frequency, voltage, and power—information that is not exposed through ACPI. As a result, limited research was conducted on this topic.
+
+In theory, one could attempt to use ACPI's \texttt{_PSS} (Performance Supported States) table, which lists available P-states along with nominal voltage, frequency, and optionally estimated maximum power dissipation, to perform rough CPU power estimation \cite{pss_usage_study}. This method would involve tracking CPU residency in each performance state and applying simple integration models to estimate total energy. However, due to the static nature of \texttt{_PSS} entries and the lack of temporal precision, such estimates would be inherently coarse-grained and typically inaccurate for modern processors with dynamic voltage and frequency scaling or turbo modes.
+
+Consequently, ACPI is rarely used in contemporary power estimation contexts. Its primary role remains in system configuration and power state control rather than accurate energy quantification. In modern Intel processors, the Running Average Power Limit (RAPL) interface provides a more appropriate solution for in-band power measurement. This makes RAPL the preferred tool for energy-aware computing research and production environments alike.
 
 
 \subsection{Intel RAPL}
@@ -322,9 +328,15 @@ While storage devices don't expose any energy-consumption specific metrics, many
     \item Many other performance metrics are exposed by various tools such as \texttt{iostat}, \texttt{sar}, \texttt{/proc/diskstats}, and \texttt{blkstat}, such as read/write IOPS, throughput, queue length, latency, utilization, and others. Additional information (such as the interface) is also exposed.
 \end{itemize}
 
-\subsection{Network devices}
+\subsection{Network devices and other PCIe devices}
 
-
+Peripherals like the Network Interace Card (NIC) are almost always connected via PCIe. As such, many cards  support Device power states\parencite{technotes_pci_power_2024} as specified by the PCIe specifications. Notably, not all NICs support all (or any) power states.These device states allow the the server and device to negotiate a power state for the device, which typically means choosing a trade-off between power consumption and wake-up latency. For devices, PCIe specifies the following device states:
+\begin{itemize}
+    \item D0 state (Fully on)
+    \item D1 and D2 states (Intermediate power states)
+    \item D3 State (Off State), with the distinction between D3hot and D3cold
+\end{itemize}
+Unfortunately, device power states are not in any way related to physical power specifications: While a specific power state might be useful for simple deductions (e.g. if a device is idling or active), no power figures can be deduced. In the event that a device's idle or maximum power are known, power states might potentially be used for a first estimation (i.e. an idling device is unlikely to consume its specified maximum power, and vice versa), but since a device's power characteristics cannot reliably estimated (especially beyond just NICs), devices power states cannot be used to reliably estimate device power consumption. An attempt at the estimation of NIC power consumption is covered in section \ref{sec:NIC_modeling}.
 
 
 
@@ -515,7 +527,7 @@ In a running server system, this approach could be adapted to create an accurate
 \end{itemize}
 
 \subsection{Network devices}
-
+\label{sec:NIC_modeling}
 Estimating the total power consumption of a network infrastructure requires a clear definition of system boundaries. Since most server clusters operate within larger, interconnected systems, a full assessment of network energy consumption (such as for CO\textsubscript{2} footprint calculations) is generally infeasible. This thesis limits the system boundary to the server itself, considering only internal network components, primarily the Network Interface Card (NIC). While this allows detailed modeling of NIC power usage, it excludes broader network activity, such as inter-node communication in multi-node clusters.
 
 Although the overall energy consumption of a data center network could be estimated by including access, aggregation, and core switches, attributing this consumption to specific workloads remains highly challenging. This chapter therefore focuses on model-based methods for estimating NIC-level power as a proxy for server-side network energy usage.
@@ -550,17 +562,11 @@ where $T_{idle}$ and $T_{dynamic}$ are the total idle and dynamic times, respect
 \end{align}
 where $\rho=\frac{T_{\text{dynamic}}}{T}$ is the channel utilization. While this formula is only helpful when NIC idle and max power consumption are already known, we can additionally see that the NIC power consumption is assumed to rise linearly with channel utilization.
 
-<<<<<<< HEAD
 Arjona Aroca et al\parencite{arjonaarocaMeasurementbasedAnalysisEnergy2014} modeled NIC efficiency based on their previous measurements. They find that NIC efficiencies for both sending and receiving are almost linear with the transfer rate and deduct a linear dependency to the network throughput.
-=======
+
 In 2016, De Maio et al\parencite{demaioModellingEnergyConsumption2016} proposed a network energy consumption model for node-to-node transfers in order to estimate the entire energy consumption required for virtual machine migration. Unfortnuately their model does not specifically handle NIC energy consumption, opting for modelling the entire node energy consumption of the node.
 
-Another approach is presented by Dargie and Wen\parencite{dargieProbabilisticModelEstimating2013} in 2013, who use stochastic modelling to examine the relationship between the utilization of a NIC and its power consumption, expressing these quantities as random variables or processes. They use curve fitting to determine the relationship between utilization and measured energy consumption of their specific NIC, after creating a data set using a SPECpower benchmark. They assume a uniformly distributed bandwidth utilization in the interval [0,125] MBps. This assumption shows the age of this research. Interestingly, their model shows only a slight effect of utilization on the predicted power consumption, mirroring the findings of Sohan et al.
-
-Conclusively, the author of this thesis is not aware of a model to reliably estimate NIC power consumption. Fortunately, it apprears that NIC power consumption does not greatly depend on utilization, making simple, non-workload dependent estimation mechanisms more feasable.
-
-When correlating --> this still does not tell us how to actually estimate the NIC power consumption, but it might provide a good model :/
->>>>>>> b5348f8ece6360c0d1674c6833cb5cf4395b97a2
+Another approach is presented by Dargie and Wen\parencite{dargieProbabilisticModelEstimating2013} in 2013, who use stochastic modelling to examine the relationship between the utilization of a NIC and its power consumption, expressing these quantities as random variables or processes. They use curve fitting to determine the relationship between utilization and measured energy consumption of their specific NIC, after creating a data set using a SPECpower benchmark. They assume a uniformly distributed bandwidth utilization in the interval [0,125] MBps. Interestingly, their model shows only a slight effect of utilization on the predicted power consumption, mirroring the findings of Sohan et al.
 
 The most recent NIC power model was proposed by Baneshi et al\parencite{baneshiAnalyzingPerApplicationEnergy2024} in 2024, analyze per-application energy consumption. The authors cite that NIC idle power consumption may contribute up to 90\% of the total NIC energy consumption. They propose the following model for per-application NIC power consumption:
 \begin{equation}
@@ -577,6 +583,9 @@ In contrast to the formulae presented by Basmadjian and Arjona Aroca, the formul
 \parencite{basmadjianCloudComputingIts2012}: Well-known formula for fans
 Issues: we don't know the fan diameter -> assumtions?  40mm?
 %many also simplify and state that the fans are a fixed portion of the server Pfan = \alpha x Pserver
+
+
+
 
 \subsection{Issues with model-based power estimation techniques}
 This thesis pursues two inherently conflicting objectives: achieving high-resolution, accurate energy consumption measurements while simultaneously developing a solution that remains broadly applicable across heterogeneous server environments without requiring extensive manual calibration, or the manual input of complex device-specific information. Striking a balance between these goals is particularly challenging in the context of model-based energy estimation for devices that do not expose power telemtry data: Due to the wide variability among devices for a variety of factors, energy consumption models must necessarily abstract away much of the underlying complexity. Developing a model that is simultaneously fine-grained, highly accurate, and universally applicable across different technologies is, in practice, an unattainable goal.

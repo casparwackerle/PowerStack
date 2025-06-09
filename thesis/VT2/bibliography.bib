@@ -974,5 +974,34 @@
   abstract = {Reducing energy consumption has become a key issue for data centres, not only because of economical benefits but also for environmental and marketing reasons. Therefore, assessing their energy consumption requires precise models. In the past years, many models targeting different hardware components, such as CPU, storage and network interface cards (NIC) have been proposed. However, most of them neglect energy consumption related to VM migration. Since VM migration is a network-intensive process, to accurately model its energy consumption we also need energy models for network transfers, comprising their complete software stacks with different energy characteristics. In this work, we present a comparative analysis of the energy consumption of the software stack of two of today's most used NICs in data centres, Ethernet and Infiniband. We carefully design for this purpose a set of benchmark experiments to assess the impact of different traffic patterns and interface settings on energy consumption. Using our benchmark results, we derive an energy consumption model for network transfers. Based on this model, we propose an energy consumption model for VM migration providing accurate predictions for paravirtualised VMs running on homogeneous hosts. We present a comprehensive analysis of our model on different machine sets and compare it with other models for energy consumption of VM migration, showing an improvement of up to 24\% in accuracy, according to the NRMSE error metric.},
   keywords = {Benchmarking,Energy consumption,Network interface card,Virtual machine migration}
 }
+@inproceedings{dargieProbabilisticModelEstimating2013,
+  title = {A {{Probabilistic Model}} for {{Estimating}} the {{Power Consumption}} of {{Processors}} and {{Network Interface Cards}}},
+  booktitle = {2013 12th {{IEEE International Conference}} on {{Trust}}, {{Security}} and {{Privacy}} in {{Computing}} and {{Communications}}},
+  author = {Dargie, Waltenegus and Wen, Jianjun},
+  year = {2013},
+  month = jul,
+  pages = {845--852},
+  issn = {2324-9013},
+  doi = {10.1109/TrustCom.2013.103},
+  urldate = {2025-06-04},
+  abstract = {Many of the proposed mechanisms aiming to achieve energy-aware adaptations in server environments rely on the existence of models that estimate the power consumption of the server as well as its individual components. Most existing or proposed models employ performance (hardware) monitoring counters and the CPU utilization to estimate power consumption, but they do not take into account the statistics of the workload the server processes. In this paper we propose a lightweight probabilistic model that can be used to estimate the power consumption of the CPU, the network interface card (NIC), and the server as a whole. We tested the model's accuracy by executing custom-made benchmarks as well as standard benchmarks on two heterogeneous server platforms. The estimation error associated with our model is less than 1\% for the custom-made benchmark whereas it is less than 12\% for the standard benchmark.},
+  keywords = {Correlation,Hardware,Network interfaces,Power consumption model: probabilistic model: server power consumption: processor power consumption: NIC power consumption: cumulative distribution function: random variable,Power demand,Program processors,Radiation detectors,Servers}
+}
+@online{technotes_pci_power_2024,
+  author       = {{TechNotes}},
+  title        = {{Deciphering the PCI Power States}},
+  year         = {2024},
+  month        = feb,
+  url          = {https://technotes.blog/2024/02/04/deciphering-the-pci-power-states/},
+  note         = {Accessed June 2025}
+}
+@misc{uefi_acpi_6_6,
+  author       = {{UEFI Forum}},
+  title        = {{Advanced Configuration and Power Interface Specification Version 6.6}},
+  year         = {2021},
+  month        = sep,
+  url          = {https://uefi.org/sites/default/files/resources/ACPI_Spec_6.6.pdf},
+  note         = {Accessed April 2025}
+}
 
 
