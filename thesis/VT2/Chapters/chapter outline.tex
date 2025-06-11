@@ -1,0 +1,67 @@
+\chapter{title} % Main chapter title
+
+Ideas
+
+Chapter 3: Correlating Power Consumption to Containers
+    3.1 The Challenge of Power Attribution in Shared Systems
+    3.2 What Makes a Good Correlation?
+        Accuracy
+        Temporal granularity
+        Causality vs. correlation
+        Real-time vs. post-processing tradeoffs
+    3.3 Power Attribution Philosophies
+        Usage-based, proportional, fixed-share, hybrid
+        Dealing with idle power
+        Dealing with system containers / background processes
+    3.4 Contextual Use Cases
+        Cost/billing
+        Sustainability / carbon reporting
+        Resource optimization
+        SLA verification / fairness in multi-tenant environments
+    3.5 Limitations and Practical Considerations
+        Metric availability (AMD/ARM, vendor lock-in)
+        Interference and contention
+        Metric resolution and sync
+        Scheduler behavior
+        Measurement overhead
+Chapter 4: Existing Tools and Approaches
+    4.1 Overview of Tool Landscape
+        KEPLER, Scaphandre, CodeCarbon, PowerAPI, Cloud Carbon Footprint, etc.
+    4.2 Tool Analysis Framework
+        Accuracy, data sources, correlation method, platform support, etc.
+    4.3 Detailed Evaluation of Selected Tools
+        One subchapter per tool:
+            4.X KEPLER
+            4.X Scaphandr
+            ...
+    4.4 Comparison Summary
+        Table of tradeoffs
+        Strengths and weaknesses
+        Missing features / open gaps
+Chapter 5: Designing a Container Power Attribution Architecture
+    5.1 Design Goals
+        Generalizability, minimal overhead, real-time capability, etc.
+    5.2 Architecture Components
+        Metric sources, data aggregation, correlation layer, exporter
+    5.3 Attribution Logic
+        CPU (RAPL + cgroups), RAM, NET, DISK, idle, system
+    5.4 Proposed Correlation Model
+        Hybrid models (e.g. direct for CPU, proportional for network)
+    5.5 Open Questions and Future Improvements
+Chapter 6: Methodology for Evaluation and Benchmarking
+    6.1 Requirements for Evaluation
+        Ground-truth measurement, reproducibility, load generation
+    6.2 Testbed Design
+        Kubernetes cluster layout, benchmarking tools (e.g., stress-ng, fio, iperf3)
+    6.3 Benchmarking Scenarios
+        Synthetic benchmarks (CPU/memory-heavy, IO-heavy, mixed)
+        Real-world workloads (web apps, ML inference, etc.)
+    6.4 Evaluation Metrics
+        Attribution accuracy, overhead, scalability, stability
+Chapter 7: Conclusion and Outlook
+    7.1 Summary of Findings
+    7.2 Implications for Practice
+    7.3 Limitations of the Study
+    7.4 Outlook on Future Work
+        Toward standardized power attribution
+        Integrating with cloud billing, reporting frameworks, etc.
