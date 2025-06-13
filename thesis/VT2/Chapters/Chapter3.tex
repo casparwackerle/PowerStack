@@ -1,46 +1,275 @@
-\chapter{Correlating Power Consumption to Containers} % Main chapter title
+\chapter{Attributing Server Power Consumption to Containerized Workloads} % Main chapter title
 \label{Chapter3}
 
+\section{Introduction and Context}
 
-Chapter 3: Correlating Power Consumption to Containers
-    3.1 The Challenge of Power Attribution in Shared Systems
-    3.2 What Makes a Good Correlation?
-        Accuracy
-        Temporal granularity
-        Causality vs. correlation
-        Real-time vs. post-processing tradeoffs
-    3.3 Power Attribution Philosophies
-        Usage-based, proportional, fixed-share, hybrid
-        Dealing with idle power
-        Dealing with system containers / background processes
-    3.4 Contextual Use Cases
-        Cost/billing
-        Sustainability / carbon reporting
-        Resource optimization
-        SLA verification / fairness in multi-tenant environments
-    3.5 Limitations and Practical Considerations
-        Metric availability (AMD/ARM, vendor lock-in)
-        Interference and contention
-        Metric resol ution and sync
-        Scheduler behavior
-        Measurement overhead
+As modern applications increasingly rely on container orchestration platforms such as Kubernetes, understanding the energy consumption of containerized workloads becomes a central concern in both research and industry. While the previous chapter focused on system-level and component-level power measurement and estimation, this chapter shifts focus to a more granular and complex task: attributing measured server power consumption to the individual containers or workloads responsible for it.
+
+Attributing energy consumption in this context is inherently difficult. Containerized platforms execute multi-tenant, multi-layered workloads across multiple CPU cores and devices, often distributed across nodes in a cluster. These workloads compete for shared hardware resources, and their execution contexts frequently change due to rescheduling, autoscaling, or node failure recovery. Consequently, direct one-to-one mapping of energy consumption to workload is generally not possible.
+
+Nonetheless, various techniques have emerged to approach this problem. The goal is to create an accurate and fair approximation of how much energy a given container or process is responsible for at any point in time. This chapter provides a conceptual foundation for these techniques. It examines the key metrics available in modern Linux and Kubernetes environments, discusses synchronization and granularity issues in metric fusion, and outlines methodological and philosophical challenges involved in assigning power usage.
+
+The subsequent Chapter~\ref{Chapter4} will examine how selected tools implement these ideas in practice. While some implementation aspects will be referenced for illustration, this chapter is focused on general methodologies, not tool-specific behavior.
+
+\section{General Methodology of Power Attribution}
+
+\subsection{Multitasking, Execution Units, and Temporal Granularity in Linux}
+
+Linux is a multitasking operating system that enables multiple programs to run concurrently by managing how processor time is divided among tasks. This capability is central to container-based computing and directly impacts how workload activity is linked to energy consumption.
+
+Multitasking in Linux operates on two levels: time-sharing on a single core and true parallel execution across multiple cores. On a single-core system, the kernel scheduler rapidly switches between tasks by allocating short time slices, creating the illusion of parallelism. On multi-core systems, tasks can run simultaneously on different cores, increasing throughput but also complicating the task of correlating resource usage with measured power consumption.
+
+At the kernel level, the smallest unit of execution is a \emph{task}. This term covers both user-space processes and threads, which the kernel treats uniformly in terms of scheduling and resource accounting. Each task is represented by a \texttt{task\_struct}, which tracks its state, scheduling data, and resource usage.
+
+A \emph{process} is typically a task with its own address space. Threads, by contrast, share memory with their parent process but are scheduled independently. As a result, a multi-threaded program — or container — may generate several concurrent tasks, potentially running across multiple cores. These tasks are indistinguishable from processes in kernel metrics such as \texttt{/proc/stat}, which complicates aggregation unless care is taken to associate related threads correctly.
+
+In containerized environments, tasks belonging to the same container are grouped using Linux control groups (cgroups) and namespaces. These mechanisms allow the kernel to apply limits and collect resource usage statistics at the container level, making them central to energy attribution in Kubernetes-based systems.
+
+\subsubsection*{Temporal Granularity and Measurement Resolution}
+
+To correlate CPU usage with power consumption, time must be considered at an appropriate granularity. The Linux kernel tracks CPU usage at the level of scheduler ticks, which are driven by a system-wide timer interrupt configured via \texttt{CONFIG\_HZ}. Typical values range from 250 to 1000 Hz, meaning time slices of 4 to 1 milliseconds, respectively. These ticks, or \emph{jiffies}, represent the smallest scheduling time unit and are used to increment counters such as \texttt{utime} and \texttt{stime} for each task.
+
+More modern interfaces — such as cgroup v2’s \texttt{cpu.stat} — provide higher-resolution timestamps, often in nanoseconds, depending on the kernel version and configuration.
+
+In contrast, power measurement tools generally operate at coarser time resolutions. Intel RAPL, for example, may expose updates every few milliseconds to hundreds of milliseconds, while BMC- or IPMI-based readings typically update once per second or slower. As a result, power attribution techniques must reconcile the high-frequency task activity data with lower-frequency power measurements, often through aggregation or interpolation over common time intervals.
+
+A clear understanding of these execution and timing units — tasks, processes, and time slices — is essential for building reliable power attribution models. These concepts underpin all subsequent steps, including metric fusion, resource accounting, and workload-level aggregation.
+
+
+\subsection{The Central Idea Behind Power Attribution}
+
+The central idea behind power attribution is to take a single measurement of power consumption and distribute that consumption across the programs (or containers) that were active during the same time interval. 
+
+Imagine a server that, at a given point in time, is consuming 100 watts of power. From an external meter or an internal interface like RAPL, we might know this total number very precisely, but it tells us nothing about which programs are responsible for using that power. Yet, we often want to answer exactly that: which container, process, or service used how much energy?
+
+To make this estimation possible, we correlate this total power draw with what the system was doing during the same time window. The key assumption is that power consumption is largely driven by resource usage—especially CPU time. If three containers were running at the same time, each consuming roughly a third of the CPU time, we might reasonably assume they were each responsible for about a third of the power usage during that interval.
+
+
+
+\begin{table}[H]
+\centering
+\caption{Relevant Linux Concepts for Power Attribution}
+\begin{tabular}{p{3.2cm} p{10.8cm}}
+\toprule
+\textbf{Concept} & \textbf{Description} \\
+\midrule
+\texttt{task} & The fundamental unit of execution in the Linux kernel, representing either a process or a thread. Each task is associated with a \texttt{task\_struct}. \\
+\texttt{process} & A task with a unique address space. Can spawn multiple threads. Identified by a PID. \\
+\texttt{thread} & A task that shares memory and other resources with its parent process. Scheduled independently. \\
+\texttt{cgroup} & Control groups allow grouping of tasks to apply resource limits and gather aggregated usage statistics. \\
+\texttt{namespace} & Kernel feature that provides isolation of global system resources (e.g., PIDs, network) for containers. \\
+\texttt{jiffy} & The smallest time unit in the Linux kernel scheduler, defined by the timer interrupt frequency (e.g., 1 ms for \texttt{CONFIG\_HZ=1000}). \\
+\texttt{CONFIG\_HZ} & Kernel configuration parameter defining the number of timer interrupts per second, setting the jiffy granularity. \\
+\texttt{utime}/\texttt{stime} & Per-task counters for time spent in user mode and system (kernel) mode, usually in jiffies. \\
+\texttt{/proc} & Virtual filesystem exposing kernel and process information, including per-task CPU stats and system activity. \\
+\texttt{/sys/fs/cgroup} & Interface exposing cgroup metrics and resource controls. Used for container-level CPU, memory, and I/O accounting. \\
+Completely Fair Scheduler (CFS) & Default Linux CPU scheduler, allocating CPU time fairly among tasks using a virtual runtime model. \\
+Runqueue & Per-CPU queue holding runnable tasks, from which the scheduler picks the next to execute. Impacts CPU activity patterns. \\
+\texttt{task\_struct} & Core kernel structure that stores all metadata about a task, including its scheduling state and resource usage. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
+ 
+\section{Available Metrics for Attribution}
 
 
 
 
-\section{"data fusion of power data and cpu metrics}
-- Estimating the consumption of a single function has been proven to be possible in 2012: M. Hähnel, B. Döbel, M. Völp, and H. Härtig, “Measuring energy consumption for short code paths using RAPL,”, \parencite{hahnel2012measuring}
+\begin{comment}
 
-\section{Energy Attribution Techniques in containerized environments}
-    introduction. the problem is non-trivial
-    usage-based, event-based, statistical modelling, ...
-    where to put the system usage
 
-\subsection{Data fusion techniques}
-    resource usage correlation (CPU time, Mem, I/O)
-    time based attribution
-    event-driven attribution
+\section{Overview and Challenges}
 
-\subsection{multi-tenant complexity}
-    challenges of multi-tenant workloads
-    isolation issues, nosy neighbors, contention
+3.1 Introduction and Context
+
+    What this chapter is about: attribution of observed/measured power to containerized workloads.
+
+    Why this is hard: modern servers run multi-tenant, multi-layered workloads on multi-core CPUs across distributed systems.
+
+    Brief mention that Chapter 4 will discuss implementations (tools), and that some methods discussed here are implemented in those tools.
+
+3.2 General Methodology of Power Attribution
+
+    Recap: What is being measured? (e.g., node-level power via RAPL, BMC, IPMI, etc.)
+
+    What needs to be attributed? (e.g., container CPU time, memory bandwidth, network I/O, etc.)
+
+    Temporal slicing: how time is broken into intervals, and why this is necessary.
+
+    Synchronization of metrics: fusion of different data sources (e.g., power metrics vs. cgroup stats).
+
+    Challenges: different update rates, time granularity mismatches, delays, buffering.
+
+    Include: short recap of Linux scheduling and how resource usage can be tracked per-process or per-cgroup.
+3.3 Available Metrics for Attribution
+
+    Kubernetes-level metrics (e.g., metrics-server, Prometheus, kubelet summaries).
+
+    Linux cgroups (v1/v2): cpuacct.usage, memory.stat, blkio, etc.
+
+    Container-runtime links: how to map containers to pids or cgroups.
+
+    Which of these can be sampled frequently and reliably?
+
+    You might need a table of metrics per subsystem: CPU, memory, I/O, network.
+3.4 Dealing with Data Gaps and Imperfect Systems
+
+    Missing RAPL: fallback strategies (e.g., model-based estimates, heuristics).
+
+    Granularity mismatch: smoothing, interpolation, or discarding metrics.
+
+    Unattributable power: idle power, background daemons, OS tasks.
+
+    Could bring up Scaphandre’s fallback mode or Kepler’s power models.
+3.5 Attribution Philosophies
+
+    Should idle power be distributed? If so, how? (Evenly? Proportional to active time?)
+
+    System processes: Should kubelet, OS daemons be excluded or charged to all users?
+
+    Perspective matters: Developer wants per-container efficiency, Admin wants cluster-wide utilization.
+
+    Energy proportionality: how fair is the attribution?
+
+    This is where you can dig into conceptual frameworks and different stakeholder goals.
+3.6 Distributed Cluster Considerations
+
+    Multi-node clusters: how to gather power + workload metrics across nodes.
+
+    Synchronization issues across nodes (e.g., clock drift, metric lag).
+
+    Existing methods (e.g., Kepler node agents, Prometheus federation).
+
+    Example: how Kepler does this with Prometheus and CRDs.
+
+    Important to mention that some tools assume node-level independence.
+3.7 Implementation and Technical Considerations
+
+    Needed kernel interfaces (e.g., procfs, sysfs, eBPF)
+
+    Prometheus scraping intervals, resolution
+
+    Process-to-container mappings (CRI / containerd / Docker specifics)
+
+    Accuracy limitations introduced by monitoring frequency, sampling delays.
+
+    You can reference the Scaphandre and Kepler docs here for concrete implementation notes.
+
+
+3.8 Summary and Transition
+
+    Summarize the key conceptual challenges.
+
+    State that Chapter 4 will now look at how different tools attempt to solve these challenges.
+
+
+
+
+
+
+
+
+
+
+
+Attributing energy consumption to workloads is challenging due to the temporal, spatial, and semantic mismatches between power measurements and system activity data. A variety of technical and philosophical issues must be considered, particularly in multi-tenant containerized environments.
+
+% TODO: Briefly reference Jay et al. and Raffin et al. for real-world evidence on divergence and limitations.
+
+\section{General Attribution Methodology}
+
+\subsection{Measurement vs. Attribution}
+Measured node-level power data must be distributed over container-level workloads. This requires additional information on workload activity, typically extracted from system and Kubernetes metrics.
+
+\subsection{Temporal Slicing and Synchronization}
+To make attribution meaningful, all involved metrics must be synchronized in time. This section explains how time intervals are formed and what granularity is feasible in practice.
+
+% TODO: Insert a brief recap of Linux scheduling behavior on multi-core systems.
+% TODO: Add example of Scaphandre's approach to time alignment.
+
+\subsection{Metric Fusion Challenges}
+
+Different metrics (e.g., power, CPU time, I/O counters) are exposed at different intervals and precision levels. Fusion of these requires preprocessing such as interpolation or resampling.
+
+% TODO: Discuss granularity mismatches, buffering delays, and implications for accuracy.
+
+\section{Available Metrics and Resource Mapping}
+
+\subsection{Linux Cgroups and Kernel Interfaces}
+Linux exposes resource usage per process and control group. These metrics form the basis for workload tracking.
+
+\subsection{Kubernetes-Specific Metrics}
+The orchestration layer provides higher-level metadata and metrics, enabling container-to-node mapping and abstraction over pods.
+
+\subsection{From Container to Resource Usage}
+This section explains how container runtimes, the kubelet, and tools like Prometheus bridge the gap between containerized workloads and kernel metrics.
+
+% TODO: Include a table summarizing relevant metrics by subsystem (CPU, memory, I/O, network).
+
+\section{Handling Incomplete or Missing Data}
+
+Power attribution must remain functional even when some metric sources are missing. Common issues include:
+\begin{itemize}
+    \item RAPL not available (AMD CPUs, virtualized hardware, etc.)
+    \item No access to power states (e.g., NIC power states)
+    \item Missing max/idle power for heuristic models
+\end{itemize}
+
+% TODO: Discuss fallback models used by Kepler or Scaphandre
+% TODO: Introduce the concept of estimation-based attribution using known interfaces like PHY medium for NICs
+
+\section{Attribution Philosophies}
+
+Different users require different attribution strategies. This section explores:
+\begin{itemize}
+    \item Idle power attribution: should it be distributed or excluded?
+    \item System service attribution: kubelet, OS daemons, monitoring agents
+    \item Fairness and energy proportionality
+    \item Stakeholder views: developers vs. platform operators
+\end{itemize}
+
+% TODO: Optional diagram: visualizing power attribution choices in stacked bar chart
+
+\section{Multi-Node Considerations in Kubernetes Clusters}
+
+In distributed clusters, each node must measure and attribute energy locally. This section covers:
+\begin{itemize}
+    \item Distributed metric collection (Prometheus federation, node-exporter, etc.)
+    \item Time synchronization between nodes (NTP, scrape intervals)
+    \item KEPLER and Scaphandre: how tools implement cross-node monitoring
+\end{itemize}
+
+% TODO: Include discussion of architectural limitations in cluster-wide correlation
+
+\section{Implementation Considerations}
+
+\subsection{Data Sources and Kernel Access}
+Covers procfs, sysfs, powercap, perf, eBPF, and other Linux interfaces for metric collection.
+
+\subsection{Metric Collection Strategies}
+Includes Prometheus-based scraping, local daemons, and event-driven collection.
+
+\subsection{Container Identification and Attribution}
+Explains how process-to-container mappings are maintained in Docker, containerd, and CRI-based runtimes.
+
+% TODO: Explain the challenges of PID reuse, cgroup migration, container restarts.
+
+\section{Related Work and Comparative Studies}
+
+Recent studies have critically analyzed the accuracy and usefulness of software-based power meters:
+
+\begin{itemize}
+    \item Jay et al. (2023): Identified systematic offsets between software and hardware meters, while highlighting correlation consistency.
+    \item Raffin and Trystram (2024): Compared internal access methods to RAPL, identifying major implementation differences.
+    \item Khan et al. (2018): Validated RAPL against smart plugs; demonstrated suitability for most datacenter workloads.
+\end{itemize}
+
+% TODO: Insert citation keys from BibTeX library
+
+\section{Conclusion and Outlook}
+
+
+\end {comment}
