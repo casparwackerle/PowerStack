@@ -1,0 +1,58 @@
+\chapter{Existing Tools and Approaches} % Main chapter title
+\label{Chapter4}
+
+
+    4.1 Overview of Tool Landscape
+        KEPLER, Scaphandre, CodeCarbon, PowerAPI, Cloud Carbon Footprint, etc.
+    4.2 Tool Analysis Framework
+        Accuracy, data sources, correlation method, platform support, etc.
+    4.3 Detailed Evaluation of Selected Tools
+        One subchapter per tool:
+            4.X KEPLER
+            4.X Scaphandr
+            ...
+    4.4 Comparison Summary
+        Table of tradeoffs
+        Strengths and weaknesses
+        Missing features / open gaps
+
+
+\section{Tools}
+\subsection{RAPL-based tools}
+\label{sec:rapltools}
+\begin{itemize}
+    \item \parencite{jay2023experimental} An experimental comparison of software-based power meters (focus on CPU / GPU)
+    \item \parencite{van2025powersensor3} fast accurate opensource: PowerSensor3 enables real-time power measurements of SoC boards and PCIe cards, including GPUs, FPGAs, NICs, SSDs, and domain-specific AI and ML accelerators
+    \item \parencite{kavanagh2019rapid} Rapid and accurate energy models through calibration with IPMI and RAPL
+    \item \parencite{scaphandre_documentation} Scaphandre. Does not handle overflows correctly (https://github.com/hubblo-org/scaphandre/issues/280)
+    \item \parencite{fieni2020smartwatts} Smartwatts: Self-Calibrating Software-Defined Power Meter for containers
+    \item \parencite{joularjx} JoularJX: jaba-based agent for power monitoring at the code level
+    \item \parencite{kepler_energy}: KEPLER
+    \item \parencite{aipowermeter}: "AI power meter": Library to measure energy usage of machine learning programs, uses RAPL for CPU and nvidia-smi for GPU
+    \item \parencite{codecarbon} CodeCarbon: Python package, estimates GPU + CPU + RAM: uses pynvml, ram RATIO (3W for 8G) and RAPL. According to Raffin2024, this tool does not account for the MSR overflow: https://github.com/mlco2/codecarbon/issues/322 -> apparently fixed now
+    \item \parencite{powertop}: powertop
+    \item \parencite{greencodingdocs}: Green metrics tool: measuring energy and CO2 consumption of software through a software life cycle anslysis (SLCA): Metric providers: RAPL, IPMI, PSU, Docker, Temperature, CPU, ... (sone external devices)
+    
+    according to raffin2024: simplified versions of scaphandre and codecarbon hhve 3\%, 0.5\% overhead at 10Hz
+    according to \parencite{jay2023experimental}, the full versions have between 2 and 7\% at 1Hz.
+
+\parencite{fieni2024powerapi}: PowerAPI: Python framework for building software-defined power
+\end{itemize}
+\begin{comment}
+- multiple papers have tried to attribute component-level 
+\end{comment}
+
+
+
+\section{Container-Level Monitoring Tools}
+    KEPLER, Scaphandre, Smartwatts, JoularJX, AI Power Meter, CodeCarbon.
+    Granularity down to the container level.
+    internal mechanisms (e.g., eBPF, RAPL, NVML).
+    Advantages and drawbacks.
+    
+\section{Comparison of Tools}
+    Detailed matrix comparing:
+        Measurement methodology.
+        Component focus (CPU, RAM, GPU, Disk, Network).
+        Real-time capabilities.
+        Kubernetes compatibility.
