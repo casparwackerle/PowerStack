@@ -23,7 +23,7 @@ Real-world systems also introduce additional complications such as idle power, s
 
 Despite these difficulties, power attribution serves a critical role in understanding container behavior. If applied consistently across all containers and system resources, it can uncover the dynamic patterns of energy usage within a server. This insight forms a foundational building block for cluster-level energy optimization. Administrators or automated systems can use this data to analyze the effect of configuration changes, improve workload scheduling, or optimize performance-per-watt, whether during runtime or post-execution.
 
-\subsection{Multitasking, Execution Units, and related metrics in Linux}
+\subsection{A short recap of Linux Multitasking and Execution Units}
 \label{sec:linux-multitasking}
 Linux is a multitasking operating system that enables multiple programs to run concurrently by managing how processor time is divided among tasks. This capability is central to container-based computing and directly impacts how workload activity is linked to energy consumption.
 
@@ -38,9 +38,7 @@ In containerized environments, tasks belonging to the same container are grouped
 \subsection{Resource Utilization Tracking in Linux and Kubernetes}
 \label{sec:utilization_tracking}
 
-In modern Linux-based systems, particularly within Kubernetes environments, multiple methods exist to track resource utilization. These methods vary significantly in terms of temporal granularity, scope, and origin. While they often expose overlapping information, their internal mechanisms differ, leading to trade-offs in precision, resolution, and suitability for certain use cases such as energy attribution.
-
-The following list of tracking mechanisms does not address the difference between cgroups v1 and v2 and assumes that on most modern servers default to cgroups v2.
+In modern Linux-based systems, particularly within Kubernetes environments, multiple methods exist to track resource utilization\parencite{kernelprocfs, kernelcgroupv1, kernelcgroupv2, ciliumbpf, cadvisorgithub, metricsservergithub}. These methods vary significantly in terms of temporal granularity, scope, and origin. While they often expose overlapping information, their internal mechanisms differ, leading to trade-offs in precision, resolution, and suitability for certain use cases such as energy attribution.
 
 \subsubsection*{CPU Utilization Tracking}
 
@@ -56,7 +54,7 @@ The following list of tracking mechanisms does not address the difference betwee
 
 \begin{itemize}
     \item \textbf{/proc/meminfo:} Provides a system-wide view of memory usage but lacks per-task or per-container resolution.
-    \item \textbf{/proc/\textless pid\textgreater/status:} Exposes memory-related counters for each process (e.g., RSS, virtual memory size). Temporal granularity is fine but requires frequent polling.
+    \item \textbf{/proc/\textless pid\textgreater/status:} Exposes memory-related counters for each process (e.g., RSS, PSS, virtual set size). Temporal granularity is fine but requires frequent polling.
     \item \textbf{cgroups (memory):} Records memory usage for groups of processes. `memory.usage\textunderscore in\textunderscore bytes` shows current memory usage per cgroup, allowing container-level tracking. High granularity and reliability, frequently used in both monitoring and enforcement.
     \item \textbf{cAdvisor and metrics-server:} As with CPU, memory stats are aggregated from cgroup data. These APIs offer lower resolution and no historical data.
 \end{itemize}
@@ -64,9 +62,8 @@ The following list of tracking mechanisms does not address the difference betwee
 \subsubsection*{Disk I/O Utilization Tracking}
 
 \begin{itemize}
-    \item \textbf{/proc/diskstats:} Exposes per-disk block I/O statistics (read/write ops, sectors read/written, etc.). High resolution but only at the device level.
     \item \textbf{/proc/\textless pid\textgreater/io:} Tracks per-process I/O activity (bytes read/written, syscall counts). Useful for attributing I/O behavior, but coarse in how it correlates to actual disk access timing.
-    \item \textbf{cgroups (blkio):} Reports aggregated I/O stats per cgroup (bytes, ops, per-device). Allows container-level attribution. Granularity depends on polling rate and support by the underlying I/O subsystem.
+    \item \textbf{cgroups-v1 (blkio) / cgroups-v2 (io):} Reports aggregated I/O stats per cgroup (bytes, ops, per-device). Allows container-level attribution. Granularity depends on polling rate and support by the underlying I/O subsystem.
     \item \textbf{eBPF (tracepoints, kprobes):} Enables real-time tracing of block I/O syscalls, bio submission, and completion.
 \end{itemize}
 
@@ -74,9 +71,18 @@ The following list of tracking mechanisms does not address the difference betwee
 
 \begin{itemize}
     \item \textbf{/proc/net/dev:} Shows network statistics per interface. Updated continuously, but lacks process/container granularity.
-    \item \textbf{cgroups (net\textunderscore cls, net\textunderscore prio):} Used to mark packets with cgroup IDs, enabling traffic shaping and classification. Attribution is possible if paired with packet monitoring tools, but rarely used directly.
+    \item \textbf{cgroups-v1 (net\textunderscore cls, net\textunderscore prio):} Used to mark packets with cgroup IDs, enabling traffic shaping and classification. Attribution is possible if paired with packet monitoring tools, but rarely used directly. While there is not direct equivalent in \textbf{cgroups-v2}, support was added in \texttt{iptables} to allow BPF filters that hook on cgroup v2 pathnames to allow control of network traffic on a per-cgroup basis.
     \item \textbf{eBPF:} Allows tracing of network activity at various points in the stack (packet ingress, egress, socket calls). Offers very high granularity and can attribute traffic to specific containers.
 \end{itemize}
+
+\subsubsection*{eBPF-based Collection of utilization Metrics}
+\label{sec:ebpf_metrics}
+
+The extended Berkeley Packet Filter (eBPF) is a Linux kernel subsystem that allows the safe execution of user-defined programs within the kernel without modifying kernel source code or loading custom modules. Originally developed for low-level network packet filtering, eBPF has evolved into a general-purpose observability framework that can trace and monitor system events with high precision and minimal overhead. eBPF can be used to dynamically attach probes to kernel events such as context switches, system calls, I/O events, and tracepoints. In the context of system monitoring, this enables the collection of fine-grained utilization metrics, including CPU usage per process, memory allocations and I/O activity without modifying the monitored application. These probes run within the kernel and populate BPF maps, which can then be accessed by user-space tools to aggregate or export metrics.
+
+Compared to traditional monitoring approaches such as reading from \texttt{/proc}, eBPF offers several key advantages. First, it supports high temporal resolution, enabling near real-time tracking of events. Second, it avoids the need for intrusive instrumentation or static tracepoints, making it suitable for black-box applications. Finally, its dynamic and event-driven nature reduces performance overhead by eliminating polling. As a consequence, eBPF has often been used for utilization monitoring: KEPLER uses eBPF to monitor CPU cycles and task scheduling events, enabling accurate attribution of resource usage to short-lived or highly dynamic workloads. It complements cgroup and perf-based metrics, allowing power attribution models to track containers that would otherwise be indistinguishable using standard polling-based methods.
+
+As demonstrated by Cassagnes et al.~\parencite{cassagnesRiseEBPFNonintrusive2020}, eBPF currently represents the best practice for non-intrusive, low-overhead, and high-resolution utilization monitoring on Linux systems. Its ability to gather container- or process-level metrics in production environments makes it uniquely well-suited for accurate correlation with system-wide power measurements.
 
 \subsubsection*{Comparative Summary}
 
@@ -100,52 +106,6 @@ eBPF & Very High & Per-task, system-wide & Real-time, customizable, low overhead
 \caption{Comparison of resource usage tracking mechanisms}
 \end{table}
 
-\subsubsection*{The Role of eBPF in High-Fidelity Resource Tracking}
-
-eBPF (extended Berkeley Packet Filter) is a kernel technology that allows programs to be safely injected into the kernel to observe or manipulate system behavior. In the context of resource tracking, eBPF offers several advantages:
-
-\begin{itemize}
-    \item \textbf{High granularity:} eBPF programs can trace function calls, syscalls, and kernel events at microsecond precision.
-    \item \textbf{Low overhead:} Designed to be efficient, eBPF avoids the performance penalties associated with traditional tracing.
-    \item \textbf{Flexibility:} It can be used to attach to CPU, I/O, memory, and network events.
-\end{itemize}
-
-KEPLER uses eBPF to monitor CPU cycles and task scheduling events with high precision, enabling accurate attribution of resource usage to short-lived or highly dynamic workloads. It complements cgroup and perf-based metrics, allowing power attribution models to track containers that would otherwise be indistinguishable using standard polling-based methods.
-
-\textbf{Limitations of eBPF} include:
-\begin{itemize}
-    \item Complexity of implementation and deployment
-    \item Kernel version dependencies (older kernels have limited capabilities)
-    \item Limited observability of certain high-level abstractions (e.g., full container metadata requires augmentation)
-\end{itemize}
-
-Overall, eBPF represents a powerful augmentation to traditional Linux resource tracking mechanisms, particularly in time-sensitive and high-frequency observability applications.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 \subsection{Temporal Granularity and Measurement Resolution}
 \label{sec:granularity}
 To correlate CPU usage with power consumption, time must be considered at an appropriate granularity. The Linux kernel tracks CPU usage at the level of scheduler ticks, which are driven by a system-wide timer interrupt configured via \texttt{CONFIG\_HZ}. Typical values range from 250 to 1000 Hz, meaning time slices of 4 to 1 milliseconds, respectively. These ticks, or \emph{jiffies}, represent the smallest scheduling time unit and are used to increment counters such as \texttt{utime} and \texttt{stime} for each task.
@@ -159,47 +119,30 @@ A clear understanding of these execution and timing units is essential for build
 \subsection{Limitations}
 \label{ch:limitations}
 
+measurement intervals?
+
 \section{Real-world problems}
 \label{sec:realworld-problems}
+
+overhead -> aggregate asap
+missing data -> interpolate
+interval mismatch -> smoothe, but at the correct location
 
 \section{Attribution Philosophies}
 \label{sec:attribution-philosophies}
 
+for operators -> cluster optimization
+    include everything
+for developers -> workload optimization
+    status env, hard to do. focus on perf metrics
+where to put system resources
+where to put resources wasted by idling.
+
+how to implement: dev does not have his own cluster -> cluster operator uses cluster metrics, but can choose to export dev metrics? consistency?
 
 
 
 
-
-
-
-% \begin{table}[H]
-% \centering
-% \caption{Relevant Linux Concepts for Power Attribution}
-% \begin{tabular}{p{3.2cm} p{10.8cm}}
-% \toprule
-% \textbf{Concept} & \textbf{Description} \\
-% \midrule
-% \texttt{task} & The fundamental unit of execution in the Linux kernel, representing either a process or a thread. Each task is associated with a \texttt{task\_struct}. \\
-% \texttt{process} & A task with a unique address space. Can spawn multiple threads. Identified by a PID. \\
-% \texttt{thread} & A task that shares memory and other resources with its parent process. Scheduled independently. \\
-% \texttt{cgroup} & Control groups allow grouping of tasks to apply resource limits and gather aggregated usage statistics. \\
-% \texttt{namespace} & Kernel feature that provides isolation of global system resources (e.g., PIDs, network) for containers. \\
-% \texttt{jiffy} & The smallest time unit in the Linux kernel scheduler, defined by the timer interrupt frequency (e.g., 1 ms for \texttt{CONFIG\_HZ=1000}). \\
-% \texttt{CONFIG\_HZ} & Kernel configuration parameter defining the number of timer interrupts per second, setting the jiffy granularity. \\
-% \texttt{utime}/\texttt{stime} & Per-task counters for time spent in user mode and system (kernel) mode, usually in jiffies. \\
-% \texttt{/proc} & Virtual filesystem exposing kernel and process information, including per-task CPU stats and system activity. \\
-% \texttt{/sys/fs/cgroup} & Interface exposing cgroup metrics and resource controls. Used for container-level CPU, memory, and I/O accounting. \\
-% Completely Fair Scheduler (CFS) & Default Linux CPU scheduler, allocating CPU time fairly among tasks using a virtual runtime model. \\
-% Runqueue & Per-CPU queue holding runnable tasks, from which the scheduler picks the next to execute. Impacts CPU activity patterns. \\
-% \texttt{task\_struct} & Core kernel structure that stores all metadata about a task, including its scheduling state and resource usage. \\
-% \bottomrule
-% \end{tabular}
-% \end{table}
-
-
-
- 
-\section{Available Metrics for Attribution}
 
 
 
