@@ -1,13 +1,8 @@
-\chapter{Existing Tools and Approaches} % Main chapter title
+\chapter{Tool Analysis: Existing Approaches to Container Energy Consumption} % Main chapter title
 \label{Chapter4}
 
 \section{Overview of Tool Landscape}
-    
-
-
-
-
-        KEPLER, Scaphandre, CodeCarbon, PowerAPI, Cloud Carbon Footprint, etc.
+            KEPLER, Scaphandre, CodeCarbon, PowerAPI, Cloud Carbon Footprint, etc.
 \section{Tool Analysis Framework}
         Accuracy, data sources, correlation method, platform support, etc.
 \section{Detailed Evaluation of Selected Tools}
@@ -19,6 +14,189 @@
         Table of tradeoffs
         Strengths and weaknesses
         Missing features / open gaps
+
+
+
+\chapter{Tool Analysis: Existing Approaches to Container Energy Consumption}
+\label{chap:tool-analysis}
+
+\section{Introduction}
+\label{sec:tool-intro}
+
+\section{Non-Kubernetes Energy Monitoring Tools}
+\label{sec:non-k8s-tools}
+\subsection{Server-Level Energy Monitoring}
+\label{sec:server-tools}
+While not directly translatable to container-level energy monitoring, server-level energy consumption is an important aspect of it. Scientific works and tools in this domain generally don't provide the temporal resolution required for container-level energy monitoring.
+
+\subsubsection{Kavanagh and Djemame: Energy Modeling via IPMI and RAPL Calibration}
+\label{sec:kavanagh}
+
+\paragraph{Overview and Architecture}
+Kavanagh and Djemame\parencite{kavanagh2019rapid} present their findings on combining IPMI and RAPL (interface unspecified) data to estimate server energy consumption, achieving improved accuracy through calibration with an external server-level Watt meter. For calibration, they induce artificial CPU workloads and rely on CPU utilization metrics with 1-minute averaging windows, necessitating extended calibration intervals to obtain stable readings. While the resulting model is tailored to their specific hardware and not generally portable, their work provides valuable insights into the complementary use of IPMI and RAPL. The authors recognize that the respective limitations of these tools (RAPL’s partial scope and IPMI’s low resolution) can be mitigated when used in combination.
+
+\paragraph{Attribution Method and Scope}
+Although the model operates at the physical host level, it supports attribution to VMs or applications using CPU-utilization-based proportional allocation. Several allocation rules are proposed, including utilization ratio, adjusted idle sharing, and equal distribution. However, no container-level attribution is attempted, and runtime flexibility is limited due to the static nature of the calibration.
+
+\paragraph{Validation and Limitations}
+With their Watt-meter-calibrated model using segmented linear regression, the authors report an average error of just -0.17\%. More relevant to practical application, they also construct a model based solely on IPMI and RAPL(calibrated via Watt meter data) which achieves a reduced error of -5.58\%, compared to -15.75\% without calibration. Limitations of their approach include the need for controlled, synthetic workloads, coarse-grained sensor input, and the assumption of relatively stable system conditions during calibration.
+
+\paragraph{Key Contributions}
+\begin{itemize}
+    \item \textbf{Hybrid use of IPMI and RAPL is analyzed}, showing that these tools compensate for each other’s limitations. RAPL underestimates total system power, while IPMI captures more components but at lower resolution.
+    \item IPMI accuracy is significantly improved through external Watt meter calibration.
+    \item The authors provide practical calibration guidelines:
+    \begin{itemize}
+        \item Use long, static workload plateaus to align with averaging windows and reduce synchronization complexity.
+        \item Discard initial and final measurement intervals to avoid transient noise and averaging artifacts.
+        \item Ensure calibration workloads exceed the IPMI averaging window to capture valid steady-state values.
+    \end{itemize}
+\end{itemize}
+
+\paragraph{Relevance to Proposed Architecture}
+This work informs the proposed architecture by demonstrating how combining RAPL and IPMI can yield more accurate system-level power estimation. The use of plateau-based calibration and composite data models is especially applicable. However, the lack of container-level granularity, reliance on offline calibration, and limited attribution scope underscore the need for more dynamic, fine-grained, and container-aware approaches in Kubernetes-based environments.
+
+\subsubsection{CodeCarbon}
+CodeCarbon\parencite{codecarbon_2024} is a Python package designed to estimate the carbon emissions of a program’s execution. While its implementation is general-purpose, it is primarily aimed at machine learning workloads.
+
+\paragraph{Overview and Architecture}
+CodeCarbon estimates a workload’s energy consumption by relying on RAPL \textit{package-domain} CPU metrics via the \texttt{powercap} RAPL file system interface. A fix for the RAPL MSR overflow issue was implemented\parencite{codecarbon_issue_322}. In the absence of RAPL support, it falls back to a simplified model based on the CPU’s Thermal Design Power (TDP), obtained from an internal database, and combines it with CPU load metrics from \texttt{psutil}. For memory, a static power value is assumed based on the number and capacity of installed DIMMs. GPU power consumption is estimated via NVIDIA’s NVML interface. The default measurement interval is 15 seconds, with the authors citing lightweight design as the primary motivation.
+
+The component-level estimations are then aggregated and multiplied by a region-specific net carbon intensity (based on the local electricity grid’s energy mix) to estimate the program’s total CO\textsubscript{2} emissions. CodeCarbon is typically executed as a wrapper around code blocks, scripts, or Python processes.
+
+\paragraph{Limitations}
+There is no direct attribution of CPU activity to individual power metrics: CodeCarbon estimates energy use indirectly, based on the number of active cores and average CPU utilization, while making many assumptions that could be prevented. Combined with the relatively long measurement intervals, this results in background system processes also being attributed to the measured Python program. Consequently, CodeCarbon does not contribute directly to the goals of this thesis, which seeks fine-grained, container-level attribution.
+
+However, the tool highlights several interesting secondary considerations. The integration of regional CO\textsubscript{2} intensity data is a valuable extension to conventional energy measurement and is well implemented. Additionally, the Python-based design offers high accessibility and ease of use, which may serve as inspiration for future developer-facing tools.
+
+\subsubsection{AI Power Meter}
+\textit{AI Power Meter}\parencite{aipowermeter} is a lightweight Python-based tool designed to monitor the energy consumption of machine learning workloads. It gathers power consumption data for the CPU and RAM via Intel RAPL using the \texttt{powercap} interface, and for the GPU via NVIDIA’s NVML library. While the authors acknowledge that other system components (e.g., storage, network) also contribute to energy usage, these are not currently included and are considered an accepted limitation of the tool.
+
+Unlike more advanced attribution tools, AI Power Meter does not distinguish between individual processes or workloads. Instead, it provides coarse-grained, system-level energy consumption measurements over time. In this respect, its scope is similar to \textit{CodeCarbon}, focusing on ease of use and integration into ML pipelines rather than precise, per-process energy attribution. As such, while not directly applicable to container-level measurement or power attribution, AI Power Meter demonstrates the growing interest in accessible energy monitoring tools within the machine learning community.
+
+\subsection{Process-Level Attribution Tools}
+\label{sec:process-tools}
+\subsection{Telemetry-Based Estimation Frameworks}
+\label{sec:telemetry-tools}
+
+\subsubsection{PowerAPI Ecosystem\parencite{powerapi2024github} (PowerAPI, SmartWatts, pyRAPL, pyJoules)}
+\label{sec:powerApiFramework}
+PowerAPI\parencite{fieni2024powerapi} is an open-source middleware toolkit for building software-defined power meters that  can estimate the power consumption of software in real-time. PowerAPI supports  the acquisition of raw metrics from a wide diversity of sensors (eg., physical meters,  processor interfaces, hardware counters, OS counters) and the delivery of power  consumptions via different channels (including file system, network, web, graphical).  As a middleware toolkit, PowerAPI offers the capability of assembling power meters  "\textit{à la carte}" to accommodate user requirements.
+
+\paragraph{Core Components}
+\begin{itemize}
+    \item \textbf{powerapi-core}: The middleware that orchestrates sensors and formulas.
+    \item \textbf{hwpc-sensor}: A telemetry probe that gathers low-level hardware performance counters (HWPCs) such as instructions, cycles, and optionally RAPL energy.
+    \item \textbf{SmartWatts-formula}\parencite{fieni2020smartwatts}: A model component that uses HWPC data to estimate power consumption. SmartWatts uses an online linear regression model to learn power signatures for workloads. SEE SECTION~\ref{sec:smartwatts}
+    \item \textbf{pyRAPL}: A Python wrapper around RAPL for collecting CPU and DRAM energy metrics; used in standalone measurements or for calibration data.
+    \item \textbf{pyJoules}: A Python library to annotate Python code for energy measurement using RAPL or other sensors. Often used in microbenchmarking and software-level studies.
+\end{itemize}
+
+\paragraph{Modeling and Attribution}
+PowerAPI is telemetry-based and performs estimation using modular "formulas." SmartWatts, its most mature formula, uses learned coefficients for events like `cycles`, `instructions`, `cache-misses`, etc., to estimate power. Attribution is possible at the process or cgroup level, depending on the sensor's configuration. It is not natively Kubernetes-aware, but can be adapted.
+
+\paragraph{Relevance and Integration}
+Although not originally designed for containers, PowerAPI and SmartWatts provide an extensible framework that could in principle be extended to cgroup- or pod-level attribution. Its modular architecture and online modeling capability are particularly relevant for real-time or adaptive energy monitoring systems.
+
+
+
+
+
+
+
+
+
+\section{Code-Level and Adjacent Energy Profiling Tools}
+\label{sec:code-tools}
+\subsection{Compiler and Instruction-Level Estimation}
+\label{sec:compiler-tools}
+\subsection{Runtime Profilers and System Tuning Tools}
+\label{sec:runtime-tools}
+\subsection{Machine Learning-Based Estimators}
+\label{sec:ml-estimators}
+
+\section{Container-Focused Energy Attribution Tools}
+\label{sec:container-tools}
+
+\subsection{Kepler}
+\label{sec:kepler}
+\subsubsection{Overview and Goals}
+\label{sec:kepler-overview}
+\subsubsection{Architecture and Metric Sources}
+\label{sec:kepler-architecture}
+\subsubsection{Attribution Model and Output}
+\label{sec:kepler-attribution}
+\subsubsection{Validation and Research Context}
+\label{sec:kepler-validation}
+\subsubsection{Limitations and Open Issues}
+\label{sec:kepler-limitations}
+
+\subsection{Scaphandre}
+\label{sec:scaphandre}
+
+\subsubsection{Overview and Goals}
+\label{sec:scaphandre-overview}
+\subsubsection{Architecture and Metric Sources}
+\label{sec:scaphandre-architecture}
+\subsubsection{Attribution Model and Output}
+\label{sec:scaphandre-attribution}
+\subsubsection{Validation and Research Context}
+\label{sec:scaphandre-validation}
+\subsubsection{Limitations and Open Issues}
+\label{sec:scaphandre-limitations}
+
+\subsection{SmartWatts}
+\label{sec:smartwatts}
+
+SmartWatts is a software-defined, self-calibrating power meter designed for estimating power consumption of containers, processes, and VMs. It aims to address the shortcomings of static power models by using online model adaptation (sequential learning) and runtime performance counters. Unlike many academic models that require manual calibration or architecture-specific training, SmartWatts adapts automatically to the host system and workload.
+
+- RAPL via perf\textunderscore events
+- power models LEVERAGE SEQUENTIAL LEARNING PRINCIPLES TO BE ADJUSTED ONLINE IN ORDER TO MATCH UNEXPECTED WORKLOAD EVOLUTIONS???
+\subsubsection{Overview and Goals}
+\label{sec:smartwatts-overview}
+\subsubsection{Architecture and Metric Sources}
+\label{sec:smartwatts-architecture}
+\subsubsection{Attribution Model and Output}
+\label{sec:smartwatts-attribution}
+\subsubsection{Validation and Research Context}
+\label{sec:smartwatts-validation}
+\subsubsection{Limitations and Open Issues}
+\label{sec:smartwatts-limitations}
+
+\section{Comparison of Container-Level Tools}
+\label{sec:tool-comparison}
+\subsection{Feature Comparison}
+\label{sec:feature-comparison}
+\subsection{Granularity and Metric Sources}
+\label{sec:granularity-comparison}
+\subsection{Platform Compatibility and Integration}
+\label{sec:integration-comparison}
+
+\section{Relevance to Proposed Architecture}
+\label{sec:relevance-to-architecture}
+\subsection{Lessons Learned from Existing Tools}
+\label{sec:lessons-learned}
+\subsection{Identified Gaps and Opportunities}
+\label{sec:tool-gaps}
+\subsection{Implications for Chapter \ref{chap:architecture}}
+\label{sec:implications-architecture}
+
+\section{Summary}
+\label{sec:tool-summary}
+
+
+
+
+\subsubsection{Overview and Architecture}
+% What the tool does, where it runs, general design.
+\subsubsection{Metrics and Data Sources}
+% What it measures, how it collects (RAPL, perf, eBPF, etc.).
+\subsubsection{Attribution Method and Scope}
+% How power is assigned to tasks (processes, VMs, containers).
+\subsubsection{Validation and Limitations}
+% Is it validated? Known weaknesses or constraints?
+\subsubsection{Relevance to Proposed Architecture}
+% Optional – What ideas or drawbacks will influence your own model.
 
 
 
@@ -44,18 +222,25 @@
 \begin{itemize}
     \item \parencite{jay2023experimental} An experimental comparison of software-based power meters (focus on CPU / GPU)
     \item \parencite{van2025powersensor3} fast accurate opensource: PowerSensor3 enables real-time power measurements of SoC boards and PCIe cards, including GPUs, FPGAs, NICs, SSDs, and domain-specific AI and ML accelerators
-    \item \parencite{kavanagh2019rapid} Rapid and accurate energy models through calibration with IPMI and RAPL
     \item \parencite{scaphandre_documentation} Scaphandre. Does not handle overflows correctly (https://github.com/hubblo-org/scaphandre/issues/280)
     \item \parencite{fieni2020smartwatts} Smartwatts: Self-Calibrating Software-Defined Power Meter for containers
-    \item \parencite{joularjx} JoularJX: jaba-based agent for power monitoring at the code level
+    \item \parencite{joularjx} JoularJX: java-based agent for power monitoring at the code level
     \item \parencite{kepler_energy}: KEPLER
-    \item \parencite{aipowermeter}: "AI power meter": Library to measure energy usage of machine learning programs, uses RAPL for CPU and nvidia-smi for GPU
-    \item \parencite{codecarbon} CodeCarbon: Python package, estimates GPU + CPU + RAM: uses pynvml, ram RATIO (3W for 8G) and RAPL. According to Raffin2024, this tool does not account for the MSR overflow: https://github.com/mlco2/codecarbon/issues/322 -> apparently fixed now
     \item \parencite{powertop}: powertop
     \item \parencite{greencodingdocs}: Green metrics tool: measuring energy and CO2 consumption of software through a software life cycle anslysis (SLCA): Metric providers: RAPL, IPMI, PSU, Docker, Temperature, CPU, ... (sone external devices)
     
     according to raffin2024: simplified versions of scaphandre and codecarbon hhve 3\%, 0.5\% overhead at 10Hz
     according to \parencite{jay2023experimental}, the full versions have between 2 and 7\% at 1Hz.
+
+    powerAPI            Focuses on per-process measurement, not container nor Kubernetes aware
+    WattsUpDoc          Focuses on data center-wide telemetry, not container-level granularity
+    Perf/EnergyPerf     Offers per-core/per-task telemetry, but requires extensive integration to map to containers
+    PowerTOP            Local profiling tool; not suited for cluster-wide telemetry or Kubernetes
+    PowerAPI -> on github contains repos for powerapi, smartwatts-formula, hwpc-sensor, pyjoules
+    EnergyVisor
+    nvme-cli
+    PAPI (uses RAPL)
+
 
 \parencite{fieni2024powerapi}: PowerAPI: Python framework for building software-defined power
 \end{itemize}
