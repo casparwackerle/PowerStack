@@ -79,24 +79,27 @@ Unlike more advanced attribution tools, AI Power Meter does not distinguish betw
 \subsection{Telemetry-Based Estimation Frameworks}
 \label{sec:telemetry-tools}
 
-\subsubsection{PowerAPI Ecosystem\parencite{powerapi2024github} (PowerAPI, SmartWatts, pyRAPL, pyJoules)}
+\subsubsection{PowerAPI Ecosystem\parencite{powerapi2024github} (PowerAPI, HWPC, SmartWatts)}
 \label{sec:powerApiFramework}
-PowerAPI\parencite{fieni2024powerapi} is an open-source middleware toolkit for building software-defined power meters that  can estimate the power consumption of software in real-time. PowerAPI supports  the acquisition of raw metrics from a wide diversity of sensors (eg., physical meters,  processor interfaces, hardware counters, OS counters) and the delivery of power  consumptions via different channels (including file system, network, web, graphical).  As a middleware toolkit, PowerAPI offers the capability of assembling power meters  "\textit{à la carte}" to accommodate user requirements.
+
+PowerAPI\parencite{fieni2024powerapi} is an open-source middleware toolkit for assembling software-defined power meters that estimate real-time power consumption of software workloads. Developed as a generalized and modular framework, PowerAPI evolved alongside specific implementations such as \textit{SmartWatts}, detailed in section~\ref{sec:smartwatts}. It allows power attribution at multiple granularity levels, including processes, threads, containers, and virtual machines. A distinctive strength of PowerAPI is the continuous self-calibration of its power models, enabling accurate real-time energy estimation under varying workloads and execution conditions. This makes PowerAPI particularly suited to heterogeneous computing infrastructures.
+
+\paragraph{Overview and Architecture}
+
+PowerAPI uses an actor-based model for modularity, enabling easy customization of its internal components with minimal coupling. It supports raw metric acquisition from diverse sensors (e.g., physical meters, processor interfaces, hardware counters, OS counters) and delivers power consumption data through various output channels (including files, network sockets, web interfaces, and visualization tools). As middleware, PowerAPI facilitates assembling power meters "\textit{à la carte}" to accommodate specific user requirements and deployment scenarios.
 
 \paragraph{Core Components}
 \begin{itemize}
-    \item \textbf{powerapi-core}: The middleware that orchestrates sensors and formulas.
-    \item \textbf{hwpc-sensor}: A telemetry probe that gathers low-level hardware performance counters (HWPCs) such as instructions, cycles, and optionally RAPL energy.
-    \item \textbf{SmartWatts-formula}\parencite{fieni2020smartwatts}: A model component that uses HWPC data to estimate power consumption. SmartWatts uses an online linear regression model to learn power signatures for workloads. SEE SECTION~\ref{sec:smartwatts}
-    \item \textbf{pyRAPL}: A Python wrapper around RAPL for collecting CPU and DRAM energy metrics; used in standalone measurements or for calibration data.
-    \item \textbf{pyJoules}: A Python library to annotate Python code for energy measurement using RAPL or other sensors. Often used in microbenchmarking and software-level studies.
+    \item \textbf{powerapi-core}: Middleware orchestrating real-time/post-mortem interactions between sensors and formulas. It defines the essential interfaces for sensor data ingestion and output channels (e.g., MongoDB, InfluxDB, CSV, socket, Prometheus), and includes built-in capabilities for data preprocessing, postprocessing, and reporting.
+    \item \textbf{hwpc-sensor}: A telemetry probe designed to gather low-level hardware performance counters (HWPCs), including instructions, cycles, and RAPL energy metrics. This sensor leverages \textit{perf} and \textit{cgroups-v2}, critical for fine-grained telemetry in containerized environments. It also provides detailed CPU performance state metrics via MSR events (\texttt{TSC}, \texttt{APERF}, \texttt{MPERF}).
+    \item \textbf{SmartWatts-formula}\parencite{fieni2020smartwatts}: A power model implementation (in Python) using HWPC data to estimate power consumption dynamically. It employs online linear regression provided by the Python \textit{scikit-learn}\parencite{scikit-learn} library, enabling accurate runtime learning of workload-specific power signatures. SmartWatts is further detailed in section~\ref{sec:smartwatts}.
+    \item \textbf{SelfWatts-controller}: Dynamically selects hardware performance counters for software-defined power models, facilitating automatic configuration and unsupervised deployment in heterogeneous infrastructures. Currently, its development has stalled for several years, limiting its practical applicability.
+    \item \textbf{pyRAPL}: A convenient Python wrapper around RAPL for CPU, DRAM, and iGPU energy metrics collection, providing easy access to hardware-based power data.
 \end{itemize}
 
-\paragraph{Modeling and Attribution}
-PowerAPI is telemetry-based and performs estimation using modular "formulas." SmartWatts, its most mature formula, uses learned coefficients for events like `cycles`, `instructions`, `cache-misses`, etc., to estimate power. Attribution is possible at the process or cgroup level, depending on the sensor's configuration. It is not natively Kubernetes-aware, but can be adapted.
-
 \paragraph{Relevance and Integration}
-Although not originally designed for containers, PowerAPI and SmartWatts provide an extensible framework that could in principle be extended to cgroup- or pod-level attribution. Its modular architecture and online modeling capability are particularly relevant for real-time or adaptive energy monitoring systems.
+The modular and extensible architecture of PowerAPI positions it as a highly suitable foundation for further research and development of specialized power attribution tools. Researchers can readily extend or adapt its components to address evolving or niche requirements. However, its current implementation does not incorporate certain critical metrics, such as IPMI-based telemetry, which could limit its completeness in some practical deployment scenarios. Nonetheless, PowerAPI represents a significant advancement toward the creation of generalized, plug-and-play power models that operate without extensive manual calibration. This emphasis on practical deployability and general applicability highlights a key strength of the project and sets a clear direction for future research and development efforts in the domain of software-defined energy monitoring.
+
 
 
 
@@ -138,7 +141,7 @@ Although not originally designed for containers, PowerAPI and SmartWatts provide
 \label{sec:scaphandre-overview}
 \subsubsection{Architecture and Metric Sources}
 \label{sec:scaphandre-architecture}
-\subsubsection{Attribution Model and Output}
+\subsubsection{Attribution Model}
 \label{sec:scaphandre-attribution}
 \subsubsection{Validation and Research Context}
 \label{sec:scaphandre-validation}
@@ -148,20 +151,88 @@ Although not originally designed for containers, PowerAPI and SmartWatts provide
 \subsection{SmartWatts}
 \label{sec:smartwatts}
 
-SmartWatts is a software-defined, self-calibrating power meter designed for estimating power consumption of containers, processes, and VMs. It aims to address the shortcomings of static power models by using online model adaptation (sequential learning) and runtime performance counters. Unlike many academic models that require manual calibration or architecture-specific training, SmartWatts adapts automatically to the host system and workload.
-
-- RAPL via perf\textunderscore events
-- power models LEVERAGE SEQUENTIAL LEARNING PRINCIPLES TO BE ADJUSTED ONLINE IN ORDER TO MATCH UNEXPECTED WORKLOAD EVOLUTIONS???
 \subsubsection{Overview and Goals}
 \label{sec:smartwatts-overview}
+The PowerAPI-implementation \textit{SmartWatts}\parencite{fieni2020smartwatts} is a software-defined, self-calibrating power 'formula' designed for estimating power consumption of containers, processes, and VMs. It aims to address the shortcomings of static power models by using online model adaptation (sequential learning) and runtime performance counters. Unlike many academic models that require manual calibration or architecture-specific training, SmartWatts adapts automatically to the host system and workload.
 \subsubsection{Architecture and Metric Sources}
 \label{sec:smartwatts-architecture}
-\subsubsection{Attribution Model and Output}
+Understanding the architecture of SmartWatts and its differences from other energy monitoring tools is crucial. Using HWPC, RAPL, and CPU process metrics, SmartWatts collects performance data. At runtime, it uses power models based on cgroups and perf events alone to estimate, for each resource $\text{res} \in \{\text{CPU}, \text{DRAM}\}$, the host power consumption $\hat{p}_{\text{res}}$ and the power consumption $\hat{p}_{\text{res}}(c)$ for all containers. SmartWatts uses $\hat{p}_{\text{res}}$ to continuously assess the accuracy of the managed power models $M_{\text{res}, f}$ to ensure that estimated power consumption does not diverge from the RAPL baseline measurement $p_{\text{res}}^{\text{rapl}}$. When the estimation diverges beyond a configurable threshold $\epsilon_{\text{res}}$, SmartWatts triggers a new online calibration process for the model. When the machine is at rest (e.g., after a reboot), this method is also used to isolate the static energy consumption. A simple architecture can be seen in Figure~\ref{fig:smartwatts_architecture}.
+
+In practical terms, SmartWatts implements a server-side pwoermeter (referred to as \textit{power meter}) that consumes input samples and produces power estimations accordingly. The power meter is responsible for power modelling, power estimation and model calibration. In addition, a client-side sensor (referred to as \textit{sensor}) is deployed as a lightweight daemon on all cluster nodes. The sensor is responsible static power isolation, event selection, cgroups and event monitoring. This separation allows for heterogeneous cluster nodes.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.7\textwidth]{Figures/smartwatts_architecture.png}
+    \caption[SmartWatts architecture]{SmartWatts Architecture}
+    \label{fig:smartwatts_architecture}
+\end{figure}
+\subsubsection{Attribution Model}
 \label{sec:smartwatts-attribution}
+As discussed in the previous subsection, the SmartWatts attribution model does not use RAPL metrics, opting only for process metrics. SmartWatts separates host energy consumption into static and dynamic power consumption:
+\begin{equation}
+    p_{res}^{rapl} = p_{res}^{static} + p_{res}^{dynamic}
+\end{equation}
+
+\textbf{Static power} is estimated by periodically logging RAPL package and DRAM power consumption. The $median$ value and the $interquartile range$ (IRQ) are gathered from teh measurements to define the static host power consumption as 
+\begin{equation}
+    p_{res}^{static} := median_{res} - 1.5 \cdot IRQ_{res}
+\end{equation}
+This approach is meant to filter out RAPL outliers.
+
+\textbf{Dynamic power} is estimated by correlating the CPU frequency $f$ and the raw metrics reported by HWCP:
+\begin{equation}
+    \exists f \in F, \hat{p}_{res}^{dyn} = M_{res}^{f} \cdot E_{res}^{f}
+\end{equation}
+where $E_{res}^{f}$ denotes all \textit{events}. The model $M_{res}^{f}$ is build from \textit{elastic net} regression applied on the last $k$ samples. To ensure that all container power consumptions are linear with regards to global power consumption, positive inference coefficients are enforced, and the intercept (or \textit{bias term} is within the range $[0, TDP]$.
+
+\textbf{HWPC metrics} are dynamically chosen based on the list of available events exposed by the host's \textit{Performance Monitoring Units} (PMU), essentially creating a custom model based on available metrics. Not all available metrics are used, and statistical analysis (Pearson coefficient) is used to determining worthy candidates.
+
+\textbf{Container power consumption} is estimated by applying the inferred power model $M_{res}^{f}$ at the scale of the container's events $E_{res}^{f}(c)$, as seen in formula~\ref{for:smartwatts_container_events}. In formula~\ref{for:smartwatts_container_intercept}, the intercept $i$ is distributed proportionally to the dynamic part of the consumption of $c$.
+\begin{equation}
+\label{for:smartwatts_container_events}
+    \exists f \in F, \forall c \in C, \hat{p}_{res}^{dyn}(c) = M_{res}^{f} \cdot E_{res}^{f}(c)
+\end{equation}
+\begin{equation}
+\label{for:smartwatts_container_intercept}
+    \forall c \in C, \tilde{p}_{res}^{dyn}(c) = \hat{p}_{res}^{dyn}(c) - i \cdot (1-\frac{\hat{p}_{res}^{dyn}(c) -i}{\hat{p}_{res}^{dyn} -i})
+\end{equation}
+
+In theory, one can expect $\hat{p}_{res}^{dyn} \overset{!}{=} {p}_{res}^{dyn}$ if the model perfectly estimates the dynamic power consumption, but in practice, an error $\epsilon_{res} = \left| {p}_{res}^{dyn} - \hat{p}_{res}^{dyn} \right|$. Therefore, container power consumption is capped at
+\begin{equation}
+    \forall c \in C, \left\lceil \tilde{p}_{res}^{dyn}(c) \right\rceil = \frac{{p}_{res}^{dyn} \cdot \tilde{p}_{res}^{dyn}(c)}{\hat{p}_{res}^{dyn}}
+\end{equation}
+This approach also allows to calculate a confidence intercal of the power consumption of containers by scaling down the observed global error:
+\begin{equation}
+    \forall c \in C, \epsilon_{res}(c) = \frac{\tilde{p}_{res}^{dyn}(c)}{\hat{p}_{res}^{dyn}} \cdot \epsilon_{res}
+\end{equation}
+
+In order improve estimation accuracy, the following configurable parameters are used:
+\begin{itemize}
+    \item CPU-TDP in Watt (default: 125)
+    \item CPU base clock in MHz (default: 100)
+    \item CPU base frequency in MHz (default: 2100)
+    \item CPU and DRAM error threshold in Watt (default: 2)
+    \item Minimum of samples required before trying to learn a power model (default: 10)
+    \item Size of the history window used ot keep samples from (default: 60)
+    \item Measurement frequency in milliseconds (default: 1000)
+\end{itemize}
 \subsubsection{Validation and Research Context}
 \label{sec:smartwatts-validation}
+With RAPL being used as ground truth for dynamic power estimation model recalibration, it is important to note that the SmartWatts validation is focused on the model accuracy when compared to RAPL values instead of values obtained by an external source of power data. The SmartWatts validation focused on the quality of power estimation in sequential and parallel workloads, the accuracy and sstability of power models and the overhead of the \textit{sensor} component. Standard benchmarks like Stress-NG and NAS parallel Benchmarks were chosen. 
+
+While there is no advanced statistical analysis, the validation shows that, for a error threshold for CPU and DRAM of 5 and 1 Watt respectively, power consumption can be reliably estimated with less than 3 Watts and 0.5 Watts, respectively. The only case where the error grows beyond the threshold is at the CPU idle frequency. The model stability is shown to significantly improve when lower recalibration frequencies are used. SmartWatts succeeds to reuse a give power model for up to 594 estimations, depending on frequency. The monitoring overhead is observed to be at 0.333 Watts for the PKG domain and 0.030 Watts for the DRAM domain on average, at a measurement frequency of 2 Hz. The authors consider this overhead negligable.
 \subsubsection{Limitations and Open Issues}
 \label{sec:smartwatts-limitations}
+SmartWatts offers a compelling solution for dynamic, container-level power estimation through self-calibrating models based on performance counters. However, its applicability remains domain-specific. The central assumption is that RAPL, while accurate, is too coarse-grained for attributing power to individual containers or processes. This premise is debatable: RAPL offers low-overhead, high-frequency measurements, and may be sufficient for many use cases, particularly in homogeneous or single-tenant systems. Whether SmartWatts' added complexity is justified depends on how fine-grained the attribution needs to be.
+
+SmartWatts shines when more granular telemetry (e.g., perf events) is available and container-level attribution is critical. Yet its current implementation models only CPU and DRAM domains, limiting its ability to offer a comprehensive energy profile.
+
+The design allows operators to supply hardware-specific values (e.g. CPU TDP), while falling back to sensible defaults. This improves usability without sacrificing model accuracy.
+
+Finally, while SmartWatts' runtime calibration and dynamic event selection enhance adaptability, they introduce complexity. The event selection mechanism relies on statistical heuristics, which may not generalize well across systems. Moreover, under highly dynamic conditions, frequent recalibrations may affect stability.
+
+In summary, SmartWatts is well-suited for environments requiring high-resolution attribution beyond RAPL's capabilities, but its scope, complexity, and assumptions warrant careful consideration depending on the target use case.
+
 
 \section{Comparison of Container-Level Tools}
 \label{sec:tool-comparison}
