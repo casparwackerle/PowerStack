@@ -171,16 +171,38 @@ Scaphandre is written in Rust and features a modular, extensible architecture bu
 
 Scaphandre’s \textit{Sensors} subsystem collects utilization and energy consumption metrics from the host system and makes them available to exporters. An abstraction layer, implemented in \texttt{sensors/mod.rs}, manages system topology (tracking sensors, CPU sockets, RAPL domains, and processes) and manages the generation of metric records.
 
-The default Linux implementation, \texttt{PowercapRAPLSensor} (located in \texttt{powercap\_rapl.rs}), constructs a power topology by reading Intel RAPL data from the \texttt{/sys/class/powercap} interface. By default, it identifies all available domains (across all sockets) by matching directories with the pattern \texttt{intel-rapl:<socket>:<domain>}, each containing a domain name and an \texttt{energy\_uj} file reporting cumulative energy in microjoules. If no domain-level directories are found, Scaphandre triggers a fallback mechanism that omits subdomain detail and instead reads from the socket-level file, if available. This file represents the \texttt{package} (PKG) domain, which aggregates the energy consumption of the entire CPU socket. While PKG is a standalone RAPL domain, it also serves as the root of the domain hierarchy.
+The default Linux implementation, \texttt{PowercapRAPLSensor} (located in \texttt{powercap\_rapl.rs}), constructs a power topology by reading Intel RAPL data from the \texttt{/sys/class/powercap} interface. By default, it identifies all available domains (across all sockets) by matching directories with the pattern \texttt{intel-rapl:<socket>:<domain>}, each containing a domain name and an \texttt{energy\_uj} file reporting cumulative energy in microjoules. If no domain-level directories are found, Scaphandre triggers a fallback mechanism that omits subdomain detail and instead reads from the socket-level file, if available. This file represents the \texttt{package} (PKG) domain, which aggregates the energy consumption of the entire CPU socket. While PKG is a standalone RAPL domain, it also serves as the root of the domain hierarchy. Notably, Scaphandre does not currently handle overflow in the \texttt{energy\_uj} counter, a known limitation that has not yet been resolved despite user-reported inaccuracies~\cite{scaphandre_issue280}.
 
 In addition to the Powercap-based sensor, a Windows-only sensor is available that reads energy consumption directly from Intel or AMD-specific Model-Specific Registers (MSRs).
 
-System utilization metrics are collected by helper functions implemented in \texttt{utils.rs}, which rely on Rust’s \texttt{sysinfo} and \texttt{procfs} crates. These libraries extract data from virtual filesystems such as \texttt{/proc}, \texttt{/sys}, and \texttt{/dev}. When container support is enabled, cgroups are also read—but solely to map processes to containers. The collected metrics are stored in a custom data structure along with timestamps, while cgroup information is attached to each process as additional metadata labels. Apart from metrics of processes, CPU and memory, disk- read and write operations are also collected.
+System utilization metrics are collected by helper functions implemented in \texttt{utils.rs}, which rely on Rust’s \texttt{sysinfo} and \texttt{procfs} crates. These libraries extract data from virtual filesystems such as \texttt{/proc}, \texttt{/sys}, and \texttt{/dev}. When container support is enabled, cgroups are also read—but solely to map processes to containers. The collected metrics are stored in a custom data structure along with timestamps, while cgroup information is attached to each process as additional metadata labels. Apart from metrics of processes, CPU and memory, disk read/write operations are also collected.
 
 \paragraph{\textit{Exporters}}
+\textit{Exporters} are responsible for collecting metrics from sensors, storing them temporarily, and exporting them to external systems. Crucially, they also perform the attribution of energy and system metrics to specific scopes, which is discussed in detail in the following section. Similar to the sensor subsystem, Scaphandre uses an abstraction layer (implemented in \texttt{exporters/mod.rs}) to manage common exporter logic such as metric preparation and attribution. Individual exporters are implemented as pluggable modules and operate on a shared core. The \texttt{MetricGenerator} plays a central role by consolidating and attributing metrics across all scopes: the Scaphandre agent itself, the host, CPU sockets, RAPL domains, system-wide statistics, and individual processes.
+
+The modular exporter architecture enables easy implementation of new output formats, and Scaphandre explicitly encourages developers to implement custom exporters if needed. Currently, exporters exist for \textit{Prometheus}, \textit{Stdout}, \textit{JSON}, and \textit{QEMU}, among others.
+
+The \textit{QEMU} exporter is particularly notable. It is designed for use on QEMU/KVM hypervisors and allows energy metrics to be exposed to virtual machines (VMs) in the same way that the \texttt{powercap} kernel module does on bare-metal systems. Specifically, the QEMU exporter writes VM-specific energy metrics to a virtual file system. Inside the VM, a second Scaphandre instance (using the \texttt{PowercapRAPL} sensor with the \texttt{--vm} flag) can read these files, as if they were native energy interfaces. This mechanism mimics a bare-metal powercap environment, allowing software running in the VM to access energy data without direct access to RAPL or hardware sensors. This architecture is especially useful for breaking the opacity of power monitoring in virtualized environments, where such metrics are usually unavailable. If adopted by cloud providers, this could significantly improve visibility into energy consumption within public cloud VMs, supporting energy-aware software design even in virtualized infrastructures.
 
 \subsubsection{Attribution Model}
 \label{sec:scaphandre-attribution}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 \subsubsection{Validation and Research Context}
 \label{sec:scaphandre-validation}
 \subsubsection{Limitations and Open Issues}
