@@ -104,11 +104,6 @@ The modular and extensible architecture of PowerAPI positions it as a highly sui
 
 
 
-
-
-
-
-
 \section{Code-Level and Adjacent Energy Profiling Tools}
 \label{sec:code-tools}
 \subsection{Compiler and Instruction-Level Estimation}
@@ -134,29 +129,75 @@ The modular and extensible architecture of PowerAPI positions it as a highly sui
 \subsubsection{Limitations and Open Issues}
 \label{sec:kepler-limitations}
 
+% \subsection{Scaphandre}
+% \label{sec:scaphandre}
+
+% \subsubsection{Overview and Goals}
+% \label{sec:scaphandre-overview}
+
+% Scaphandre\parencite{scaphandre_github} is an energy monitoring agent designed to expose power consumption metrics at a fine granularity, particularly for containerized and virtualized environments. Its name (derived from the French word for diving suit) reflects the tool’s aim to provide deep insight into system-level energy consumption.
+
+% Scaphandre aims to attribute energy usage to individual processes, containers, or pods. Scaphandre offers multiple deployment models: It can be deployed directly to a host (and measure qemu/kvm virtual machines), or in a container and measure the power consumption of the bare metal host, provided that \texttt{/sys/class/powercap} and \texttt{/proc} directories are exposed as volumes. Most importantly in the context of this thesis, it can be directly installed on kubernetes via Helm chart (along with \textit{Prometheus} and \textit{Grafana}) and measure Kubernetes nodes and containers, increasing convenience and ease-of-use.
+
+% \subsubsection{Architecture and Metric Sources}
+% \label{sec:scaphandre-architecture}
+% Scaphandre is written in Rust. Its core architecture is modular and extensible, consisting of two main components: \textit{sensors} and \textit{exporters}. Sensors are responsible for gathering energy-related data from the host system, while exporters format and expose this data to external systems. This design allows Scaphandre to integrate into cloud-native environments, supporting observability stacks and automation tools.
+
+% \paragraph{\textit{Sensors}}
+% Scaphandre's \textit{Sensors} subsystem is meant to get utilization and power consumption metrics of the host, and make them available to the exporter(s). An abstration layer (implemented in the \texttt{/sensors/mod.rs}-file) manages the system typology (including sensors, domains, processes and CPU) and Record generation. 
+
+% Scaphandre’s \texttt{PowercapRAPLSensor} (implemented in the \texttt{powercap/textunderscorerapl.rs}-file) builds a power topology by reading Intel RAPL data from the \texttt{/sys/class/powercap} interface. By default, it identifies all available domains (for all available sockets) using directories that match the pattern \texttt{intel-rapl:<socket>:<domain>}, each containing the domain name and its cumulative energy in microjoules. If no domain-level directories are found, Scaphandre triggers a fallback, omitting subdomain breakdowns. In this case, it reads only the socket-level file: \texttt{/sys/class/powercap/intel-rapl:<socket>/energy/textunderscoreuj}. This file corresponds to the \texttt{package} (PKG) domain, which represents the total energy for the CPU socket. While PKG is technically a RAPL domain, it also serves as the root of the domain hierarchy.
+
+% In addition to the Powercap RAPL sensor implementation, a Windows-only RAPL sensor is also implemented using direct MRS read-operations of Intel or AMD-specific MSRs.
+
+% System utilization metrics are read by the sensors implemented in \texttt{utils.rs}, using Rust’s \texttt{sysinfo} and \texttt{procfs} crates. These libraries extract information from virtual filesystems such as \texttt{/proc}, \texttt{/sys}, and \texttt{/dev}. When container support is enabled, cgroups are also read—but solely for the purpose of mapping processes to containers. The collected metrics are stored in a custom data structure along with timestamps, while cgroup metadata is attached to processes as supplementary labels.
+
 \subsection{Scaphandre}
 \label{sec:scaphandre}
 
 \subsubsection{Overview and Goals}
 \label{sec:scaphandre-overview}
+
+Scaphandre\parencite{scaphandre_github} is an energy monitoring agent designed to expose power consumption metrics at fine granularity, particularly in containerized and virtualized environments. Its name, derived from the French word for "diving suit" reflects its goal of providing deep insights into system-level energy consumption.
+
+Scaphandre aims to attribute energy usage to individual processes, containers, or pods. It supports multiple deployment models: it can be installed directly on a physical host (where it can also monitor qemu/KVM-based virtual machines) or deployed in a container, measuring the energy usage of the host system, provided that the \texttt{/sys/class/powercap} and \texttt{/proc} directories are mounted as volumes. Most relevant to this thesis, Scaphandre can also be deployed on a Kubernetes cluster via a Helm chart, optionally alongside \textit{Prometheus} and \textit{Grafana}, allowing for convenient monitoring of Kubernetes nodes and containers.
+
 \subsubsection{Architecture and Metric Sources}
 \label{sec:scaphandre-architecture}
+
+Scaphandre is written in Rust and features a modular, extensible architecture built around two core components: \textit{sensors} and \textit{exporters}. Sensors gather energy-related data from the host system, while exporters format and expose this data to external systems. This design allows seamless integration into cloud-native observability stacks and automation pipelines.
+
+\paragraph{\textit{Sensors}}
+
+Scaphandre’s \textit{Sensors} subsystem collects utilization and energy consumption metrics from the host system and makes them available to exporters. An abstraction layer, implemented in \texttt{sensors/mod.rs}, manages system topology (tracking sensors, CPU sockets, RAPL domains, and processes) and manages the generation of metric records.
+
+The default Linux implementation, \texttt{PowercapRAPLSensor} (located in \texttt{powercap\_rapl.rs}), constructs a power topology by reading Intel RAPL data from the \texttt{/sys/class/powercap} interface. By default, it identifies all available domains (across all sockets) by matching directories with the pattern \texttt{intel-rapl:<socket>:<domain>}, each containing a domain name and an \texttt{energy\_uj} file reporting cumulative energy in microjoules. If no domain-level directories are found, Scaphandre triggers a fallback mechanism that omits subdomain detail and instead reads from the socket-level file, if available. This file represents the \texttt{package} (PKG) domain, which aggregates the energy consumption of the entire CPU socket. While PKG is a standalone RAPL domain, it also serves as the root of the domain hierarchy.
+
+In addition to the Powercap-based sensor, a Windows-only sensor is available that reads energy consumption directly from Intel or AMD-specific Model-Specific Registers (MSRs).
+
+System utilization metrics are collected by helper functions implemented in \texttt{utils.rs}, which rely on Rust’s \texttt{sysinfo} and \texttt{procfs} crates. These libraries extract data from virtual filesystems such as \texttt{/proc}, \texttt{/sys}, and \texttt{/dev}. When container support is enabled, cgroups are also read—but solely to map processes to containers. The collected metrics are stored in a custom data structure along with timestamps, while cgroup information is attached to each process as additional metadata labels. Apart from metrics of processes, CPU and memory, disk- read and write operations are also collected.
+
+\paragraph{\textit{Exporters}}
+
 \subsubsection{Attribution Model}
 \label{sec:scaphandre-attribution}
 \subsubsection{Validation and Research Context}
 \label{sec:scaphandre-validation}
 \subsubsection{Limitations and Open Issues}
 \label{sec:scaphandre-limitations}
+The developers acknowledge the lack of appropriate RAPL documentation, especially the definition of the \texttt{PSys} domain (which they assume to contain the power specifications of the entire SoC). They also state that their experiments do not clearly indicate whether the \texttt{DRAM} domain is contained in the \texttt{PKG} domain, or outside of it.
+
 
 \subsection{SmartWatts}
-\label{sec:smartwatts}
 
+
+\label{sec:smartwatts}
 \subsubsection{Overview and Goals}
 \label{sec:smartwatts-overview}
 The PowerAPI-implementation \textit{SmartWatts}\parencite{fieni2020smartwatts} is a software-defined, self-calibrating power 'formula' designed for estimating power consumption of containers, processes, and VMs. It aims to address the shortcomings of static power models by using online model adaptation (sequential learning) and runtime performance counters. Unlike many academic models that require manual calibration or architecture-specific training, SmartWatts adapts automatically to the host system and workload.
 \subsubsection{Architecture and Metric Sources}
 \label{sec:smartwatts-architecture}
-Understanding the architecture of SmartWatts and its differences from other energy monitoring tools is crucial. Using HWPC, RAPL, and CPU process metrics, SmartWatts collects performance data. At runtime, it uses power models based on cgroups and perf events alone to estimate, for each resource $\text{res} \in \{\text{CPU}, \text{DRAM}\}$, the host power consumption $\hat{p}_{\text{res}}$ and the power consumption $\hat{p}_{\text{res}}(c)$ for all containers. SmartWatts uses $\hat{p}_{\text{res}}$ to continuously assess the accuracy of the managed power models $M_{\text{res}, f}$ to ensure that estimated power consumption does not diverge from the RAPL baseline measurement $p_{\text{res}}^{\text{rapl}}$. When the estimation diverges beyond a configurable threshold $\epsilon_{\text{res}}$, SmartWatts triggers a new online calibration process for the model. When the machine is at rest (e.g., after a reboot), this method is also used to isolate the static energy consumption. A simple architecture can be seen in Figure~\ref{fig:smartwatts_architecture}.
+SmartWatts is written in Pyhton. Understanding the architecture of SmartWatts and its differences from other energy monitoring tools is crucial. Using HWPC, RAPL, and CPU process metrics, SmartWatts collects performance data. At runtime, it uses power models based on cgroups and perf events alone to estimate, for each resource $\text{res} \in \{\text{CPU}, \text{DRAM}\}$, the host power consumption $\hat{p}_{\text{res}}$ and the power consumption $\hat{p}_{\text{res}}(c)$ for all containers. SmartWatts uses $\hat{p}_{\text{res}}$ to continuously assess the accuracy of the managed power models $M_{\text{res}, f}$ to ensure that estimated power consumption does not diverge from the RAPL baseline measurement $p_{\text{res}}^{\text{rapl}}$. When the estimation diverges beyond a configurable threshold $\epsilon_{\text{res}}$, SmartWatts triggers a new online calibration process for the model. When the machine is at rest (e.g., after a reboot), this method is also used to isolate the static energy consumption. A simple architecture can be seen in Figure~\ref{fig:smartwatts_architecture}.
 
 In practical terms, SmartWatts implements a server-side pwoermeter (referred to as \textit{power meter}) that consumes input samples and produces power estimations accordingly. The power meter is responsible for power modelling, power estimation and model calibration. In addition, a client-side sensor (referred to as \textit{sensor}) is deployed as a lightweight daemon on all cluster nodes. The sensor is responsible static power isolation, event selection, cgroups and event monitoring. This separation allows for heterogeneous cluster nodes.
 

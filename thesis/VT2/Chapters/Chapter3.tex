@@ -170,6 +170,8 @@ This model attributes energy solely based on the direct activity of containers, 
     \item \textbf{Suitable for:} Developers optimizing containerized applications.
 \end{itemize}
 
+Notably, container-centric attribution places a strong emphasis on individual containers and their respective energy consumption, striving to maintain relative consistency irrespective of overall cluster activity. While such granular insights can be valuable to developers, container-centric attribution typically does not represent the primary practical use case of an energy monitoring system for Kubernetes containers. This is largely due to the container isolation principle, which usually restricts detailed visibility into broader system dynamics. Additionally, container-level optimization is often more effectively achieved through simpler CPU and memory metrics readily accessible via the container’s own \texttt{/proc} filesystem. Hence, although technically feasible, container-centric energy attribution often remains primarily a theoretical or research-oriented concept rather than a widely implemented practical approach.
+
 \subsection{Shared-Cost Attribution}
 \label{sec:shared-cost}
 
