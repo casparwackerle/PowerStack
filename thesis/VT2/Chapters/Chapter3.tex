@@ -226,8 +226,12 @@ Residual power not attributed to container workloads is explicitly labeled as \t
 
 In real-world scenarios, this model provides cluster operators with the foundation for quantitative infrastructure efficiency analysis. At the same time, developers benefit from a consistent, workload-centric power metric that reflects the true resource cost of their container, independent of the activity of co-located workloads.
 
+\subsection{Understanding the Distinction Between CPU Idling and Process Idling}
+A CPU is considered \textbf{idle} when it has no runnable tasks. In this case, the Linux scheduler runs a special task called the \textit{idle task} (PID 0), and the processor may enter a low-power idle state to save energy. The time spent in this state is what is reported as CPU idle time. The \textit{idle task} is not shown in \texttt{/proc} and similar interfaces because it is only internally used by the scheduler, and not a regular process.
 
+A process, on the other hand, does not truly idle in kernel terms. When a process is not using the CPU (because it is waiting for I/O, a timer, or another event) it is in a \textit{sleeping} or \textit{blocked} state. Although it may appear inactive, it is still managed by the scheduler and may resume execution when its blocking condition is resolved.
 
+The key distinction is that \textbf{only CPUs idle} in the kernel’s formal sense. A CPU idles when it has no work to do, while a process never truly idles: it either runs, waits, or is terminated.
 
 
 
