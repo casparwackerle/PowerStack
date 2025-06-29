@@ -1,19 +1,19 @@
-\chapter{Tool Analysis: Existing Approaches to Container Energy Consumption} % Main chapter title
-\label{Chapter4}
+% \chapter{Tool Analysis: Existing Approaches to Container Energy Consumption} % Main chapter title
+% \label{Chapter4}
 
-\section{Overview of Tool Landscape}
-            KEPLER, Scaphandre, CodeCarbon, PowerAPI, Cloud Carbon Footprint, etc.
-\section{Tool Analysis Framework}
-        Accuracy, data sources, correlation method, platform support, etc.
-\section{Detailed Evaluation of Selected Tools}
-        One subchapter per tool:
-            4.X KEPLER
-            4.X Scaphandr
-            ...
-\section{Comparison Summary}
-        Table of tradeoffs
-        Strengths and weaknesses
-        Missing features / open gaps
+% \section{Overview of Tool Landscape}
+%             KEPLER, Scaphandre, CodeCarbon, PowerAPI, Cloud Carbon Footprint, etc.
+% \section{Tool Analysis Framework}
+%         Accuracy, data sources, correlation method, platform support, etc.
+% \section{Detailed Evaluation of Selected Tools}
+%         One subchapter per tool:
+%             4.X KEPLER
+%             4.X Scaphandr
+%             ...
+% \section{Comparison Summary}
+%         Table of tradeoffs
+%         Strengths and weaknesses
+%         Missing features / open gaps
 
 
 
@@ -118,6 +118,7 @@ The modular and extensible architecture of PowerAPI positions it as a highly sui
 
 \subsection{Kepler}
 \label{sec:kepler}
+https://www.green-coding.io/case-studies/cpu-utilization-usefulness/: Let’s now make another approach though not using CPU utilization, but rather by using CPU instructions, which is the same technique as for instance Kepler uses
 \subsubsection{Overview and Goals}
 \label{sec:kepler-overview}
 \subsubsection{Architecture and Metric Sources}
@@ -161,46 +162,57 @@ The \textit{sensors} abstraction layer also applies key data preprocessing steps
 
 The modular exporter architecture enables easy implementation of new output formats, and Scaphandre explicitly encourages developers to implement custom exporters if needed. Currently, exporters exist for \textit{Prometheus}, \textit{Stdout}, \textit{JSON}, and \textit{QEMU}, among others.
 
-The \textit{QEMU} exporter is particularly notable. It is designed for use on QEMU/KVM hypervisors and allows energy metrics to be exposed to virtual machines (VMs) in the same way that the \texttt{powercap} kernel module does on bare-metal systems. Specifically, the QEMU exporter writes VM-specific energy metrics to a virtual file system. Inside the VM, a second Scaphandre instance (using the \texttt{PowercapRAPL} sensor with the \texttt{--vm} flag) can read these files, as if they were native energy interfaces. This mechanism mimics a bare-metal powercap environment, allowing software running in the VM to access energy data without direct access to RAPL or hardware sensors. This architecture is especially useful for breaking the opacity of power monitoring in virtualized environments, where such metrics are usually unavailable. If adopted by cloud providers, this could significantly improve visibility into energy consumption within public cloud VMs, supporting energy-aware software design even in virtualized infrastructures.
+The \textit{QEMU} exporter is particularly notable. It is designed for use on QEMU/KVM hypervisors and allows energy metrics to be exposed to virtual machines (VMs) in the same way that the \texttt{powercap} kernel module does on bare-metal systems. Specifically, the QEMU exporter writes VM-specific energy metrics to a virtual file system. Inside the VM, a second Scaphandre instance can read these files as if they were native energy interfaces. This mechanism mimics a bare-metal powercap environment, allowing software running in the VM to access energy data without direct access to RAPL or hardware sensors. This architecture is especially useful for breaking the opacity of power monitoring in virtualized environments, where such metrics are usually unavailable. If adopted by cloud providers, this could significantly improve visibility into energy consumption within public cloud VMs, supporting energy-aware software design even in virtualized infrastructures.
+
+\paragraph{Measurement Interval}
+Scaphandre's measurement interval is fixed at two seconds, as defined in the \texttt{show\_metrics} function of the file \texttt{/exporters/prometheus.rs}. This hardcoded interval determines how frequently the agent performs a new measurement by reading cumulative energy values from the RAPL interface. While RAPL counters are updated approximately every millisecond, Scaphandre does not take advantage of this high-resolution data. Reducing the interval could improve measurement accuracy and temporal granularity (especially for short-lived processes) but would also increase system overhead. As of now, modifying the interval would require changes to the source code.
 
 \subsubsection{Attribution Model}
 \label{sec:scaphandre-attribution}
-Scaphandre attributes power consumption to processes and containers using a straightforward proportional model based on CPU usage over time. At each sampling interval, Scaphandre calculates the total energy consumption of the host system using RAPL counters. This total energy delta is then divided among all active processes according to their normalized CPU utilization. Time spent in non-active states (such as \texttt{iowait}, \texttt{idle}, \texttt{irq}, and \texttt{softirq}) is \textit{not} included in the total CPU time considered during this interval, effectively filtering out idle CPU time. The attribution formula, as conceptually implemented in \texttt{get\_process\_power\_consumption\_microwatts()}, computes per-process energy as follows:
+
+Scaphandre attributes power consumption to processes and containers using a proportional model based on CPU usage over time. At each sampling interval, it reads the system's total energy consumption from Intel RAPL counters and distributes this energy among all active processes according to their normalized CPU utilization.
+
+The core of this attribution logic is based on CPU time as reported in \texttt{/proc}. For each process, Scaphandre accumulates CPU time in active states and excludes time spent in inactive states such as \texttt{idle}, \texttt{iowait}, \texttt{irq}, and \texttt{softirq}. This filtering is applied both at the per-process and system level, so that only time considered "active" is included in the normalization denominator. The result is a time-based utilization model that excludes idle-related CPU time from consideration.
+
+Per-process energy is then computed using the following formula, conceptually implemented in \texttt{get\_process\_power\_consumption\_microwatts()}:
 \begin{equation}
 E_{\text{proc}}(t) = \frac{E_{\text{RAPL}}(t) \cdot \text{CPU}_{\text{proc}}(t)}{\sum_i \text{CPU}_i(t)}
 \end{equation}
-Here, \( E_{\text{RAPL}}(t) \) is the energy consumed during the interval (typically from the RAPL PKG or PSys domain), and \( \text{CPU}_{\text{proc}}(t) \) denotes the process’s CPU usage normalized over all available cores. This normalization is computed by dividing the raw process CPU usage by the total number of CPU cores. The model assumes that energy usage is driven primarily by CPU activity, and distributes all observed energy accordingly.
+where \( E_{\text{RAPL}}(t) \) denotes the energy delta over the sampling interval \( t \), and \( \text{CPU}_{\text{proc}}(t) \) is the active CPU time of the process. The denominator includes the sum of active CPU time across all processes, excluding inactive states.
 
-Container-level attribution is achieved by inspecting the cgroup paths of each process. If a process can be mapped to a container or pod (via Docker or Kubernetes APIs), the corresponding metadata labels are attached to the exported metrics. These labels include \texttt{container\_id}, \texttt{kubernetes\_pod\_name}, and \texttt{namespace}. The key metric \texttt{scaph\_process\_power\_consumption\_microwatts} is thus enriched with container metadata, enabling aggregation at the container or pod level (e.g.s in \textit{Prometheus}).
+Container-level attribution is achieved by inspecting the cgroup path of each process and mapping it to a container or Kubernetes pod using runtime-specific metadata. When container context is available, Scaphandre enriches its per-process metrics with labels such as \texttt{container\_id}, \texttt{kubernetes\_pod\_name}, and \texttt{namespace}. These metrics, such as \texttt{scaph\_process\_power\_consumption\_microwatts}, are then exposed via Prometheus and can be aggregated at container or pod level.
 
-Scaphandre also exposes host-level energy metrics, such as \texttt{scaph\_host\_power\_microwatts} and \texttt{scaph\_host\_energy\_microjoules}, typically derived from the RAPL PSys domain if available, or from PKG and DRAM domains otherwise. Unlike process-level metrics, host-level energy calculations do \textit{not} exclude idle CPU time.
+In addition to process- and container-level metrics, Scaphandre also reports host-level power consumption using the same RAPL domains. These host metrics include total platform or package energy consumption, as available, and are exposed via metrics such as \texttt{scaph\_host\_power\_microwatts} and \texttt{scaph\_host\_energy\_microjoules}. Unlike per-process energy values, these host-level metrics reflect total system energy use and are not adjusted to exclude idle CPU time.
 
-While this attribution logic is computationally lightweight and easy to interpret, it comes with certain limitations. Since only CPU usage is considered, power consumed by memory, storage, networking, and other subsystems is not explicitly modeled. Furthermore, all observed energy is attributed to active processes; baseline idle consumption, power supply losses, or OS-level overhead (e.g., context switching) are not separately accounted for. This may introduce inaccuracies in low-utilization scenarios or for I/O-bound workloads.
-
-\paragraph{Idle Consumption}
-Scaphandre does not directly measure CPU idle energy consumption. Inactive CPU time (such as \texttt{iowait}, \texttt{idle}, \texttt{irq}, and \texttt{softirq}) is explicitly excluded from the CPU time considered in process attribution. However, an indirect estimate of idle power can be obtained using host-level energy metrics. The residual energy
+\paragraph{Idle power consumption}
+Scaphandre does not compute idle power directly, but it is possible to infer a residual estimate by comparing the total reported host power to the sum of per-process power:
 \[
 P_{\text{idle}} = P_{\text{Host}} - \sum P_{\text{proc}}
 \]
-can be interpreted as "power due to idle activity". Since \( P_{\text{Host}} \) may stem from different RAPL domains depending on hardware availability and sensor configuration, this residual estimate provides only limited insight into true idle power. Ambiguity in RAPL domain coverage further reduces its precision.
+This difference may include contributions from idle power, system activity outside of user processes, or RAPL domain coverage gaps. However, this value is not part of Scaphandre’s exported metrics and must be computed externally if needed.
 
-\subsubsection{Validation and Research Context}
+This attribution methodology is used consistently across the Scaphandre exporters, including the Prometheus exporter. It forms the basis for container-aware energy attribution without requiring additional instrumentation or hardware performance counter support. Further discussion of this methodology’s strengths, assumptions, and limitations follows in the next section.
+
+
+\subsubsection*{Validation and Research Context}
 \label{sec:scaphandre-validation}
 
-\subsubsection{Limitations and Open Issues}
+To date, no formal validation of Scaphandre’s attribution methodology has been published. While the underlying RAPL interface used for energy measurement is widely accepted and validated in prior research, the specific proportional attribution model employed by Scaphandre has not been systematically evaluated against ground-truth data or instruction-based models.Despite this, Scaphandre has been used in academic and applied contexts for estimating the energy consumption of software systems. In most cases, it is treated as a black-box exporter of container-level energy metrics, with limited investigation into its internal measurement and attribution logic.
+
+A more detailed assessment is presented by Tarara\parencite{Tarara2023CpuUtilization}, who compares Scaphandre’s reported per-process power consumption against both CPU utilization and instruction-based measurements. His case study reveals that Scaphandre tends to overestimate power consumption for lightweight processes under low-load conditions, due to its policy of distributing all observed energy among the small set of active processes. While the model excludes idle time from CPU usage calculations, it does not exclude idle power from total energy, leading to attribution artifacts. Tarara concludes that Scaphandre improves upon naïve utilization-based models, but cannot match the precision of instruction-level approaches using tools such as \texttt{perf}.
+
+\subsubsection*{Limitations and Open Issues}
 \label{sec:scaphandre-limitations}
 
-The developers acknowledge the lack of public documentation for RAPL, particularly regarding the \texttt{PSys} domain, which they assume to reflect total SoC power. Their experiments also raise the unresolved question of whether the \texttt{DRAM} domain is included within \texttt{PKG}, or whether it must be treated independently.
+While Scaphandre offers a lightweight and transparent approach to energy attribution, several limitations emerge from its current implementation.
 
+First, its fixed measurement interval of 2 seconds limits temporal resolution. Although the underlying RAPL interface supports much finer granularity, Scaphandre aggregates CPU activity over 2-second windows. During this time, the Linux scheduler may switch between dozens or hundreds of processes, depending on system activity. As a result, Scaphandre can only attribute energy based on average CPU utilization over the interval, potentially masking short-lived or bursty behavior.
 
+Second, Scaphandre attempts to refine CPU-based attribution by subtracting inactive time (\texttt{idle}, \texttt{iowait}, \texttt{irq}, \texttt{softirq}) from the denominator of its proportional model. While this adjustment excludes clearly non-active states, it does not fully resolve the underlying ambiguity of CPU utilization as a proxy for energy. As noted by Tarara\parencite{Tarara2023CpuUtilization}, when overall system load is low, the total observed energy (especially idle platform power) is still fully distributed among a small set of active processes. This can result in inflated or misleading per-process energy values, particularly for lightweight workloads.
 
+Scaphandre relies exclusively on Intel’s RAPL interface for energy measurements. The developers of Scaphandre acknowledge the lack of detailed public documentation, especially for the \texttt{PSys} domain, which they assume to represent total SoC power. Their experiments also highlight ambiguity regarding domain overlaps—for instance, whether the \texttt{DRAM} domain is already included in \texttt{PKG}, or whether it must be treated as a separate component. These uncertainties may affect the interpretation of host-level energy metrics and the completeness of total system energy accounting.
 
-
-
-
-
-
-
+Finally, Scaphandre does not incorporate instruction-level or performance counter-based metrics. It cannot distinguish between processes with different execution intensities or memory behavior, and assumes a uniform relationship between CPU time and energy use. This limits its ability to reflect differences in instruction throughput, stalling, or architectural efficiency across workloads.
 
 \subsection{SmartWatts}
 

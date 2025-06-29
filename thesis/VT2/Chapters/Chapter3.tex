@@ -84,6 +84,17 @@ Compared to traditional monitoring approaches such as reading from \texttt{/proc
 
 As demonstrated by Cassagnes et al.~\parencite{cassagnesRiseEBPFNonintrusive2020}, eBPF currently represents the best practice for non-intrusive, low-overhead, and high-resolution utilization monitoring on Linux systems. Its ability to gather container- or process-level metrics in production environments makes it uniquely well-suited for accurate correlation with system-wide power measurements.
 
+\subsubsection*{Performance Counters and \texttt{perf}-based Monitoring}
+\label{sec:perf_metrics}
+
+Modern processors expose hardware-level performance counters (PMCs) that can be used to obtain precise measurements of internal execution characteristics. These counters are accessible via tools such as \texttt{perf}, and include metrics such as retired instructions, CPU cycles, cache misses, branch mispredictions, and stalled cycles. Unlike traditional utilization metrics, which measure time spent in various CPU states, PMCs offer insight into how effectively the processor is executing instructions.
+
+A particularly relevant metric is \textit{instructions per cycle} (IPC), which quantifies how much useful work is being done per clock cycle. An IPC close to the CPU's architectural maximum indicates efficient execution, while lower values often signal bottlenecks such as memory stalls. As shown by Gregg\parencite{Gregg2017CpuUtilizationWrong}, a low IPC may reveal that the processor is heavily stalled, even when CPU utilization appears high.
+
+These metrics provide a powerful alternative for workload analysis and energy estimation. For instance, instruction counts can be used to normalize energy usage per task, enabling attribution models that go beyond time-based utilization.
+
+However, access to PMCs is not always guaranteed. In virtualized environments and some container runtimes, performance counters may be inaccessible or imprecise due to hypervisor restrictions. Moreover, interpreting raw PMC values requires architectural knowledge and hardware-specific calibration.
+
 \subsubsection*{Comparative Summary}
 
 \begin{table}[H]
@@ -101,6 +112,8 @@ cgroups & High & Per-cgroup & Foundation for container metrics \\
 cAdvisor & Medium-Low & Per-container & Aggregated from cgroups, limited rate \\
 \hline
 eBPF & Very High & Per-task, system-wide & Real-time, customizable, low overhead \\
+\hline
+perf/PMCs & Very High & Per-task, core-level & 	Tracks cycles, instructions, stalls\\
 \hline
 \end{tabular}
 \caption{Comparison of resource usage tracking mechanisms}
@@ -130,6 +143,28 @@ These disparities make straightforward correlation difficult. While coarse metri
 Another complication is temporal skew. Even metrics with similar frequencies are rarely sampled simultaneously, and some introduce unknown or variable delays. This misalignment creates ambiguity between observed utilization and corresponding power draw, particularly for short-lived or rapidly changing workloads. Naïve smoothing may reduce noise but also obscures meaningful transient behavior.
 
 Effective attribution therefore requires more than just aligning timestamps. It demands awareness of each metric’s origin, behavior, and limitations, and careful coordination to avoid erroneous correlations and preserve meaningful detail.
+
+\subsubsection*{Challenges in CPU Metric Interpretation}
+\label{sec:cpu-metric-challenges}
+
+CPU utilization is one of the most accessible and commonly used metrics to quantify processing activity on modern systems. It is widely reported by system monitoring tools such as \texttt{top}, \texttt{htop}, and cloud APIs, and is frequently used in both performance diagnostics and energy attribution models. However, despite its ubiquity, the interpretation of CPU utilization is far from straightforward, and in many contexts, it is misleading.
+
+At its core, CPU utilization is a time-based metric that represents the proportion of time a CPU spends executing non-idle tasks. In Linux, this value is computed from counters in \texttt{/proc/stat} and reported in units of ``jiffies''. It distinguishes between various states (user, system, idle, I/O wait, interrupts) but ultimately expresses how long the CPU was busy, not how much useful work it performed\parencite{Tarara2023CpuUtilization}.
+
+A fundamental limitation is that CPU utilization conflates time with effort. Not all CPU time is equally productive: some cycles may execute complex, compute-intensive instructions, while others may stall waiting for memory I/O. Modern CPUs are frequently memory-bound due to the growing performance gap between processor speed and DRAM latency. As a result, a high CPU utilization value may indicate that the processor was merely stalled, not that it was the performance bottleneck\parencite{Gregg2017CpuUtilizationWrong}.
+
+These nuances have direct consequences for energy attribution. When energy models allocate power proportionally to CPU utilization, they assume a linear relationship between time and energy. However, power consumption depends heavily on the instruction mix, CPU frequency scaling, Turbo Boost, and simultaneous multithreading. In such environments, identical utilization values across different processes or intervals may reflect vastly different energy profiles.
+
+A more accurate alternative is to use hardware performance counters (PMCs), which track low-level metrics such as instructions retired, cache misses, and stalled cycles. For example, the ``instructions per cycle'' (IPC) value provides insight into how effectively the CPU executes work during its active time. An IPC significantly below the processor's theoretical maximum often indicates a memory-bound workload, while high IPC values suggest instruction-bound behavior. Tools like \texttt{perf} or \texttt{tiptop} can expose such metrics, though their use may be restricted in virtualized environments.
+
+In summary, CPU utilization should be treated with caution, especially in the context of energy-aware scheduling and workload attribution. As Cockcroft already argued in 2006, utilization as a metric is fundamentally broken\parencite{cockcroft2006utilization}. Practitioners are advised to:
+\begin{itemize}
+    \item Avoid assuming a linear relationship between CPU utilization and power consumption.
+    \item Consider supplementing utilization metrics with performance counters (e.g., IPC, cycles, instructions) when available.
+    \item Be mindful of the measurement interval and sampling effects in tools like \textit{Scaphandre}.
+    \item In energy models, explicitly account for idle power, and avoid assigning it solely to active processes.
+    \item Prefer instruction-based metrics for finer granularity and better correlation with energy use.
+\end{itemize}
 
 \subsubsection*{Availability of Metrics}
 
@@ -232,201 +267,3 @@ A CPU is considered \textbf{idle} when it has no runnable tasks. In this case, t
 A process, on the other hand, does not truly idle in kernel terms. When a process is not using the CPU (because it is waiting for I/O, a timer, or another event) it is in a \textit{sleeping} or \textit{blocked} state. Although it may appear inactive, it is still managed by the scheduler and may resume execution when its blocking condition is resolved.
 
 The key distinction is that \textbf{only CPUs idle} in the kernel’s formal sense. A CPU idles when it has no work to do, while a process never truly idles: it either runs, waits, or is terminated.
-
-
-
-\begin{comment}
-
-
-\section{Overview and Challenges}
-
-3.1 Introduction and Context
-
-    What this chapter is about: attribution of observed/measured power to containerized workloads.
-
-    Why this is hard: modern servers run multi-tenant, multi-layered workloads on multi-core CPUs across distributed systems.
-
-    Brief mention that Chapter 4 will discuss implementations (tools), and that some methods discussed here are implemented in those tools.
-
-3.2 General Methodology of Power Attribution
-
-    Recap: What is being measured? (e.g., node-level power via RAPL, BMC, IPMI, etc.)
-
-    What needs to be attributed? (e.g., container CPU time, memory bandwidth, network I/O, etc.)
-
-    Temporal slicing: how time is broken into intervals, and why this is necessary.
-
-    Synchronization of metrics: fusion of different data sources (e.g., power metrics vs. cgroup stats).
-
-    Challenges: different update rates, time granularity mismatches, delays, buffering.
-
-    Include: short recap of Linux scheduling and how resource usage can be tracked per-process or per-cgroup.
-3.3 Available Metrics for Attribution
-
-    Kubernetes-level metrics (e.g., metrics-server, Prometheus, kubelet summaries).
-
-    Linux cgroups (v1/v2): cpuacct.usage, memory.stat, blkio, etc.
-
-    Container-runtime links: how to map containers to pids or cgroups.
-
-    Which of these can be sampled frequently and reliably?
-
-    You might need a table of metrics per subsystem: CPU, memory, I/O, network.
-3.4 Dealing with Data Gaps and Imperfect Systems
-
-    Missing RAPL: fallback strategies (e.g., model-based estimates, heuristics).
-
-    Granularity mismatch: smoothing, interpolation, or discarding metrics.
-
-    Unattributable power: idle power, background daemons, OS tasks.
-
-    Could bring up Scaphandre’s fallback mode or Kepler’s power models.
-3.5 Attribution Philosophies
-
-    Should idle power be distributed? If so, how? (Evenly? Proportional to active time?)
-
-    System processes: Should kubelet, OS daemons be excluded or charged to all users?
-
-    Perspective matters: Developer wants per-container efficiency, Admin wants cluster-wide utilization.
-
-    Energy proportionality: how fair is the attribution?
-
-    This is where you can dig into conceptual frameworks and different stakeholder goals.
-3.6 Distributed Cluster Considerations
-
-    Multi-node clusters: how to gather power + workload metrics across nodes.
-
-    Synchronization issues across nodes (e.g., clock drift, metric lag).
-
-    Existing methods (e.g., Kepler node agents, Prometheus federation).
-
-    Example: how Kepler does this with Prometheus and CRDs.
-
-    Important to mention that some tools assume node-level independence.
-3.7 Implementation and Technical Considerations
-
-    Needed kernel interfaces (e.g., procfs, sysfs, eBPF)
-
-    Prometheus scraping intervals, resolution
-
-    Process-to-container mappings (CRI / containerd / Docker specifics)
-
-    Accuracy limitations introduced by monitoring frequency, sampling delays.
-
-    You can reference the Scaphandre and Kepler docs here for concrete implementation notes.
-
-
-3.8 Summary and Transition
-
-    Summarize the key conceptual challenges.
-
-    State that Chapter 4 will now look at how different tools attempt to solve these challenges.
-
-
-
-
-
-
-
-
-
-
-
-Attributing energy consumption to workloads is challenging due to the temporal, spatial, and semantic mismatches between power measurements and system activity data. A variety of technical and philosophical issues must be considered, particularly in multi-tenant containerized environments.
-
-% TODO: Briefly reference Jay et al. and Raffin et al. for real-world evidence on divergence and limitations.
-
-\section{General Attribution Methodology}
-
-\subsection{Measurement vs. Attribution}
-Measured node-level power data must be distributed over container-level workloads. This requires additional information on workload activity, typically extracted from system and Kubernetes metrics.
-
-\subsection{Temporal Slicing and Synchronization}
-To make attribution meaningful, all involved metrics must be synchronized in time. This section explains how time intervals are formed and what granularity is feasible in practice.
-
-% TODO: Insert a brief recap of Linux scheduling behavior on multi-core systems.
-% TODO: Add example of Scaphandre's approach to time alignment.
-
-\subsection{Metric Fusion Challenges}
-
-Different metrics (e.g., power, CPU time, I/O counters) are exposed at different intervals and precision levels. Fusion of these requires preprocessing such as interpolation or resampling.
-
-% TODO: Discuss granularity mismatches, buffering delays, and implications for accuracy.
-
-\section{Available Metrics and Resource Mapping}
-
-\subsection{Linux Cgroups and Kernel Interfaces}
-Linux exposes resource usage per process and control group. These metrics form the basis for workload tracking.
-
-\subsection{Kubernetes-Specific Metrics}
-The orchestration layer provides higher-level metadata and metrics, enabling container-to-node mapping and abstraction over pods.
-
-\subsection{From Container to Resource Usage}
-This section explains how container runtimes, the kubelet, and tools like Prometheus bridge the gap between containerized workloads and kernel metrics.
-
-% TODO: Include a table summarizing relevant metrics by subsystem (CPU, memory, I/O, network).
-
-\section{Handling Incomplete or Missing Data}
-
-Power attribution must remain functional even when some metric sources are missing. Common issues include:
-\begin{itemize}
-    \item RAPL not available (AMD CPUs, virtualized hardware, etc.)
-    \item No access to power states (e.g., NIC power states)
-    \item Missing max/idle power for heuristic models
-\end{itemize}
-
-% TODO: Discuss fallback models used by Kepler or Scaphandre
-% TODO: Introduce the concept of estimation-based attribution using known interfaces like PHY medium for NICs
-
-\section{Attribution Philosophies}
-
-Different users require different attribution strategies. This section explores:
-\begin{itemize}
-    \item Idle power attribution: should it be distributed or excluded?
-    \item System service attribution: kubelet, OS daemons, monitoring agents
-    \item Fairness and energy proportionality
-    \item Stakeholder views: developers vs. platform operators
-\end{itemize}
-
-% TODO: Optional diagram: visualizing power attribution choices in stacked bar chart
-
-\section{Multi-Node Considerations in Kubernetes Clusters}
-
-In distributed clusters, each node must measure and attribute energy locally. This section covers:
-\begin{itemize}
-    \item Distributed metric collection (Prometheus federation, node-exporter, etc.)
-    \item Time synchronization between nodes (NTP, scrape intervals)
-    \item KEPLER and Scaphandre: how tools implement cross-node monitoring
-\end{itemize}
-
-% TODO: Include discussion of architectural limitations in cluster-wide correlation
-
-\section{Implementation Considerations}
-
-\subsection{Data Sources and Kernel Access}
-Covers procfs, sysfs, powercap, perf, eBPF, and other Linux interfaces for metric collection.
-
-\subsection{Metric Collection Strategies}
-Includes Prometheus-based scraping, local daemons, and event-driven collection.
-
-\subsection{Container Identification and Attribution}
-Explains how process-to-container mappings are maintained in Docker, containerd, and CRI-based runtimes.
-
-% TODO: Explain the challenges of PID reuse, cgroup migration, container restarts.
-
-\section{Related Work and Comparative Studies}
-
-Recent studies have critically analyzed the accuracy and usefulness of software-based power meters:
-
-\begin{itemize}
-    \item Jay et al. (2023): Identified systematic offsets between software and hardware meters, while highlighting correlation consistency.
-    \item Raffin and Trystram (2024): Compared internal access methods to RAPL, identifying major implementation differences.
-    \item Khan et al. (2018): Validated RAPL against smart plugs; demonstrated suitability for most datacenter workloads.
-\end{itemize}
-
-% TODO: Insert citation keys from BibTeX library
-
-\section{Conclusion and Outlook}
-
-
-\end {comment}
