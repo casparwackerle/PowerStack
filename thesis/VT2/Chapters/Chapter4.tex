@@ -184,6 +184,8 @@ Second, Scaphandre attempts to refine CPU-based attribution by subtracting inact
 
 Scaphandre relies exclusively on Intel’s RAPL interface for energy measurements. The developers of Scaphandre acknowledge the lack of detailed public documentation, especially for the \texttt{PSys} domain, which they assume to represent total SoC power. Their experiments also highlight ambiguity regarding domain overlaps—for instance, whether the \texttt{DRAM} domain is already included in \texttt{PKG}, or whether it must be treated as a separate component. These uncertainties may affect the interpretation of host-level energy metrics and the completeness of total system energy accounting.
 
+In a comparison experiment between Scaphandre and other tools, Raffin\parencite{raffin2024dissecting} was unable to push scaphandres measurement frequency beyond 28 Hz, indicating a suboptimal implementation. Despite being written in Rust, Scaphandre performed significantly worse than the python-based tool \textit{CodeCarbon}. Raffin measured Scaphandre's overhead at a non-negligible 3-4\% at 10 Hz on an Intel Server.
+
 Finally, Scaphandre does not incorporate instruction-level or performance counter-based metrics. It cannot distinguish between processes with different execution intensities or memory behavior, and assumes a uniform relationship between CPU time and energy use. This limits its ability to reflect differences in instruction throughput, stalling, or architectural efficiency across workloads.
 
 \subsection{SmartWatts}
@@ -337,8 +339,8 @@ In summary, SmartWatts is well-suited for environments requiring high-resolution
     \item \parencite{powertop}: powertop
     \item \parencite{greencodingdocs}: Green metrics tool: measuring energy and CO2 consumption of software through a software life cycle anslysis (SLCA): Metric providers: RAPL, IPMI, PSU, Docker, Temperature, CPU, ... (sone external devices)
     
-    according to raffin2024: simplified versions of scaphandre and codecarbon hhve 3\%, 0.5\% overhead at 10Hz
-    according to \parencite{jay2023experimental}, the full versions have between 2 and 7\% at 1Hz.
+    % according to raffin2024: simplified versions of scaphandre and codecarbon hhve 3\%, 0.5\% overhead at 10Hz
+    % according to \parencite{jay2023experimental}, the full versions have between 2 and 7\% at 1Hz.
 
     powerAPI            Focuses on per-process measurement, not container nor Kubernetes aware
     WattsUpDoc          Focuses on data center-wide telemetry, not container-level granularity
