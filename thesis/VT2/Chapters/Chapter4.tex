@@ -1,29 +1,10 @@
-% \chapter{Tool Analysis: Existing Approaches to Container Energy Consumption} % Main chapter title
-% \label{Chapter4}
-
-% \section{Overview of Tool Landscape}
-%             KEPLER, Scaphandre, CodeCarbon, PowerAPI, Cloud Carbon Footprint, etc.
-% \section{Tool Analysis Framework}
-%         Accuracy, data sources, correlation method, platform support, etc.
-% \section{Detailed Evaluation of Selected Tools}
-%         One subchapter per tool:
-%             4.X KEPLER
-%             4.X Scaphandr
-%             ...
-% \section{Comparison Summary}
-%         Table of tradeoffs
-%         Strengths and weaknesses
-%         Missing features / open gaps
-
-
-
 \chapter{Tool Analysis: Existing Approaches to Container Energy Consumption}
 \label{chap:tool-analysis}
 
 \section{Introduction}
 \label{sec:tool-intro}
 
-\section{Non-Kubernetes Energy Monitoring Tools}
+\section{Non-container-focused Energy Monitoring Tools}
 \label{sec:non-k8s-tools}
 \subsection{Server-Level Energy Monitoring}
 \label{sec:server-tools}
@@ -74,8 +55,6 @@ However, the tool highlights several interesting secondary considerations. The i
 
 Unlike more advanced attribution tools, AI Power Meter does not distinguish between individual processes or workloads. Instead, it provides coarse-grained, system-level energy consumption measurements over time. In this respect, its scope is similar to \textit{CodeCarbon}, focusing on ease of use and integration into ML pipelines rather than precise, per-process energy attribution. As such, while not directly applicable to container-level measurement or power attribution, AI Power Meter demonstrates the growing interest in accessible energy monitoring tools within the machine learning community.
 
-\subsection{Process-Level Attribution Tools}
-\label{sec:process-tools}
 \subsection{Telemetry-Based Estimation Frameworks}
 \label{sec:telemetry-tools}
 
@@ -100,18 +79,11 @@ PowerAPI uses an actor-based model for modularity, enabling easy customization o
 \paragraph{Relevance and Integration}
 The modular and extensible architecture of PowerAPI positions it as a highly suitable foundation for further research and development of specialized power attribution tools. Researchers can readily extend or adapt its components to address evolving or niche requirements. However, its current implementation does not incorporate certain critical metrics, such as IPMI-based telemetry, which could limit its completeness in some practical deployment scenarios. Nonetheless, PowerAPI represents a significant advancement toward the creation of generalized, plug-and-play power models that operate without extensive manual calibration. This emphasis on practical deployability and general applicability highlights a key strength of the project and sets a clear direction for future research and development efforts in the domain of software-defined energy monitoring.
 
+\subsubsection{Green Metrics Tool}
 
+The \textit{Green Metrics Tool} (GMT)\parencite{greencodingdocs} is an open-source framework designed to measure the energy consumption of containerized applications across various phases of the software lifecycle, including installation, boot, runtime, idle, and removal. It uses small, modular metric collectors to gather host-level energy and system data (e.g., CPU and DRAM energy via RAPL, IPMI power readings), and is orchestrated through declarative usage scenarios.
 
-
-
-\section{Code-Level and Adjacent Energy Profiling Tools}
-\label{sec:code-tools}
-\subsection{Compiler and Instruction-Level Estimation}
-\label{sec:compiler-tools}
-\subsection{Runtime Profilers and System Tuning Tools}
-\label{sec:runtime-tools}
-\subsection{Machine Learning-Based Estimators}
-\label{sec:ml-estimators}
+While GMT provides reproducible, lifecycle-aware measurements in controlled environments, it does \textit{not} perform container-level or process-level energy attribution. The developers explicitly avoid splitting energy consumption across containers, citing the lack of reliable attribution models.
 
 \section{Container-Focused Energy Attribution Tools}
 \label{sec:container-tools}
@@ -182,7 +154,7 @@ where \( E_{\text{RAPL}}(t) \) denotes the energy delta over the sampling interv
 
 Container-level attribution is achieved by inspecting the cgroup path of each process and mapping it to a container or Kubernetes pod using runtime-specific metadata. When container context is available, Scaphandre enriches its per-process metrics with labels such as \texttt{container\_id}, \texttt{kubernetes\_pod\_name}, and \texttt{namespace}. These metrics, such as \texttt{scaph\_process\_power\_consumption\_microwatts}, are then exposed via Prometheus and can be aggregated at container or pod level.
 
-In addition to process- and container-level metrics, Scaphandre also reports host-level power consumption using the same RAPL domains. These host metrics include total platform or package energy consumption, as available, and are exposed via metrics such as \texttt{scaph\_host\_power\_microwatts} and \texttt{scaph\_host\_energy\_microjoules}. Unlike per-process energy values, these host-level metrics reflect total system energy use and are not adjusted to exclude idle CPU time.
+In addition to process- and container-level metrics, Scaphandre also reports host-level power consumption using the \textit{PSYS} RAPL domains. These host metrics include total platform or package energy consumption, as available, and are exposed via metrics such as \texttt{scaph\_host\_power\_microwatts} and \texttt{scaph\_host\_energy\_microjoules}. Notably (as pointed out in section~\ref{sec:RAPL}), the \textit{PSYS} domain typically does not exist on server-grade systems, in which case Scaphandre adds the \textit{PKG} and \textit{DRAM}-packages to calculate host consumption. Unlike per-process energy values, these host-level metrics reflect total system energy use and are not adjusted to exclude idle CPU time.
 
 \paragraph{Idle power consumption}
 Scaphandre does not compute idle power directly, but it is possible to infer a residual estimate by comparing the total reported host power to the sum of per-process power:
@@ -215,8 +187,6 @@ Scaphandre relies exclusively on Intel’s RAPL interface for energy measurement
 Finally, Scaphandre does not incorporate instruction-level or performance counter-based metrics. It cannot distinguish between processes with different execution intensities or memory behavior, and assumes a uniform relationship between CPU time and energy use. This limits its ability to reflect differences in instruction throughput, stalling, or architectural efficiency across workloads.
 
 \subsection{SmartWatts}
-
-
 \label{sec:smartwatts}
 \subsubsection{Overview and Goals}
 \label{sec:smartwatts-overview}
