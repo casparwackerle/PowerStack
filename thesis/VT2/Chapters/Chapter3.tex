@@ -40,7 +40,7 @@ In containerized environments, tasks belonging to the same container are grouped
 
 In modern Linux-based systems, particularly within Kubernetes environments, multiple methods exist to track resource utilization \parencite{kernelprocfs, kernelcgroupv1, kernelcgroupv2, ciliumbpf, cadvisorgithub, metricsservergithub}. These methods vary significantly in terms of temporal granularity, scope, and origin. While they often expose overlapping information, their internal mechanisms differ, leading to trade-offs in precision, resolution, and suitability for certain use cases such as energy attribution.
 
-\subsubsection*{CPU Utilization Tracking}
+\subsubsection{CPU Utilization Tracking}
 
 \begin{itemize}
     \item \textbf{/proc/stat:} A global, cumulative snapshot of CPU activity since boot. It records jiffies spent in user, system, idle, and iowait modes. Temporal resolution is high, but data is coarse and not process- or cgroup-specific.
@@ -50,7 +50,7 @@ In modern Linux-based systems, particularly within Kubernetes environments, mult
     \item \textbf{Hybrid tools:} Many tools provide aggregated metrics and statistics based on the afforementioned methods. While user-friendly, these are usually provide lower temporal precision, but may be useful in some instances. \textbf{cAdvisor:} collects and aggregates CPU usage per container by reading from cgroups. While widely used, its default update interval is coarse. Data is sampled and averaged, which limits its use in high-resolution analysis. \textbf{metrics-server (metrics.k8s.io):} exposes aggregated CPU usage via the Kubernetes API. It pulls metrics from Kubelet (which relies on cAdvisor) and is updated every ~15 seconds. Not suitable for precise or historical analysis.
 \end{itemize}
 
-\subsubsection*{Memory Utilization Tracking}
+\subsubsection{Memory Utilization Tracking}
 
 \begin{itemize}
     \item \textbf{/proc/meminfo:} Provides a system-wide view of memory usage but lacks per-task or per-container resolution.
@@ -59,7 +59,7 @@ In modern Linux-based systems, particularly within Kubernetes environments, mult
     \item \textbf{cAdvisor and metrics-server:} As with CPU, memory stats are aggregated from cgroup data. These APIs offer lower resolution and no historical data.
 \end{itemize}
 
-\subsubsection*{Disk I/O Utilization Tracking}
+\subsubsection{Disk I/O Utilization Tracking}
 
 \begin{itemize}
     \item \textbf{/proc/\textless pid\textgreater/io:} Tracks per-process I/O activity (bytes read/written, syscall counts). Useful for attributing I/O behavior, but coarse in how it correlates to actual disk access timing.
@@ -67,7 +67,7 @@ In modern Linux-based systems, particularly within Kubernetes environments, mult
     \item \textbf{eBPF (tracepoints, kprobes):} Enables real-time tracing of block I/O syscalls, bio submission, and completion.
 \end{itemize}
 
-\subsubsection*{Network I/O Utilization Tracking}
+\subsubsection{Network I/O Utilization Tracking}
 
 \begin{itemize}
     \item \textbf{/proc/net/dev:} Shows network statistics per interface. Updated continuously, but lacks process/container granularity.
@@ -75,7 +75,7 @@ In modern Linux-based systems, particularly within Kubernetes environments, mult
     \item \textbf{eBPF:} Allows tracing of network activity at various points in the stack (packet ingress, egress, socket calls). Offers very high granularity and can attribute traffic to specific containers.
 \end{itemize}
 
-\subsubsection*{eBPF-based Collection of utilization Metrics}
+\subsubsection{eBPF-based Collection of utilization Metrics}
 \label{sec:ebpf_metrics}
 
 The extended Berkeley Packet Filter (eBPF) is a Linux kernel subsystem that allows the safe execution of user-defined programs within the kernel without modifying kernel source code or loading custom modules. Originally developed for low-level network packet filtering, eBPF has evolved into a general-purpose observability framework that can trace and monitor system events with high precision and minimal overhead. eBPF can be used to dynamically attach probes to kernel events such as context switches, system calls, I/O events, and tracepoints. In the context of system monitoring, this enables the collection of fine-grained utilization metrics, including CPU usage per process, memory allocations and I/O activity without modifying the monitored application. These probes run within the kernel and populate BPF maps, which can then be accessed by user-space tools to aggregate or export metrics.
@@ -84,7 +84,7 @@ Compared to traditional monitoring approaches such as reading from \texttt{/proc
 
 As demonstrated by Cassagnes et al.~\parencite{cassagnesRiseEBPFNonintrusive2020}, eBPF currently represents the best practice for non-intrusive, low-overhead, and high-resolution utilization monitoring on Linux systems. Its ability to gather container- or process-level metrics in production environments makes it uniquely well-suited for accurate correlation with system-wide power measurements.
 
-\subsubsection*{Performance Counters and \texttt{perf}-based Monitoring}
+\subsubsection{Performance Counters and \texttt{perf}-based Monitoring}
 \label{sec:perf_metrics}
 
 Modern processors expose hardware-level performance counters (PMCs) that can be used to obtain precise measurements of internal execution characteristics. These counters are accessible via tools such as \texttt{perf}, and include metrics such as retired instructions, CPU cycles, cache misses, branch mispredictions, and stalled cycles. Unlike traditional utilization metrics, which measure time spent in various CPU states, PMCs offer insight into how effectively the processor is executing instructions.
@@ -95,7 +95,7 @@ These metrics provide a powerful alternative for workload analysis and energy es
 
 However, access to PMCs is not always guaranteed. In virtualized environments and some container runtimes, performance counters may be inaccessible or imprecise due to hypervisor restrictions. Moreover, interpreting raw PMC values requires architectural knowledge and hardware-specific calibration.
 
-\subsubsection*{Comparative Summary}
+\subsubsection{Comparative Summary}
 
 \begin{table}[H]
 \centering
@@ -134,7 +134,7 @@ A clear understanding of these execution and timing units is essential for build
 
 System monitoring and the attribution of power metrics based on system (and component) utilization metics introduces several challenges that need to be addressed by a power attribution methodology. Some of these represent natural tradeoffs that an architect needs to be aware of, while others pose issues that simply cannot be circumvented without major issues that cannot be solved with a suitable architecture.
 
-\subsubsection*{Temporal Granularity and Synchronization}
+\subsubsection{Temporal Granularity and Synchronization}
 
 A central challenge in power attribution is the mismatch in temporal granularity between system and power metrics. High-resolution sources, such as eBPF-based monitoring, can distinguish variations within individual CPU time slices. In contrast, coarse-grained power metrics (such as IPMI) often update only once per second, rendering them unable to reflect fine-grained container activity. Metrics like RAPL fall in between, typically sampled at up to 1000 Hz but practically stable at around 50 Hz. Model-based estimators may match the granularity of their input metrics or, in simpler cases, use time-based assumptions with theoretically unlimited granularity.
 
@@ -144,7 +144,7 @@ Another complication is temporal skew. Even metrics with similar frequencies are
 
 Effective attribution therefore requires more than just aligning timestamps. It demands awareness of each metric’s origin, behavior, and limitations, and careful coordination to avoid erroneous correlations and preserve meaningful detail.
 
-\subsubsection*{Challenges in CPU Metric Interpretation}
+\subsubsection{Challenges in CPU Metric Interpretation}
 \label{sec:cpu-metric-challenges}
 
 CPU utilization is one of the most accessible and commonly used metrics to quantify processing activity on modern systems. It is widely reported by system monitoring tools such as \texttt{top}, \texttt{htop}, and cloud APIs, and is frequently used in both performance diagnostics and energy attribution models. However, despite its ubiquity, the interpretation of CPU utilization is far from straightforward, and in many contexts, it is misleading.
@@ -166,7 +166,7 @@ In summary, CPU utilization should be treated with caution, especially in the co
     \item Prefer instruction-based metrics for finer granularity and better correlation with energy use.
 \end{itemize}
 
-\subsubsection*{Availability of Metrics}
+\subsubsection{Availability of Metrics}
 
 The availability of system and power metrics varies widely between platforms. While some systems offer high-resolution data, others may only expose coarse values or lack direct power data entirely. An effective attribution system should dynamically adapt to the metrics available, incorporating new sources (such as wall power meters) as they are added.
 

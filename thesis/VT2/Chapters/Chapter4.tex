@@ -88,19 +88,266 @@ While GMT provides reproducible, lifecycle-aware measurements in controlled envi
 \section{Container-Focused Energy Attribution Tools}
 \label{sec:container-tools}
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 \subsection{Kepler}
 \label{sec:kepler}
-https://www.green-coding.io/case-studies/cpu-utilization-usefulness/: Let’s now make another approach though not using CPU utilization, but rather by using CPU instructions, which is the same technique as for instance Kepler uses
+%\parencite{kepler_energy} -> KEPLER repo
+%\parencite{amaralKeplerFrameworkCalculate2023} -> KEPLER paper
+%\parencite{pijnackerEstimatingContainerlevelPower2024} -> Pijnacker Master thesis
+%\parencite{pijnackerContainerlevelEnergyObservability2025} -> Pijnacker official paper
+%\parencite{choochotkaewAdvancingCloudSustainability2023} -> "Advancing Cloud Sustainability: A Versatile Framework for Container Power Model Training"
+%    --> not really relevant, this is about using KEPLER for modeling of static power if RAPL is NOT available (i.e. in cloud)
+%\parencite{amaral2023exploring} -> article about kepler, st
+%
+%https://www.green-coding.io/case-studies/cpu-utilization-usefulness/: Let’s now make another approach though not using CPU utilization, but rather by using CPU instructions, which is the same technique as for instance Kepler uses
+
+
+
 \subsubsection{Overview and Goals}
 \label{sec:kepler-overview}
+
+Kepler (\textit{Kubernetes-based Efficient Power Level Exporter})\parencite{kepler_energy} is a modular, Kubernetes-native framework for monitoring, modeling, and estimating energy consumption in containerized environments. As the most prominent tool for container-level power estimation in Kubernetes, Kepler enables detailed observability of energy usage at the level of individual processes, containers, pods, and nodes\parencite{amaralKeplerFrameworkCalculate2023}.
+
+Kepler integrates seamlessly with Kubernetes and Prometheus-based observability stacks. It supports both real-time energy metrics (e.g., RAPL, ACPI, NVML) and model-based estimation through trained regression models, making it applicable across a wide range of deployment environments, from bare-metal servers to virtual machines. Developed as an open-source CNCF project, Kepler’s architecture is designed to be extensible, allowing researchers and practitioners to contribute new power models and adapt it to diverse system architectures.
+
 \subsubsection{Architecture and Metric Sources}
 \label{sec:kepler-architecture}
+
+Kepler's architecture consists of several interconnected components, with the core functionality centered around a privileged monitoring agent that runs on every node. While the framework supports model-based estimation for environments without hardware telemetry, this thesis focuses on the direct collection of real-time power and utilization metrics available in bare-metal deployments.
+
+\paragraph{Deployment Models}
+Kepler supports multiple deployment scenarios depending on the availability of energy sensors on the host system. In bare-metal environments, Kepler can directly collect power metrics using RAPL, ACPI, or Redfish/IPMI interfaces. This is the most accurate and relevant mode for the purpose of this thesis. In contrast, on virtual machines (VMs), where access to hardware counters or power interfaces is restricted, Kepler relies on trained regression models to estimate node-level energy consumption. A third, currently unimplemented deployment model proposes a passthrough mechanism where a host-level Kepler instance would expose power metrics to a nested Kepler instance inside the VM.
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.8\textwidth]{Figures/kepler_deployment_modes.jpg}
+  \caption{Kepler deployment models: direct power measurement on bare-metal, estimation on VMs, and the proposed passthrough model (currently not implemented).}
+  \label{fig:kepler-deployment-modes}
+\end{figure}
+
+\paragraph{Kepler Agent and Exporter}
+The core monitoring functionality is handled by the Kepler Agent, which is deployed as a privileged DaemonSet pod on each Kubernetes node. It collects resource utilization metrics using a combination of eBPF instrumentation and hardware performance counters exposed via \texttt{perf\_event\_open}. A kprobe attached to the \texttt{finish\_task\_switch} kernel function enables accurate tracking of per-process context-switch activity. Container and pod attribution is performed after parsing the cgroup path from \texttt{/proc/\$PID/cgroup} and querying the Kubelet API for container metadata. The generated metrics are exported via a Prometheus-compatible endpoint for downstream processing and visualization.
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.8\textwidth]{Figures/kepler_architecture.png}
+  \caption{Simplified architecture of the Kepler monitoring agent and exporter components.}
+  \label{fig:kepler-architecture}
+\end{figure}
+
+
+
+xxxxxxxxxxxxxxxx
+
+
+
+\paragraph{Metric Types and Sources}
+Kepler collects a broad set of low-level metrics that form the foundation for power attribution. These include hardware performance counters such as CPU instructions, CPU cycles, reference cycles (not affected by scaling), and cache misses. In addition, eBPF-based probes are used to collect CPU time, block I/O, and network IRQ activity. All metrics are exposed as Prometheus counters, allowing power consumption to be computed as a rate of energy (Joules) over time using standard PromQL expressions (e.g., \texttt{irate()}).
+
+\paragraph{Estimator Sidecar and Model Inference}
+In addition to its lightweight internal estimator, Kepler optionally supports an estimator sidecar container that uses more sophisticated regression models for power inference. The sidecar communicates with the exporter via a Unix domain socket and loads pre-trained models (e.g., Scikit-learn, XGBoost) suitable for online estimation in environments lacking direct power metrics. This mechanism is mainly intended for telemetry-sparse environments and is not used in the real-time deployment mode considered in this thesis.
+
+\paragraph{Model Server and Model Training}
+For use cases requiring power estimation, Kepler includes a separate model server that can train energy models from Prometheus-collected metrics and power measurements. The training pipeline involves isolating dynamic power consumption using various strategies (e.g., pre-profiling or regression-based idle estimation) and applying regression techniques to fit models for node-level or component-level power. These models are then made available through a shared model repository. While model training plays a key role in estimation-only environments, it is not central to the goals of this thesis\parencite{choochotkaewAdvancingCloudSustainability2023}.
+
+\paragraph{External Integration}
+Kepler is designed to integrate seamlessly with existing observability tools. Prometheus is used to scrape metrics from the Kepler agent, and dashboards can be built using Grafana to visualize energy consumption across nodes, containers, or applications. While not required for the core functionality, this integration facilitates operational awareness and debugging.
+
+
+
+% - High-level architecture: Exporter, Estimator, Model Server
+% - Exporter: eBPF-based tracing, cgroup info, PID-to-container mapping
+% - Metric sources:
+%   - Utilization: CPU instructions, cycles, cache misses, IRQs
+%   - Power: RAPL (sysfs/MSR), ACPI, IPMI/Redfish, NVML
+% - Estimator sidecar: model selection and inference
+% - Model Server:
+%   - Trains regression models from Prometheus data
+%   - Supports absolute (AbsPower) and dynamic (DynPower) modes
+%   - Uses benchmark + isolator pipeline for training
+% - RAPL for CPU and DRAM
+% - ACPI for system power consumption
+% - ebpf for performance counters (at the context-level switch)
+
+% COMPONENTS:
+% - KEPLER Agent: Core monitoring agent that runs on each node, collects metrics via eBPF, cgroups, etc., and (optionally) estimates energy usage using power models
+% - KEPLER Exporter: Exposes metrics via Prometheus (both raw system metrics and estimated power consumption)
+% - KEPLER Model Server: Central service to train and serve power estimation models using usage metrics + power labels (e.g., RAPL)
+% - KEPLER Model DB: Repository of pre-trained power models (e.g., trained on SPECpower, nx12 workloads)
+% - KEPLER Estimator (Sidecar): An optional sidecar container that uses the general estimator (e.g., scikit-learn models) instead of just the lightweight local linear estimator
+% - Prometheus + Grafana (External)	Used to scrape metrics from Kepler and visualize them
+
+
+% - designed to be extensible
+% - provides integratesd view of node power consumptino across different resources and modes.
+% - promotes fair distribution o f system pwoer consumption on the basis of the Green House Gas (GHG) Protocol\parencite{gesi2024ictguidance}.
+%     includes separation of idle power and any overhead based on allocated capacity, as well as dynamic power based on utilization.
+
+% Components:
+% - Metric exporter (module)
+%     uses a BPF program to extract process-related metrics. Also collects real-time power metrics (RAPL, ACPI, ...) using perf\_events functions of BPF to retrieve hardware counter information.
+%     for each BPF program, the PID of the last thread in kernel space is stored.
+%     The container ID is determined by scanning /proc/\$PID/cgroug. Using the containerID, the pod info (name/namespace) is retrieved through Kubelet Container API
+%     the module alsp performas a calibration phase to discover idle and activation power in the server as part of the training workflow
+%     the collected data is periodically sent to the model server module for training the power model
+
+% - Model server (module)
+%     responsible for training the power model for each node using the data collected during the training phase
+%     determine model parameters
+%     IMPORTANT: the idea of these models is to accurately estimate energy consumption in the ABSENCE of power data, having used them as ground truth for training.
+%     implemented in python -> strong support for statistical libraries (e.g. Scikit-learn, XGBoost, PyGam) to hanle regression models
+
+% - Energy Inference (module) (not mentioned often)
+%     uses power model parameters and aggregated metrics to calculate power consumption at process level
+
+
+
 \subsubsection{Attribution Model and Output}
 \label{sec:kepler-attribution}
+% - Ratio Power Model:
+%   - Dynamic power → attributed by usage ratio
+%   - Idle power → split by container size (GHG Protocol)
+% - Container-level metrics (e.g., kepler_container_joules_total)
+% - Node-level aggregation
+% - Metric types: core, dram, uncore, package, gpu, other
+% - Prometheus integration, usage of rate()/irate() for power
+"our approach ensures the fair distribution of constant power among the user’s processes."
+3 CATEGORIES:
+- idle: minimum power of system at rest / background: minimum power of all background processes
+- dynamic constrant: "activated by initial processes and remains constant regardless of load: "activation power"
+- dynamic variable: solely dependent on resource utilization: "load-dependent power"
+
+% - Processes not in a kubernetes or libvirt domain are identified as system_processes or kernel\_processes
+"self-calibrating and extensible"
+
 \subsubsection{Validation and Research Context}
 \label{sec:kepler-validation}
+% - Amaral et al.: improved MSE with process-level training
+% - Use in other research (e.g., Gudepu, Soldani)
+% - Evaluation by Pijnacker:
+%   - Partial accuracy at node level
+%   - Issues with idle attribution, system process inflation
+% - Model validation challenges: hardware-specific, no ground-truth for containers
+% - Adoption beyond Kepler (e.g., CLEVER, PEAKS)
+- a short power model accuracy validation is done in the original KEPLER paper:
+    CPU time leads to better accuracy than CPU cycles, (further investigation is necessary)
+    but generally, more metrics always improve accuracy
+    esults indicate that Linear regression did not yield satisfactory outcomes after incorporating cache and branch miss metrics
+
+
+Detailed Validation by Pijnacker\parencite{pijnackerEstimatingContainerlevelPower2024, pijnackerContainerlevelEnergyObservability2025}
+--> DO AFTER
+
 \subsubsection{Limitations and Open Issues}
 \label{sec:kepler-limitations}
+% - Inaccuracy in container-level attribution (esp. idle power)
+% - VM limitations:
+%   - No access to real-time metrics
+%   - Overestimation due to lack of host context
+% - Pre-trained model issues: hardware-specific, lack of transferability
+% - Overhead concerns: eBPF sampling, Prometheus scraping
+% - Ongoing/future work:
+%   - Multi-level deployment (BM → VM)
+%   - Adaptive sampling, model filtering, vendor-agnostic support
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 \subsection{Scaphandre}
 \label{sec:scaphandre}
@@ -165,15 +412,14 @@ This difference may include contributions from idle power, system activity outsi
 
 This attribution methodology is used consistently across the Scaphandre exporters, including the Prometheus exporter. It forms the basis for container-aware energy attribution without requiring additional instrumentation or hardware performance counter support. Further discussion of this methodology’s strengths, assumptions, and limitations follows in the next section.
 
-
-\subsubsection*{Validation and Research Context}
+\subsubsection{Validation and Research Context}
 \label{sec:scaphandre-validation}
 
 To date, no formal validation of Scaphandre’s attribution methodology has been published. While the underlying RAPL interface used for energy measurement is widely accepted and validated in prior research, the specific proportional attribution model employed by Scaphandre has not been systematically evaluated against ground-truth data or instruction-based models.Despite this, Scaphandre has been used in academic and applied contexts for estimating the energy consumption of software systems. In most cases, it is treated as a black-box exporter of container-level energy metrics, with limited investigation into its internal measurement and attribution logic.
 
 A more detailed assessment is presented by Tarara\parencite{Tarara2023CpuUtilization}, who compares Scaphandre’s reported per-process power consumption against both CPU utilization and instruction-based measurements. His case study reveals that Scaphandre tends to overestimate power consumption for lightweight processes under low-load conditions, due to its policy of distributing all observed energy among the small set of active processes. While the model excludes idle time from CPU usage calculations, it does not exclude idle power from total energy, leading to attribution artifacts. Tarara concludes that Scaphandre improves upon naïve utilization-based models, but cannot match the precision of instruction-level approaches using tools such as \texttt{perf}.
 
-\subsubsection*{Limitations and Open Issues}
+\subsubsection{Limitations and Open Issues}
 \label{sec:scaphandre-limitations}
 
 While Scaphandre offers a lightweight and transparent approach to energy attribution, several limitations emerge from its current implementation.

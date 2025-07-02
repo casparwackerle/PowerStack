@@ -48,7 +48,7 @@ This of course highlights a fundamental truth of instrument-based data collectio
 
 \subsection{Dedicated Aquisition systems}
 
-\subsubsection*{BMC Devices, IPMI and Redfish}
+\subsubsection{BMC Devices, IPMI and Redfish}
 \label{sec:BMC_devices}
 Some manufacturers have developed specialized power data aquisition systems for their own server products. The baseboard management controller (BMC) is a typical dedicated aquisition system usually integrated with the motherboard, usually as part of the intelligent platform management interface (IPMI)\parencite{lin2020taxonomy}. It can be connected to the system bus, sensors and a number of components to provide power and temparature information about the CPU, memory, LAN port, fan, and the BMC itself. Some comprehensive management systems such as Dell iDRAC or Lenovo xClarity have been further developed to provide high-quality, fine-grained power data due to their close interoperation between system software and underlying hardware. BMC devices on modern servers often offer IPMI- or Redfish interfaces. While these interfaces use the same physical servers, their implementation differ significantly, where Redfish generally offers higher accuracy (e.g through the use of higher-bit formats, whereas IPMI often uses 8-bit raw numbers).
 
@@ -78,7 +78,7 @@ Intel Running Average Power Level (RAPL) is a Power Monitoring Counter (PMC)-bas
 
 Intel RAPL has been used extensively in research to measure energy consumption\parencite{kennes2023measuring} despite some objections about its accuracy, which will be discussed sections~\ref{sec:raplvalidation} and ~\ref{sec:rapllimitations}. The general concencus is that RAPL is \textit{good enough} for most scientific work in the field of server energy consumption and efficiency. As Raffin et at\parencite{raffin2024dissecting} point out, it is mostly used \textit{like a black box without deep knowledge of its behavior}, resulting in implementation mistakes. For this reason, the next section~\ref{sec:raplmethodology} presents an overview of the RAPL fundamentals.Finally, section~\ref{sec:rapltools} discusses the currently available RAPL-based tools.
 
-\subsubsection*{RAPL measurement methods}
+\subsubsection{RAPL measurement methods}
 \label{sec:raplmethodology}
 This subsection provides an overview of how RAPL works and is used. It is based on the Intel rchitectures Software Developer’s Manual\parencite[Section 16.10]{intel-sdm} and the works of Raffin et al \parencite{raffin2024dissecting} (2024) and Schöne et al \parencite{schone2024energy} (2024).
 
@@ -128,7 +128,7 @@ In their research, Raffin et al conclude that all four mechanisms have small or 
 
 RAPL MSRs can be read on some cloud computing resources (e.g. some Amazon EC2-instances), although the hypervisor traps the MSR reads, which can add to the polling delay. in EC2, the performance overhead also significantly increases to <2.5\% (as compared to <1\% on standalone systems)\parencite{jay2023experimental}.
 
-\subsubsection*{RAPL Validation}
+\subsubsection{RAPL Validation}
 \label{sec:raplvalidation}
 Since its inception, RAPL has been subject of various validation studies, with the general concensus that it's accuracy could be considered "good enough"\parencite{raffin2024dissecting}. Notable works are Hackenberg et al, that in 2013 found RAPL accurate but missing timestamps\parencite{hackenberg2013power}, and in 2015 noticed a major improvement to RAPL accuracy, after Intel switched from a modeling approach to actual measurements for their Haswell architecture\parencite{hackenberg2015energy}. Desrochers et al concluded in a 2016 RAPL DRAM validation study\parencite{desrochers2016validation} that DRAM power measurement was reasonably accurate, especially on server-grade CPUs. They also found measurement quality to drop when measuring and idling system. Later, Alt et al\parencite{alt2024experimental} tested DRAM accuracy of heterogeneous memory systems of the more recent Ice Lake-SP architecture and concluded that DRAM estimates behaved differently than on older architectures. They noted that the RAPL overestimates DRAM energy consumption by a constant offset, which they attribute to the off-DIMM voltage regulators of the memory system.
 
@@ -143,7 +143,7 @@ Schöne et al\parencite{schone2024energy} found RAPL in the Alder Lake architect
     \label{fig:rapl_vs_PSU_validation}
 \end{figure}
 
-\subsubsection*{RAPL Limitations and issues}
+\subsubsection{RAPL Limitations and issues}
 \label{sec:rapllimitations}
 Several limitations of RAPL were noticed in various research works. Since RAPL is continually improved by Intel as new Processors are released, some of these issues have since been improved or entirely solved. 
 
@@ -213,7 +213,7 @@ Several limitations of RAPL were noticed in various research works. Since RAPL i
     \end{figure}
 \end{itemize}
 
-\subsubsection*{RAPL conclusions}
+\subsubsection{RAPL conclusions}
 
 The energy measurement accuracy of RAPl has significantly improved since its inception and provides a generally accepted way to measure system energy consumption. It is well-validated and accepted as the most accurate fine-granular energy measurement tool. Some known limitations have historically created inaccuracies in developed measurement tools, but corrections of these limitations exist. 
 
@@ -226,7 +226,7 @@ Despite this growth, GPU deployments are still not as pervasive as CPU-based wor
 
 Ultimately, the inclusion of GPU energy measurements remains outside the primary scope of this thesis but is acknowledged as an important area for future research. This structured exploration serves to highlight current limitations and opportunities for enhancing energy efficiency in Kubernetes-managed GPU workloads.
 
-\subsubsection*{GPU virtualization technologies}
+\subsubsection{GPU virtualization technologies}
 
 \paragraph{Full GPU Virtualization}
 
@@ -244,7 +244,7 @@ GPU passthrough allows a physical GPU to be exclusively assigned to a single VM 
 
 GPU virtualization technologies enable efficient multi-tenant use of GPU resources, enhancing performance and cost-effectiveness in cloud-native environments. For the purposes of energy measurement, understanding these virtualization layers is essential for accurate per-container energy attribution.
 
-\subsubsection*{GPU nvidia-NVML energy measurements and validation}
+\subsubsection{GPU nvidia-NVML energy measurements and validation}
 
 Modern GPUs are equipped with \textbf{built-in power sensors} that enable real-time energy measurement. For instance, Nvidia GPUs expose power metrics through the \textit{Nvidia System Management Interface (nvidia-smi)}, which reports instantaneous power draw, temperature, and memory usage \cite{nvidia_smi_docs}. This interface allows for programmatic access to GPU power consumption, making it a common choice for monitoring and energy profiling in both standalone and containerized environments \cite{nvidia_mig_user_guide}.
 
@@ -258,7 +258,7 @@ In 2024, Yang et al. conducted a comprehensive study on the accuracy and reliabi
 
 To address these limitations, the study proposed best practices such as running multiple or longer iterations of workloads to average out sampling errors, introducing controlled phase shifts to capture different execution states, and applying data corrections to account for transient lags \cite{yang2024accurate}. These adjustments reduced measurement errors by up to 65\%, demonstrating the importance of refining raw sensor data for more accurate energy profiling.
 
-\subsubsection*{Related Research}
+\subsubsection{Related Research}
 While most reaseach has used nvidia-NVML to measure GPU power consumption, some research was done on alternative measurement tools, ususally to address similar issues as were stated by Yang et al in the previous section. Specifically, the following three tools focussed were proposed to provide higher sampling rates to enable finer-grained power analysis.
 \paragraph{AccellWattch}
 In 2021, Pan et al proposed \textit{AccelWattch}\parencite{kandiah2021accelwattch}, a configurable GPU power model that provides both a higher accuracy cycle-level power model, and a way to measure constant and static power, utilizing any pure-software software performance mode,nvidia-NVML, or a combination of the two. Notably, their model is DVFS-, power-gating- and divergence-aware. The resulting power model was validated against measured ground truth using an Nvidia Volta GV100, yielding a MAPE error between $7.5-9.2 \pm 2.1\%-3.1\%$, depending on the AccelWattch variant. The Volta model was later validated against Pascal TITAN X and Turing RTX 2060-architectures without retraining, achieving $11 \pm 3.8\% and 13 \pm 4.7\%$ MAPE, respectively. The authors conclude that AccelWattch can reliably predict power consumption of these specific GPU architectures. In the context of Kubernetes energy consumption, AccelWattch contributes a fine-grained temporal granularity
@@ -309,7 +309,7 @@ A particularly valuable feature of PowerSensor3 is its capability to monitor not
 
 However, while its technical benefits are evident, the practical deployment of dedicated hardware sensors like PowerSensor3 at scale remains both complex and expensive. Integrating such devices across large Kubernetes clusters would require substantial investment in hardware and reconfiguration of infrastructure, making wide adoption unlikely outside of specialized research environments. Consequently, PowerSensor3 and other hardware-dependent methods are not considered in the scope of this thesis. Furthermore, the very recent introduction of PowerSensor3 in 2025 highlights the ongoing challenges of accurate energy monitoring through software alone, reflecting the current gap in reliable, scalable, software-based power measurement solutions.
 
-\subsubsection*{GPU Limitations in Kubernetes Context}
+\subsubsection{GPU Limitations in Kubernetes Context}
 The analysis of GPU power consumption has revealed promising research efforts aimed at achieving fine-grained power visibility and energy optimization. Tools such as FinGraV and PowerSensor3 demonstrate that significant strides are being made in capturing detailed power metrics with high temporal resolution and sub-component granularity. FinGraV addresses the complexities of short-lived GPU kernel executions through innovative profiling methodologies, while PowerSensor3 delivers hardware-level accuracy for GPUs, SoC boards, and various PCIe-connected peripherals. These solutions underscore the potential for more refined power monitoring in high-performance GPU workloads.
 
 However, the current state of GPU energy consumption measurement presents significant challenges for scalable, container-based energy tracking in Kubernetes environments. Research tools like FinGraV and PowerSensor3, while technically robust, are either hardware-dependent or too tightly coupled to specific architectures (such as AMD's MI300X in the case of FinGraV). Hardware-based solutions like PowerSensor3, though highly accurate, are impractical for widespread deployment due to cost and scalability concerns. Meanwhile, software-based vendor solutions such as NVIDIA's NVML are far more accessible, but suffer from limitations in temporal granularity and measurement accuracy. These tools offer convenient integration and broad support across data center infrastructures but struggle with capturing rapid transients in power consumption, which are crucial for real-time container energy attribution. 
@@ -355,7 +355,7 @@ While models like the ones listed above might work well when custom-fitted to sp
 \end{equation}
 where C denotes the server's base power, which includes the power consumption of other components (regarded as static). This approach can easily be extended to include various other components such as GPUs, FPGAs or other connected components.
 
-\subsubsection*{Advantages and disadvantages of component-level power models}
+\subsubsection{Advantages and disadvantages of component-level power models}
 A component-based approach to modeling server power consumption offers increased granularity and adaptability across a diverse range of server architectures. Modern data centers deploy heterogeneous hardware configurations optimized for specific workloads, such as CPU-intensive computing nodes, GPU-accelerated servers for machine learning, or memory-rich systems for in-memory databases. These configurations lead to vastly different power distribution profiles across components\parencite{katalEnergyEfficiencyCloud2022}. By modeling the energy consumption of individual components, it becomes possible to reflect these structural differences more accurately. Additionally, such models can reveal energy characteristics that would be obscured in aggregate metrics (for instance, a workload that imposes significant stress on storage devices without engaging the CPU may go undetected in simplistic, CPU-centric models). Finally, component-level analysis enables more precise evaluation of energy optimization techniques: the impact of mechanisms like dynamic voltage and frequency scaling (DVFS) or idle power states can be assessed not just in isolation but in terms of their contribution to overall server efficiency.
 
 Despite offering finer granularity, component-based power modeling faces several inherent challenges. While servers are composed of individual components, they function as tightly integrated systems in which no component operates in isolation. The power consumption of one subsystem often depends on the behavior of others (for example, memory access patterns can influence CPU power states, and I/O activity may trigger CPU wake-ups or increased cache usage). These inter-component interactions are difficult to capture accurately and are frequently overlooked in component-level models\parencite{lin2020taxonomy}, leading to potentially misleading or incomplete estimations. Furthermore, the development of detailed and accurate models for each component is significantly more complex than holistic server-level modeling. Such models often require extensive empirical data, sophisticated estimation techniques, and continuous updates to remain valid across hardware generations. This not only increases the research burden but also demands a higher level of expertise for interpretation and practical application, compared to simpler, utilization-based models.
@@ -373,7 +373,7 @@ Many Memory power models were proposed in literature, many of them with an idle 
 \subsection{Storage devices}
 \label{sec:model-based_storage_power}
 
-\subsubsection*{Generalization-based estimation}
+\subsubsection{Generalization-based estimation}
 There is an urgent need in the storage industry for research into the area of workload-dependant power estimation\parencite{allaloufStorageModelingPower2009}. Estimating the energy consumption of a storage device is challenging especially due to the great variation between different devices. Some of these model variables can be determined on a running server system (e.g. device type, I/O operation type, access pattern, workload intensity, state and more), while other variables are unknown to the server (e.g. Flash Transition Layer and flash factor, NAND organization, garbage collection, and more). A large storage device market has led to a high variation in devices with sometimes drastically different target uses (e.g. low-latency storage devices, high-concurrency storage devices, low-power storage devices).
 
 Storage controllers further complicate the energy consumption estimation of storage devices by introducing an additional layer of abstraction between the operating system and the physical storage hardware. Their internal operations consume energy independently of the actual read/write workload observed by the host system. This makes it difficult to directly correlate application-level I/O activity with actual device-level power usage. Moreover, in many server configurations, multiple drives are managed behind a single controller, obscuring per-device energy attribution and introducing variability that model-based estimations often cannot accurately capture.
@@ -468,7 +468,7 @@ Apart from simple estimations like shown in tables~\ref{tab:Storage_power_HDD} t
 
 In 2014, Li and Long\parencite{liWhichStorageDevice2014} present a workload-aware modeling framework to estimate the energy consumption of storage systems, challenging the assumption that SSDs are inherently more energy-efficient than HDDs. By classifying I/O workloads into capability workloads (performance-driven) and capacity workloads (storage size-driven), they develop mathematical models that account for the number of devices needed, workload execution time, and device power states (active, idle, standby). Their validation, based on empirical measurements using Seagate HDDs and a Samsung SSD, shows that SSDs are generally more efficient for high-performance workloads, while HDDs can outperform SSDs in archival or low-access scenarios,particularly when effective power management (e.g., spin-down) is employed. Unfortunately, similar to the research by Cho et al, the presented models make use of various non-generalizable variables, most notably a devices idle, standby and busy power consumption. In the context of these thesis, these are unknown and the presented model consequently cannot be applied.
 
-\subsubsection*{GSPN Modeling for hybrid storage systems (active power states)}
+\subsubsection{GSPN Modeling for hybrid storage systems (active power states)}
 In 2022, Borba et al\parencite{borbaModelingApproachEstimating2022} proposed a number of models based on generalized stochastic Petri nets (GSPN) for performance and energy consumption evaluation for individual and Hybrid (HDD + SSD) storage systems. GSPN is a suitable formalism for storage system design, as, differently from queueing network models (for instance), synchronization, resource sharing, and conflicts are naturally represented. Also, phase approximation technique may be applied for modeling non-exponential activities, and events with zero delays (e.g., workload selection) may adopt immediate transitions. 
 
 The authors propose a single-storage model (either for a single storage device or a hybrid system as a blackbox) and a multiple storage model.
@@ -537,7 +537,7 @@ Estimating the total power consumption of a network infrastructure requires a cl
 
 Although the overall energy consumption of a data center network could be estimated by including access, aggregation, and core switches, attributing this consumption to specific workloads remains highly challenging. This chapter therefore focuses on model-based methods for estimating NIC-level power as a proxy for server-side network energy usage.
 
-\subsubsection*{NIC power consumption characteristics}
+\subsubsection{NIC power consumption characteristics}
 While a lot of research was done to analyze the power consumption of network equipment like switches, routers or gateways, NICs (especially non-wireless NICs) have not received as much attention. While there are several methods that modern NICs employ to save power (e.g. PCIe Link power states and D-states, \textit{Active State Power Management (ASPM)}) or \textit{Energy Efficient Ethernet (EEE)}, there are not widely available mechanisms for fine-grained NIC power consumption estimation. As a consequence, NIC power can only be approximated based on the few available metrics, 
 
 Sohan et al\parencite{sohanCharacterizing10Gbps2010} measured and compared the power consumption of six 10 Gbps and four multiport 1 Gbps NICs at a fine-grained level. While he does not provide a method to estimate NIC energy consumption, and notices great variation in power consumption between different NICs. Unfortunately, it cannot be ruled out that some of the results are cherry-picked: Solarflare-NICs tend to dominate the introduced metics, and a Communication spokesperson is prominently credited with contact information. Regardless, some findings are found irrespective of the NIC manufacturer, and remain consistent with other literature sources\parencite{gough2015energy}. While these findings cannot directly contribute to a potential NIC power consumption estimation approach, they are relevant to understand underlying mechanisms and to assess the relative importance of the NIC compared to other server components.
@@ -590,7 +590,7 @@ While much of the research on server energy consumption focuses on primary compo
 Despite their importance, these secondary components have received limited attention in energy modeling literature. In most cases, they are either omitted or treated as part of the residual power not attributable to the main computational subsystems.
 
 The motherboard, for instance, includes voltage regulators, chipset logic, and peripheral interfaces. While these components may not be individually monitored, the Baseboard Management Controller (BMC) (see section ~\ref{sec:BMC_devices})may expose aggregated power telemetry via vendor-specific sensors or interfaces like IPMI or Redfish. However, this level of detail varies greatly across hardware platforms and is seldom fine-grained enough for component-level attribution.
-\subsubsection*{PSU}
+\subsubsection{PSU}
 The power supply unit (PSU) is another often-overlooked consumer. When modeling the power usage of a PSU itself (distinct from the power it delivers to other components), the key factor is its conversion efficiency. PSUs consume more power than they deliver due to losses during AC–DC transformation and voltage regulation. According to Basmadjian et al. \parencite{basmadjianCloudComputingIts2012}, the power consumed by the PSU can be approximated for various scenarios:
 If the monitoring system provides information at the PSU level, its power consumption is given by
 \begin{equation}
@@ -608,7 +608,7 @@ If the monitoring system does not provide PSU power consumption, it can be deduc
     P_{PSU} = \frac{P_{Mainboard} + P_{Fans}}{n \cdot e} \cdot 100 - \frac{P_{Mainboard} + P_{Fans}}{n}
 \end{equation}
 
-\subsubsection*{Fans}
+\subsubsection{Fans}
 Cooling systems, particularly fans, also represent a meaningful share of the total energy budget. Most servers employ multiple fans controlled via Pulse-Width Modulation (PWM). While the BMC or operating system tools (e.g. \texttt{lm-sensors}) often report fan RPM or PWM duty cycle, actual fan power consumption is rarely exposed directly. Furthermore, RPM alone is insufficient to estimate power accurately, as fan power depends on physical factors such as the fan diameter, pressure increase or air flow delived\parencite{basmadjianCloudComputingIts2012}:
 \begin{equation}
 \label{for:fanpower}
@@ -624,7 +624,7 @@ where for each individual fan, $c = \frac{3600 \cdot P_{Max}}{RPM_{Max}\textsupe
 
 Unfortunately, with the wide variety of fans in servers (especially with fan size restrictions due to server heights), these formulae are only helpful when paired with more detailed information on fan characteristics like Maximum RPM and Power. While these can more reasonably be assumed, this remains a rough estimation at best.
 
-\subsubsection*{Attribution of secondary component power consumption to individual workloads}
+\subsubsection{Attribution of secondary component power consumption to individual workloads}
 Despite these measurement limitations, estimating the energy consumption of secondary components is often less critical for attributing energy to workloads. This is because components like fans, mainboards, and PSUs primarily support the operation of primary subsystems. Their power consumption scales with the activity level of CPU, memory, disk, and networking devices: more computation leads to higher heat dissipation, increased power delivery, and thus greater fan and PSU activity.
 
 Consequently, if the total server power consumption is known—for example, via wall power monitoring or BMC/Redfish readings—the residual power (i.e., total power minus the sum of measured CPU, RAM, disk, and network power) can be reasonably attributed to power delivery and thermal management subsystems. This residual can then be proportionally distributed among active workloads based on the power consumption of the primary components they utilize. In this context, fine-grained modeling of secondary components becomes unnecessary for workload attribution, as their energy use correlates closely with that of the primary subsystems they support.
@@ -668,7 +668,7 @@ ACPI, while historically relevant, does not expose real-time power data and is u
 
 If RAPL is unavailable, statistical models based on utilization, frequency, and other metrics may be used. However, these require prior calibration or hardware-specific profiling. Without access to idle or peak power values, such models become highly unreliable due to architectural variability. In such cases, estimation accuracy can be modestly improved by inserting static power values from processor datasheets or using fixed coefficients for known CPU families.
 
-\subsubsection*{Container-level implications}
+\subsubsection{Container-level implications}
 RAPL’s granularity and domain separation make it suitable for correlating CPU energy usage with container activity, allowing for reasonably accurate attribution when combined with CPU usage metrics (e.g., cgroup CPU accounting or eBPF). In contrast, model-based estimations or ACPI-derived values are too coarse and lack temporal resolution, limiting their use to static or linear power distribution based on workload share, insufficient for fine-grained or bursty container workloads.
 
 \subsection{Memory}
@@ -677,7 +677,7 @@ Memory power consumption can be measured using the DRAM domain exposed by Intel 
 
 If RAPL DRAM telemetry is unavailable or deemed unreliable, no equivalent in-band method exists. In such cases, estimation must rely on model-based approaches. Many models in literature attempt to correlate memory power with usage, memory access frequency, or cache behavior, but they are not generalizable across systems. Most require prior calibration using known idle and peak memory power figures, which are rarely available in practice. Without these, estimation accuracy remains low. Manual insertion of idle and active power values from vendor datasheets can slightly improve results, but still yields only coarse-grained estimates.
 
-\subsubsection*{Container-level implications}
+\subsubsection{Container-level implications}
 The RAPL DRAM domain, when accurate, allows correlation between energy consumption and workload-level memory metrics such as usage or memory bandwidth. This enables container-level attribution if per-container memory activity is available. Without RAPL, model-based estimates only support static or proportional energy attribution based on usage share, which is insufficient for capturing the energy impact of memory-intensive or bursty workloads.
 
 \subsection{GPU}
@@ -686,7 +686,7 @@ Accurate GPU power measurement remains a challenge in containerized environments
 
 Alternative tools, such as AccelWattch and FinGraV, provide finer temporal granularity and more precise modeling, but are either architecture-specific or tightly coupled to particular hardware (e.g., AMD MI300X). Hardware-based solutions like PowerSensor3 achieve excellent accuracy at high sampling rates but are cost-prohibitive and impractical for large-scale deployment. No general-purpose, software-only solution currently matches the accuracy and portability of CPU-side tools like RAPL.
 
-\subsubsection*{Container-level implications}
+\subsubsection{Container-level implications}
 GPU power attribution in Kubernetes is limited by the granularity and accuracy of current tools. While NVML can be queried from within containers or sidecars, it does not natively support multi-tenant attribution, and virtualization layers (e.g., vGPU, MIG) complicate per-container visibility. Accurate, container-level GPU energy tracking remains an open problem, requiring either architectural integration (e.g., with MIG-aware scheduling) or improved temporal sampling. As such, GPU measurements are currently only viable for coarse-grained, workload-level profiling—not fine-grained container energy attribution.
 
 \subsection{Storage devices}
@@ -697,7 +697,7 @@ Telemetry is only available for specific device types. For NVMe drives, \texttt{
 
 Various model-based approaches estimate power using activity-based metrics (e.g., read/write rates or interface speed), often requiring idle and active power values from datasheets. These models are only accurate when tailored to specific hardware. No general-purpose estimator exists for unknown or heterogeneous storage types without prior calibration.
 
-\subsubsection*{Container-level implications}
+\subsubsection{Container-level implications}
 Because disks are shared resources, and per-container telemetry is unavailable, energy attribution must rely on proportional estimation using observable metrics like I/O volume or latency. This approach works for long-lived workloads but lacks the granularity to capture energy dynamics of bursty or short-lived container activity. Accurate container-level attribution remains infeasible for SATA SSDs and HDDs and is only marginally better for NVMe devices, assuming access to detailed device metrics.
 
 \subsection{Network devices}
@@ -708,7 +708,7 @@ Various research models estimate NIC power using idle and dynamic components. Th
 
 Telemetry support is limited: tools like \texttt{ethtool} expose link speed and status, but do not report power. No standard Linux tool provides direct NIC energy metrics, and throughput-based estimators must rely on indirect metrics like bytes transmitted per interval.
 
-\subsubsection*{Container-level implications}
+\subsubsection{Container-level implications}
 Because NICs are shared across containers and lack per-container telemetry, only indirect attribution is possible. Energy consumption can be distributed proportionally based on container-level bandwidth usage (e.g., via cgroup network statistics), assuming idle and peak NIC power are known. However, the minimal dynamic variation in NIC power limits the usefulness of fine-grained attribution. In practice, NIC power is best modeled as a mostly static overhead, with marginal gains from utilization-based scaling.
 
 \subsection{Other Devices}
@@ -717,8 +717,8 @@ Secondary components such as the motherboard, PSU, and fans contribute a non-tri
 
 PSU losses can be estimated from efficiency ratings if total input or output power is known. Fan power is difficult to measure and depends on physical factors like airflow and pressure; at best, it can be roughly estimated using RPM and vendor data. The motherboard and onboard controllers (e.g., voltage regulators, chipset) are usually modeled as part of residual power.
 
-\subsubsection*{Best-practice approach}
+\subsubsection{Best-practice approach}
 If system-level power data is available (e.g. via IPMI or Redfish), the difference between total server power and known component estimates can be treated as residual power. This residual can be linearly distributed across containers based on the finer-grained power estimation of the CPU, assuming secondary device power scales with primary component power consumption.
 
-\subsubsection*{Container-level implications}
+\subsubsection{Container-level implications}
 Because these components do not map directly to container usage, their energy must be attributed indirectly. Linear distribution based on known, container-attributed metrics (e.g., CPU time or workload duration) is a practical, though imprecise, fallback for ensuring full power accounting in containerized environments.
