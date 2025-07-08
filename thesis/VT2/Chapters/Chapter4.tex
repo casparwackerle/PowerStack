@@ -201,23 +201,115 @@ The core monitoring functionality is handled by the Kepler Agent, which is deplo
   \label{fig:kepler-architecture}
 \end{figure}
 
+
+
+xxxxxxxxxxxxxxxx
+
+\paragraph{eBPF-Based Runtime Tracing}
+
+A central component of Kepler's data collection is an eBPF program that attaches a \code{kprobe} to the kernel function \code{finish\_task\_switch}. This function is triggered during every context switch and receives a pointer to the \code{task\_struct} representing the task that is being descheduled. Kepler uses this hook to measure how long a task was running on the CPU and to attribute performance counter deltas to that task.
+
+To track on-CPU runtime, Kepler maintains a timestamp map keyed by \code{<pid, cpu>} that records the last time a process was scheduled on a specific core. When a context switch occurs, the elapsed time is used to increment the \code{process\_run\_time} metrics for the outgoing process. This provides fine-grained accounting of CPU residency per process. Additional kprobes are used to monitor page cache access (\code{mark\_page\_accessed}) and dirtying activity (\code{set\_page\_dirty}), enabling the tracking of page cache hits as a proxy for memory locality and behavior.
+
+
+CPUTime
+PageCacheHit
+IRQNetTXLabel
+IRQNetRXLabel
+IRQBlockLabel
+
+
+
+
+
+\paragraph{Hardware Counters via \code{perf\_event\_open} and eBPF}
+
+To measure low-level CPU activity, Kepler uses the Linux syscall \code{perf\_event\_open} to configure hardware performance counters on each core. The following events are tracked:
+\begin{itemize}
+  \item \code{PERF\_COUNT\_HW\_CPU\_CYCLES}: Total CPU cycles (affected by DVFS)
+  \item \code{PERF\_COUNT\_HW\_REF\_CPU\_CYCLES}: Frequency-independent cycles
+  \item \code{PERF\_COUNT\_HW\_INSTRUCTIONS}: Retired instructions
+  \item \code{PERF\_COUNT\_HW\_CACHE\_MISSES}: Last-level cache misses
+\end{itemize}
+
+These counters are accessed via BPF perf event arrays. On each context switch, current counter values are sampled, and deltas are computed against previously stored values. These deltas represent the CPU activity of the process leaving the CPU and are stored in BPF maps for later aggregation.
+
+\paragraph{Software Counters via eBPF}
+
+
+
+
+
+
+\paragraph{Energy Readings via RAPL}
+
+Kepler uses Intel RAPL (Running Average Power Limit) to obtain high-resolution energy consumption data from the CPU package. It prefers reading from the Linux \code{powercap} sysfs interface, but falls back to using MSRs or hardware monitor drivers on platforms where this is not available.
+
+The main RAPL domains used are:
+\begin{itemize}
+  \item \code{pkg}: Total package power (including cores, caches, and memory controller)
+  \item \code{dram}: DRAM energy (if supported)
+  \item \code{pp0}: Cores only (used less frequently)
+\end{itemize}
+
+Energy counters are monotonically increasing and sampled periodically in user space. Kepler uses the deltas between readings to estimate host-level energy usage, which then serves as ground truth for model training or dynamic attribution.
+
+
+
+
+
+
+
+\paragraph{Container-Level Metrics via cAdvisor}
+
+In addition to low-level kernel metrics, Kepler also integrates with cAdvisor to collect container-scoped usage statistics. These metrics include aggregated CPU time, memory usage, and I/O data. They are retrieved from the container runtime and cgroup filesystem and are used primarily for tagging, cross-validation, and correlation with Prometheus metrics.
+
+However, due to their coarser granularity and limited temporal precision, these metrics are not central to the actual power attribution logic. Kepler’s own eBPF-based collection is preferred for performance-critical inputs.
+
+
+
+
+
+
+default sample period: SamplePeriodSec = 3 
+
+
+
+
+\paragraph{Export Interface and Metric Exposure}
+
+All metrics collected by Kepler are ultimately exposed via Prometheus. This includes both raw utilization metrics (e.g., CPU time, instructions, cache misses) and derived energy metrics (e.g., power estimates per container). The Prometheus export format allows flexible time series queries and integration with Grafana or other observability platforms.
+
+\paragraph{Summary of Input Metrics}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|l|l|l|}
+\hline
+\textbf{Metric} & \textbf{Description} & \textbf{Source} & \textbf{Interface} \\
+\hline
+CPU Time & Time spent on CPU per process & eBPF & kprobe on \code{finish\_task\_switch} \\
+CPU Cycles & Total CPU cycles & perf events & \code{perf\_event\_open} \\
+Ref. Cycles & Reference (non-scaled) cycles & perf events & \code{perf\_event\_open} \\
+Instructions & Retired instructions & perf events & \code{perf\_event\_open} \\
+Cache Misses & LLC cache misses & perf events & \code{perf\_event\_open} \\
+SoftIRQs & Soft IRQ vector counts & eBPF & [TBD: implementation details] \\
+Page Cache Hits & Memory access tracking & eBPF & \code{kprobe\_\_mark\_page\_accessed} \\
+Energy (pkg) & Package-level energy & RAPL & sysfs / msr / hwmon \\
+Energy (dram) & DRAM energy & RAPL & sysfs / msr \\
+Container CPU Time & Aggregated container time & cAdvisor & cgroupfs / runtime API \\
+\hline
+\end{tabular}
+\caption{Overview of Kepler Input Metrics and Their Collection Interfaces}
+\end{table}
+
+
+xxxxxxxxxxxxxxxx
+
+
+
 \paragraph{Metric Types and Sources}
-Kepler collects a broad set of low-level metrics that form the foundation for power attribution. These include hardware performance counters such as CPU instructions, CPU cycles, reference cycles, and cache misses. In addition, eBPF-based probes are used to collect CPU time, block I/O, and network IRQ activity. All metrics are exposed as Prometheus counters, allowing power consumption to be computed as a rate of energy (Joules) over time using standard PromQL expressions (e.g., \code{irate()}).
-
-notes
-
-You need to write an introduction text, very short: Needs to contains:
-- eBPF metric: Kepler traps into the \code{finish_task_switch} kernel function (which is responsible for task cleanup) using a bpf textit{kprobe}, which is called before \code{finish_task_switch} is called (as opposed to a kretprobe, which would be called after the probed functionreturns.) The kProbe is "int kprobe__finish_task_switch(struct pt_regs *ctx, struct task_struct *prev)".
-
-eBPF metrics
-
-
-
-
-
-
-
-
+Kepler collects a broad set of low-level metrics that form the foundation for power attribution. These include hardware performance counters such as CPU instructions, CPU cycles, reference cycles (not affected by scaling), and cache misses. In addition, eBPF-based probes are used to collect CPU time, block I/O, and network IRQ activity. All metrics are exposed as Prometheus counters, allowing power consumption to be computed as a rate of energy (Joules) over time using standard PromQL expressions (e.g. \code{irate()}).
 
 \paragraph{Estimator Sidecar and Model Inference}
 In addition to its lightweight internal estimator, Kepler optionally supports an estimator sidecar container that uses more sophisticated regression models for power inference. The sidecar communicates with the exporter via a Unix domain socket and loads pre-trained models (e.g., Scikit-learn, XGBoost) suitable for online estimation in environments lacking direct power metrics. This mechanism is mainly intended for telemetry-sparse environments and is not used in the real-time deployment mode considered in this thesis.
