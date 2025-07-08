@@ -182,47 +182,27 @@ Kepler integrates seamlessly with Kubernetes and Prometheus-based observability 
 Kepler's architecture consists of several interconnected components, with the core functionality centered around a privileged monitoring agent that runs on every node. While the framework supports model-based estimation for environments without hardware telemetry, this thesis focuses on the direct collection of real-time power and utilization metrics available in bare-metal deployments.
 
 \paragraph{Deployment Models}
-Kepler supports multiple deployment scenarios depending on the availability of energy sensors on the host system. In bare-metal environments, Kepler can directly collect power metrics using RAPL, ACPI, or Redfish/IPMI interfaces. This is the most accurate and relevant mode for the purpose of this thesis. In contrast, on virtual machines (VMs), where access to hardware counters or power interfaces is restricted, Kepler relies on trained regression models to estimate node-level energy consumption. A third, currently unimplemented deployment model proposes a passthrough mechanism where a host-level Kepler instance would expose power metrics to a nested Kepler instance inside the VM.
+Kepler supports multiple deployment scenarios depending on the availability of energy sensors on the host system. In bare-metal environments, Kepler can directly collect power metrics using RAPL, ACPI, or Redfish/IPMI interfaces. This is the most accurate and relevant mode for the purpose of this thesis. In contrast, on virtual machines (VMs), where access to hardware counters or power interfaces is restricted, Kepler relies on trained regression models to estimate node-level energy consumption. A third, currently unimplemented deployment model proposes a passthrough mechanism where a host-level Kepler instance would expose power metrics to a nested Kepler instance inside the VM. These deployment models are visualized in figure~\ref{fig:kepler-deployment-modes}.
 
 \begin{figure}[ht]
   \centering
   \includegraphics[width=0.8\textwidth]{Figures/kepler_deployment_modes.jpg}
-  \caption{Kepler deployment models: direct power measurement on bare-metal, estimation on VMs, and the proposed passthrough model (currently not implemented).}
+  \caption{Kepler deployment models: direct power measurement on bare-metal, estimation on VMs, and the proposed passthrough model (currently not implemented)\parencite{kepler_docs}}
   \label{fig:kepler-deployment-modes}
 \end{figure}
 
 \paragraph{Kepler Agent and Exporter}
-The core monitoring functionality is handled by the Kepler Agent, which is deployed as a privileged DaemonSet pod on each Kubernetes node. It collects energy and resource utilization metrics using a combination of eBPF instrumentation and hardware performance counters exposed via \code{perf\_event\_open}. A kprobe attached to the \code{finish\_task\_switch} kernel function enables accurate tracking of per-process context-switch activity. Container and pod attribution is performed after parsing the cgroup path from \path{/proc/<pid>/cgroup} and querying the Kubelet API for container metadata. The generated metrics are exported via a Prometheus-compatible endpoint for downstream processing and visualization.
+The core monitoring functionality is handled by the Kepler Agent, which is deployed as a privileged DaemonSet pod on each Kubernetes node. It collects energy and resource utilization metrics using a combination of eBPF instrumentation and hardware performance counters exposed via \code{perf\_event\_open}. A kprobe attached to the \code{finish\_task\_switch} kernel function enables accurate tracking of per-process context-switch activity. Container and pod attribution is performed after parsing the cgroup path from \path{/proc/<pid>/cgroup} and querying the Kubelet API for container metadata. The generated metrics are exported via a Prometheus-compatible endpoint for downstream processing and visualization. A generalized information flow is shon in figure~\ref{fig:kepler-architecture}.
 
 \begin{figure}[ht]
   \centering
   \includegraphics[width=0.9\textwidth]{Figures/kepler_architecture.png}
-  \caption{Simplified architecture of the Kepler monitoring agent and exporter components.}
+  \caption{Simplified architecture of the Kepler monitoring agent and exporter components\parencite{kepler_docs}}
   \label{fig:kepler-architecture}
 \end{figure}
 
 
-
-xxxxxxxxxxxxxxxx
-
-\paragraph{eBPF-Based Runtime Tracing}
-
-A central component of Kepler's data collection is an eBPF program that attaches a \code{kprobe} to the kernel function \code{finish\_task\_switch}. This function is triggered during every context switch and receives a pointer to the \code{task\_struct} representing the task that is being descheduled. Kepler uses this hook to measure how long a task was running on the CPU and to attribute performance counter deltas to that task.
-
-To track on-CPU runtime, Kepler maintains a timestamp map keyed by \code{<pid, cpu>} that records the last time a process was scheduled on a specific core. When a context switch occurs, the elapsed time is used to increment the \code{process\_run\_time} metrics for the outgoing process. This provides fine-grained accounting of CPU residency per process. Additional kprobes are used to monitor page cache access (\code{mark\_page\_accessed}) and dirtying activity (\code{set\_page\_dirty}), enabling the tracking of page cache hits as a proxy for memory locality and behavior.
-
-
-CPUTime
-PageCacheHit
-IRQNetTXLabel
-IRQNetRXLabel
-IRQBlockLabel
-
-
-
-
-
-\paragraph{Hardware Counters via \code{perf\_event\_open} and eBPF}
+\paragraph{Resouce Utilization via eBPF-based Hardware/Software Counters}
 
 To measure low-level CPU activity, Kepler uses the Linux syscall \code{perf\_event\_open} to configure hardware performance counters on each core. The following events are tracked:
 \begin{itemize}
@@ -234,7 +214,19 @@ To measure low-level CPU activity, Kepler uses the Linux syscall \code{perf\_eve
 
 These counters are accessed via BPF perf event arrays. On each context switch, current counter values are sampled, and deltas are computed against previously stored values. These deltas represent the CPU activity of the process leaving the CPU and are stored in BPF maps for later aggregation.
 
-\paragraph{Software Counters via eBPF}
+In addition to hardware counters, Kepler collects several software-level metrics that are not natively exposed by the Linux kernel. These include CPU time, page cache activity, and interrupt handling statistics. Because these metrics are unavailable through standard interfaces, Kepler uses custom eBPF programs to infer them from kernel behavior.
+
+Since version~0.7, Kepler has migrated to \code{libbpf} and uses a BTF-enabled kprobe to instrument the \code{sched\_switch} function. This allows Kepler to safely extract process IDs and timing data without relying on fragile symbol offsets. On each context switch, Kepler records timestamps and uses them to increment the \code{CPUTime} counter, providing fine-grained accounting of CPU residency per process.
+
+Other software counters include:
+\begin{itemize}
+  \item \code{PageCacheHit}: Tracks read and write access to the page cache using eBPF programs attached to \code{mark\_page\_accessed} and \code{writeback\_dirty\_folio}.
+  \item \code{IRQNetTX}, \code{IRQNetRX}, \code{IRQBlock}: Count the number of softirq events attributed to a process, using the \code{softirq\_entry} tracepoint.
+\end{itemize}
+
+Each of these metrics is manually accumulated in eBPF maps keyed by process ID and periodically read by the user-space collector. This enhances energy attribution, especially in scenarios where hardware counters are insufficient or unavailable.
+
+
 
 
 
@@ -272,6 +264,40 @@ However, due to their coarser granularity and limited temporal precision, these 
 
 
 default sample period: SamplePeriodSec = 3 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\paragraph{GPU Resource Utilization via NVML}
+
+Kepler collects per-process GPU utilization statistics using the NVIDIA Management Library (NVML), accessed through internal Go bindings. Specifically, Kepler queries both compute engine usage and memory utilization for each process interacting with an NVIDIA GPU. This data is retrieved via the \code{ProcessResourceUtilizationPerDevice()} method, which internally calls NVML functions such as \code{nvmlDeviceGetProcessUtilization} to return per-process statistics, including Streaming Multiprocessor utilization (\code{SmUtil}), memory utilization (\code{MemUtil}), and optional encoding/decoding activity.
+
+To support NVIDIA's Multi-Instance GPU (MIG) architecture, Kepler first inspects whether MIG slices exist on a given device. If so, it iterates over each slice and retrieves per-process utilization data individually. Otherwise, it queries the full physical GPU. In both cases, the parent GPU ID is used as the key to unify resource attribution. For each PID returned by NVML, GPU utilization metrics are appended to the \code{ResourceUsage} field of the Kepler-internal \code{ProcessStats} structure. The following metrics are collected:
+\begin{itemize}
+  \item \code{GPUComputeUtilization}: The percentage of compute engine usage (SM activity) over the sampling interval.
+  \item \code{GPUMemUtilization}: The percentage of frame buffer memory usage per process.
+\end{itemize}
+
+Because NVML does not provide high-resolution energy counters, Kepler approximates GPU energy consumption by multiplying the instantaneous device-level power draw (\code{GetPowerUsage}) with the sampling interval duration (\code{SamplePeriodSec}). That is, energy per device is estimated as \code{energy = power (mW) $\times$ SamplePeriodSec (s)}. This coarse-grained sampling, typically performed every few seconds, limits the temporal resolution and may miss short-lived GPU activity.
+
+If \code{GetProcessUtilization()} is not supported by the hardware or fails at runtime, Kepler falls back to using \code{GetComputeRunningProcesses()} combined with per-process memory usage to estimate GPU utilization. In this mode, energy is attributed proportionally to memory usage rather than compute activity. Alternative backends such as Habana or DCGM are supported but do not offer per-process utilization data, and are thus not used for fine-grained attribution in Kepler’s default configuration.
+
+
+
+
+
+
 
 
 
@@ -386,6 +412,8 @@ Kepler is designed to integrate seamlessly with existing observability tools. Pr
 
 % - Processes not in a kubernetes or libvirt domain are identified as system_processes or kernel\_processes
 "self-calibrating and extensible"
+% https://sustainable-computing.io/usage/deep_dive/#ratio-power-model-explained
+% https://github.com/sustainable-computing-io/kepler/blob/main/doc/design/markdown/kepler-exporter.md
 
 \subsubsection{Validation and Research Context}
 \label{sec:kepler-validation}
@@ -417,7 +445,8 @@ Detailed Validation by Pijnacker\parencite{pijnackerEstimatingContainerlevelPowe
 %   - Multi-level deployment (BM → VM)
 %   - Adaptive sampling, model filtering, vendor-agnostic support
 
-
+documentation often outdated in significant ways, e.g. the switch from tracepoint to kprobe
+Documentation also outdated in the github (cinsistency, i.e. uml diagrams etc)
 
 
 
