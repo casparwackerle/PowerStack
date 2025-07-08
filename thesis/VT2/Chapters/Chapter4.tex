@@ -1,5 +1,7 @@
-\chapter{Tool Analysis: Existing Approaches to Container Energy Consumption}
+\chapter{Existing Approaches to Container Energy Consumption}
 \label{chap:tool-analysis}
+
+xxxxxxxxxxxxxxxxxxxxxxxxxx
 
 \section{Introduction}
 \label{sec:tool-intro}
@@ -190,23 +192,32 @@ Kepler supports multiple deployment scenarios depending on the availability of e
 \end{figure}
 
 \paragraph{Kepler Agent and Exporter}
-The core monitoring functionality is handled by the Kepler Agent, which is deployed as a privileged DaemonSet pod on each Kubernetes node. It collects resource utilization metrics using a combination of eBPF instrumentation and hardware performance counters exposed via \code{perf\_event\_open}. A kprobe attached to the \code{finish\_task\_switch} kernel function enables accurate tracking of per-process context-switch activity. Container and pod attribution is performed after parsing the cgroup path from \path{/proc/<pid>/cgroup} and querying the Kubelet API for container metadata. The generated metrics are exported via a Prometheus-compatible endpoint for downstream processing and visualization.
+The core monitoring functionality is handled by the Kepler Agent, which is deployed as a privileged DaemonSet pod on each Kubernetes node. It collects energy and resource utilization metrics using a combination of eBPF instrumentation and hardware performance counters exposed via \code{perf\_event\_open}. A kprobe attached to the \code{finish\_task\_switch} kernel function enables accurate tracking of per-process context-switch activity. Container and pod attribution is performed after parsing the cgroup path from \path{/proc/<pid>/cgroup} and querying the Kubelet API for container metadata. The generated metrics are exported via a Prometheus-compatible endpoint for downstream processing and visualization.
 
 \begin{figure}[ht]
   \centering
-  \includegraphics[width=0.8\textwidth]{Figures/kepler_architecture.png}
+  \includegraphics[width=0.9\textwidth]{Figures/kepler_architecture.png}
   \caption{Simplified architecture of the Kepler monitoring agent and exporter components.}
   \label{fig:kepler-architecture}
 \end{figure}
 
-
-
-xxxxxxxxxxxxxxxx
-
-
-
 \paragraph{Metric Types and Sources}
-Kepler collects a broad set of low-level metrics that form the foundation for power attribution. These include hardware performance counters such as CPU instructions, CPU cycles, reference cycles (not affected by scaling), and cache misses. In addition, eBPF-based probes are used to collect CPU time, block I/O, and network IRQ activity. All metrics are exposed as Prometheus counters, allowing power consumption to be computed as a rate of energy (Joules) over time using standard PromQL expressions (e.g., \code{irate()}).
+Kepler collects a broad set of low-level metrics that form the foundation for power attribution. These include hardware performance counters such as CPU instructions, CPU cycles, reference cycles, and cache misses. In addition, eBPF-based probes are used to collect CPU time, block I/O, and network IRQ activity. All metrics are exposed as Prometheus counters, allowing power consumption to be computed as a rate of energy (Joules) over time using standard PromQL expressions (e.g., \code{irate()}).
+
+notes
+
+You need to write an introduction text, very short: Needs to contains:
+- eBPF metric: Kepler traps into the \code{finish_task_switch} kernel function (which is responsible for task cleanup) using a bpf textit{kprobe}, which is called before \code{finish_task_switch} is called (as opposed to a kretprobe, which would be called after the probed functionreturns.) The kProbe is "int kprobe__finish_task_switch(struct pt_regs *ctx, struct task_struct *prev)".
+
+eBPF metrics
+
+
+
+
+
+
+
+
 
 \paragraph{Estimator Sidecar and Model Inference}
 In addition to its lightweight internal estimator, Kepler optionally supports an estimator sidecar container that uses more sophisticated regression models for power inference. The sidecar communicates with the exporter via a Unix domain socket and loads pre-trained models (e.g., Scikit-learn, XGBoost) suitable for online estimation in environments lacking direct power metrics. This mechanism is mainly intended for telemetry-sparse environments and is not used in the real-time deployment mode considered in this thesis.
