@@ -18,8 +18,9 @@ As a result of the energy efficiency improvements of both data center infrastruc
 
 In a systematic review cloud servers power models, Lin et al\parencite{lin2020taxonomy} categorize power collection methods into 4 categories:
 \begin{table}[h]
-    \tiny
-    \begin{tabular}{ |p{2cm} | p{2cm} | p{2.5cm} | p{1.2cm} | p{2cm} | p{1.5cm} |} 
+    \small
+    \centering
+    \begin{tabular}{ |L{2.0cm}|L{2.0cm}|L{2.5cm}|L{1.9cm}|L{2.2cm}|L{1.6cm}| } 
         \hline
         \textbf{Key} & \textbf{Value} & \textbf{Description} & \textbf{Deployment Difficulty} & \textbf{Data Granularity} & \textbf{Data Credibility}\\
         \Xhline{1.5pt}
@@ -29,12 +30,13 @@ In a systematic review cloud servers power models, Lin et al\parencite{lin2020ta
         \hline
         Based on software monitoring & Build-in power models & Bare-metal and virtual servers & Moderate & Machine, component, or VM level & Fair \\
         \hline
-        Based on simulation & System simulation & Machine, component or VM level & Easy & Machine, component, or VM level & Low\\
+        Based on simulation & System simulation & Machine, component or VM level & Easy & Machine, component, or VM level & Low \\
         \hline
     \end{tabular}
     \caption[Comparison of power collection methods for cloud servers]{Comparison of power collection methods for cloud servers}
     \label{tab:power_collection_methods}
 \end{table}
+
 
 The following sections of this chapter aim to present the current state-of-the-art in the various fields of research of the problem domains listed above, focussing on different measurement approches: Direct hardware measurements, In-band measurement techniques and model-based estimation. The following sections are organized by measurement approach, foregoing organization by server component. For this reason, section~\ref{sec:component_specific_summaries} provides a brief summary of component-specific energy consumption measurement techniques.
 
@@ -165,22 +167,24 @@ Several limitations of RAPL were noticed in various research works. Since RAPL i
     
     \begin{table}[h]
         \small
-        \begin{tabular}{|p{4cm}|p{9cm}|}
+        \centering
+        \begin{tabular}{ |L{4cm} | L{9cm}| }
             \hline
-            \textbf{mechanism} & \textbf{constant C}\\
+            \textbf{Mechanism} & \textbf{Constant C} \\
             \Xhline{1.5pt}
-            MSR & \code{u32::MAX} i.e. $2^{32} - 1$\\
+            MSR & \code{u32::MAX}, i.e., $2^{32} - 1$ \\
             \hline
-            perf-events & \code{u64::MAX} i.e. $2^{64} - 1$\\
+            perf-events & \code{u64::MAX}, i.e., $2^{64} - 1$ \\
             \hline
-            perf-events with eBPF & \code{u64::MAX} i.e. $2^{64} - 1$\\
+            perf-events with eBPF & \code{u64::MAX}, i.e., $2^{64} - 1$ \\
             \hline
-            powercap & value give by the file \code{max\_energy\_uj} in the sysfs folder for the RAPL domain\\
+            powercap & Value given by the file \code{max\_energy\_uj} in the sysfs folder for the RAPL domain \\
             \hline
         \end{tabular}
         \caption[RAPL overflow correction constant]{RAPL overflow correction constant}
         \label{tab:RAPL_overflow_correction_constant}
     \end{table}
+
 
     \item \textbf{DRAM Accuracy: }DRAM Accuracy can only reliably be used for the Haswell architecture\parencite{desrochers2016validation, khan2018rapl, alt2024experimental}, and may still exibit a constant power offset (like attributed to the voltage regulator power loss of the memory system).
     \item \textbf{Unpredictable Timings: }While the Intel documentation states that the RAPL time unit is 0.976ms, the actual intervals may vary. This is an issue since the measurements do not come with timestamps, making precise measurements difficult\parencite{khan2018rapl}. Several coping mechanisms have been used to mitigate this, notably \textit{busypolling} (busypolling the counter for updates, significantly compromizing overhead in terms of time and energy\parencite{hahnel2012measuring}), \textit{supersampling} (lowering the sampling interval, increasing overhead and occasionaly creating duplicates that need to be filtered\parencite{khan2018rapl}), or \textit{high frequency sampling} (\textit{lowering} the sampling rate when the resulting data is still sufficient\parencite{servat2016detailed}). Another solution is to use a \textit{low sampling frequency} to smoothe out the relative error due to spikes, with the only drawback of loss of temporal precision. At sampling rates slower than 50Hz, the relative error is less than 0.5\% \parencite{jay2023experimental}.
@@ -382,13 +386,13 @@ Storage controllers further complicate the energy consumption estimation of stor
 In this thesis, only storage devices physically installed in the server are considered for power estimation. This includes devices such as HDDs, SSDs, and NVMe drives directly attached to the server. Dedicated external storage systems such as Storage Area Networks (SAN) or Network-Attached Storage (NAS) are not within the scope of this analysis. While such systems are important in data center environments, their energy consumption is not attributable at the granularity required for the workload-level estimation pursued in this thesis.
 
 As a result, research into storage device energy consumption measurement that is generally applicable to all devices has been limited. For practical applications, generalizations are often used, such as the following tables~\ref{tab:Storage_power_HDD} to~\ref{tab:Storage_power_NVMe}. While these approximations cannot be used in the context of this thesis, they may serve as an initial guideline.
-
 \begin{table}[H]
+    \small
     \centering
 
     \begin{subtable}[t]{\textwidth}
         \centering
-        \begin{tabular}{ |c|c|c|c| } 
+        \begin{tabular}{ |L{3.5cm}|L{3cm}|L{3cm}|L{3cm}| } 
             \hline
             \textbf{HDD Type} & \textbf{Read/write power (W)} & \textbf{Idle Power (W)} & \textbf{Standby Power (W)} \\
             \Xhline{1.5pt}
@@ -407,7 +411,7 @@ As a result, research into storage device energy consumption measurement that is
 
     \begin{subtable}[t]{\textwidth}
         \centering
-        \begin{tabular}{ |c|c|c|c| } 
+        \begin{tabular}{ |L{3.5cm}|L{3cm}|L{3cm}|L{3cm}| } 
             \hline
             \textbf{HDD Type} & \textbf{Read/write power (W)} & \textbf{Idle Power (W)} & \textbf{Standby Power (W)} \\
             \Xhline{1.5pt}
@@ -426,7 +430,7 @@ As a result, research into storage device energy consumption measurement that is
 
     \begin{subtable}[t]{\textwidth}
         \centering
-        \begin{tabular}{ |c|c|c|c| } 
+        \begin{tabular}{ |L{3.5cm}|L{3cm}|L{3cm}|L{3cm}| } 
             \hline
             \textbf{SSD Type} & \textbf{Read Power (W)} & \textbf{Write Power (W)} & \textbf{Idle Power (W)} \\
             \Xhline{1.5pt}
@@ -445,7 +449,7 @@ As a result, research into storage device energy consumption measurement that is
 
     \begin{subtable}[t]{\textwidth}
         \centering
-        \begin{tabular}{ |c|c|c|c| } 
+        \begin{tabular}{ |L{3.5cm}|L{3cm}|L{3cm}|L{3cm}| } 
             \hline
             \textbf{NVMe Type} & \textbf{Read/write power (W)} & \textbf{Peak Power (W)} & \textbf{Standby Power (W)} \\
             \Xhline{1.5pt}
@@ -463,6 +467,7 @@ As a result, research into storage device energy consumption measurement that is
     \caption[Power consumption for storage types]{Power consumption for various storage device types.}
     \label{tab:Storage_power_grouped}
 \end{table}
+
 
 Apart from simple estimations like shown in tables~\ref{tab:Storage_power_HDD} to ~\ref{tab:Storage_power_NVMe}, a few works have concentrated on the energy consumption of individual storage devices. In 2015, Cho et al developed Energysim\parencite{choDesignTradeoffsSSDs2015}, an SSD energy modeling framework avancing the understanding of component-level (i.e. the subcomponents of a storage device) energy consumption in storage devices. Its validation against real-world SSD measurements against an Intel X25-M yielded a less than 8\% error. The work underscores the difficulty of modeling storage energy accurately due to high variability across architectures and workloads. Unfortunately, Energysim uses many model parameters such as NAND organization, idle and active current consumption, and as a result cannot reneralized to other storage devices where these are unknown.
 

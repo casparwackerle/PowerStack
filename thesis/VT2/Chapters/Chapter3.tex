@@ -97,27 +97,30 @@ However, access to PMCs is not always guaranteed. In virtualized environments an
 
 \subsubsection{Comparative Summary}
 
-\begin{table}[H]
-\centering
-\begin{tabular}{| m{3.2cm} | m{2cm}| m{3.6cm} | m{4cm} |}
-\hline
-\textbf{Source} & \textbf{Granularity} & \textbf{Scope} & \textbf{Notes} \\
-\Xhline{1.5pt}
-/proc/stat & Medium & Global & Jiffy-based, coarse \\
-\hline
-/proc/\textless pid\textgreater/stat & High & Per-process & Fine-grained, must poll manually \\
-\hline
-cgroups & High & Per-cgroup & Foundation for container metrics \\
-\hline
-cAdvisor & Medium-Low & Per-container & Aggregated from cgroups, limited rate \\
-\hline
-eBPF & Very High & Per-task, system-wide & Real-time, customizable, low overhead \\
-\hline
-perf/PMCs & Very High & Per-task, core-level & 	Tracks cycles, instructions, stalls\\
-\hline
-\end{tabular}
-\caption{Comparison of resource usage tracking mechanisms}
+\begin{table}[h]
+    \small
+    \centering
+    \begin{tabular}{ |L{3.2cm} | L{2cm}| L{3.6cm} | L{4cm} | }
+        \hline
+        \textbf{Source} & \textbf{Granularity} & \textbf{Scope} & \textbf{Notes} \\
+        \Xhline{1.5pt}
+        /proc/stat & Medium & Global & Jiffy-based, coarse \\
+        \hline
+        /proc/\textless pid\textgreater/stat & High & Per-process & Fine-grained, must poll manually \\
+        \hline
+        cgroups & High & Per-cgroup & Foundation for container metrics \\
+        \hline
+        cAdvisor & Medium-Low & Per-container & Aggregated from cgroups, limited rate \\
+        \hline
+        eBPF & Very High & Per-task, system-wide & Real-time, customizable, low overhead \\
+        \hline
+        perf/PMCs & Very High & Per-task, core-level & Tracks cycles, instructions, stalls \\
+        \hline
+    \end{tabular}
+    \caption{Comparison of resource usage tracking mechanisms}
+    \label{tab:resource-tracking-comparison}
 \end{table}
+
 
 \subsection{Temporal Granularity and Measurement Resolution}
 \label{sec:granularity}

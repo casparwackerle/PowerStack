@@ -226,64 +226,37 @@ Other software counters include:
 
 Each of these metrics is manually accumulated in eBPF maps keyed by process ID and periodically read by the user-space collector. This enhances energy attribution, especially in scenarios where hardware counters are insufficient or unavailable.
 
+\paragraph{Node Component-level energy consumption via RAPL}
+Kepler supports component-level power estimation by reading RAPL energy counters, focusing on the \code{core}, \code{uncore}, \code{package}, and \code{dram} domains. These energy values are read via the \code{PowerCap} Framework using the \path{/sys/class/powercap} interface. The sysfs path tree is parsed dynamically to detect available domains and sockets, ensuring compatibility across architectures and CPU generations. Energy values are read directly from files such as \code{energy\_uj} and divided by 1000 to yield millijoule-level readings. A wraparound detection mechanism ensures robustness even when energy counters overflow.
 
+The core logic is implemented in \code{UpdateProcessEnergy()}, which is invoked periodically by the main metrics collection loop (and also calls the process attribution logic immediately after the metrics update). However, despite RAPL's native ability to provide energy readings at approximately millisecond-level resolution, Kepler limits energy sampling to a coarse default interval of three seconds (defined in \code{config.SamplePeriodSec}). This choice reflects a trade-off between performance overhead and metric granularity, but may limit the accuracy for short-lived or bursty workloads.
 
+Importantly, Kepler does not rely on eBPF or perf events to retrieve energy values; energy is obtained entirely through file-based reads from sysfs or, on some platforms, via MSR or hwmon fallbacks. The collected energy values are later exposed to Prometheus and used in model training and runtime inference. The measurement cadence, attribution methodology, and available domains are validated using an internal tool that checks domain availability and collects average power readings across repeated samples.
 
+\paragraph{Platform-Level Energy Consumption}
+Kepler supports platform-level energy monitoring through external power interfaces exposed by the underlying server hardware. These measurements represent the total energy consumed by the entire node, as opposed to specific hardware components or processes. The implementation is modular, with each power source encapsulated in a corresponding \code{source} module. Currently supported backends include ACPI (via the \path{/sys/class/hwmon} interface), Redfish (via the Redfish REST API), and a stub for IBM's HMC interface on \code{s390x} systems.
 
+Among these, Redfish provides the most detailed and reliable node-level power data. It queries the server's Baseboard Management Controller (BMC) for the \code{PowerConsumedWatts} value using a REST endpoint. This value is then converted into energy (in milliJoules) by multiplying with the time elapsed since the previous query. Kepler spawns a background goroutine that polls this value at regular intervals; the interval is user-configurable via the \code{REDFISH\_PROBE\_INTERVAL\_IN\_SECONDS} parameter in the Kepler configuration. This design allows Redfish to provide cumulative energy measurements with known sampling resolution.
 
+ACPI-based sources offer an alternative when Redfish is unavailable. These rely on instantaneous power averages and do not necessarily represent total node power. The HMC source, by contrast, is currently a non-functional placeholder used only on unsupported platforms. Overall, platform-level metrics are treated as node-wide aggregate energy values without internal attribution, but they offer valuable ground truth for cross-validating other metrics or monitoring infrastructure-level power trends.
 
+\paragraph{Metadata Inputs for Container, System, and VM Attribution}
 
-\paragraph{Energy Readings via RAPL}
+To organize energy and resource metrics by container, Kepler collects metadata that maps processes to Kubernetes pods, containers, and namespaces. Kepler supports both cgroups v1 and v2 and dynamically traverses \code{/sys/fs/cgroup} to map \code{PID} or \code{cgroupID} values to container IDs, extracting the last 64 characters of valid cgroup paths.
 
-Kepler uses Intel RAPL (Running Average Power Limit) to obtain high-resolution energy consumption data from the CPU package. It prefers reading from the Linux \code{powercap} sysfs interface, but falls back to using MSRs or hardware monitor drivers on platforms where this is not available.
+If the container ID is not cached, Kepler queries Kubernetes for pod metadata using either the Kubelet's local \code{/pods} API or, if enabled, the Kubernetes API server via a dedicated watcher. Both approaches extract metadata from \code{ContainerStatuses} fields in pod objects and populate a shared cache. This includes support for init and ephemeral containers. Container ID prefixes are stripped using regex to standardize the format.
 
-The main RAPL domains used are:
-\begin{itemize}
-  \item \code{pkg}: Total package power (including cores, caches, and memory controller)
-  \item \code{dram}: DRAM energy (if supported)
-  \item \code{pp0}: Cores only (used less frequently)
-\end{itemize}
+Processes not associated with a container are labeled using fallback logic. If the process belongs to the root cgroup (\code{cgroupID = 1}) and cgroup-based resolution is enabled, it is labeled \code{container="kernel\_processes"}, \code{namespace="kernel"}. All other unmapped processes are labeled \code{container="system\_processes"}, \code{namespace="system"}. This includes host services such as \code{kubelet}, \code{containerd}. The Linux idle thread (PID 0), which does not appear in \code{/proc} and cannot be queried like regular processes, is not explicitly handled by Kepler; however, since it belongs to the root cgroup implicitly, it is effectively included under the \code{kernel\_processes} label.
 
-Energy counters are monotonically increasing and sampled periodically in user space. Kepler uses the deltas between readings to estimate host-level energy usage, which then serves as ground truth for model training or dynamic attribution.
+In addition to container and system process tracking, Kepler supports experimental attribution for virtual machines running under QEMU/KVM on the host. When executed on the hypervisor, Kepler scans \code{/proc/<pid>/cgroup} for scope names matching the systemd pattern \code{machine-qemu-*.scope} to identify VM processes. If a match is found, the VM ID is extracted and used to create a \code{VMStats} structure, allowing the VM to be tracked similarly to a container. Optionally, a metadata lookup via the libvirt API can be used to resolve human-readable VM identifiers. This enables Kepler to expose VM-level resource and energy metrics on systems that mix containers and virtual machines. However, this mechanism only applies to Kepler instances running on the VM host and does not provide visibility into containers running inside the VM.
 
+This metadata layer allows Kepler to cleanly separate containerized workloads, system processes, kernel activity, and virtual machines, ensuring complete coverage of energy attribution in subsequent stages.
 
+\paragraph{GPU Power- and Resource Utilization via NVML}
 
+Kepler collects per-process GPU utilization statistics using the NVIDIA Management Library (NVML), accessed through internal Go bindings. Specifically, Kepler queries both compute engine usage and memory utilization for each process interacting with an NVIDIA GPU. This data is retrieved via the \code{ProcessResourceUtilizationPerDevice()} method, which internally calls NVML functions such as \code{nvmlDevice.GetProcessUtilization} to return per-process statistics, including Streaming Multiprocessor utilization (\code{SmUtil}), memory utilization (\code{MemUtil}), and optional encoding/decoding activity. Additionally, KEPLER collects GPU energy consumption using NVML's \code{nvmlDevice.GetPowerUsage}.
 
-
-
-
-\paragraph{Container-Level Metrics via cAdvisor}
-
-In addition to low-level kernel metrics, Kepler also integrates with cAdvisor to collect container-scoped usage statistics. These metrics include aggregated CPU time, memory usage, and I/O data. They are retrieved from the container runtime and cgroup filesystem and are used primarily for tagging, cross-validation, and correlation with Prometheus metrics.
-
-However, due to their coarser granularity and limited temporal precision, these metrics are not central to the actual power attribution logic. Kepler’s own eBPF-based collection is preferred for performance-critical inputs.
-
-
-
-
-
-
-default sample period: SamplePeriodSec = 3 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-\paragraph{GPU Resource Utilization via NVML}
-
-Kepler collects per-process GPU utilization statistics using the NVIDIA Management Library (NVML), accessed through internal Go bindings. Specifically, Kepler queries both compute engine usage and memory utilization for each process interacting with an NVIDIA GPU. This data is retrieved via the \code{ProcessResourceUtilizationPerDevice()} method, which internally calls NVML functions such as \code{nvmlDeviceGetProcessUtilization} to return per-process statistics, including Streaming Multiprocessor utilization (\code{SmUtil}), memory utilization (\code{MemUtil}), and optional encoding/decoding activity.
-
-To support NVIDIA's Multi-Instance GPU (MIG) architecture, Kepler first inspects whether MIG slices exist on a given device. If so, it iterates over each slice and retrieves per-process utilization data individually. Otherwise, it queries the full physical GPU. In both cases, the parent GPU ID is used as the key to unify resource attribution. For each PID returned by NVML, GPU utilization metrics are appended to the \code{ResourceUsage} field of the Kepler-internal \code{ProcessStats} structure. The following metrics are collected:
+To support NVIDIA's Multi-Instance GPU (MIG) architecture, Kepler first inspects whether MIG slices exist on a given device. If so, it iterates over each slice and retrieves+ per-process utilization data individually. Otherwise, it queries the full physical GPU. In both cases, the parent GPU ID is used as the key to unify resource attribution. For each PID returned by NVML, GPU utilization metrics are appended to the \code{ResourceUsage} field of the Kepler-internal \code{ProcessStats} structure. The following metrics are collected:
 \begin{itemize}
   \item \code{GPUComputeUtilization}: The percentage of compute engine usage (SM activity) over the sampling interval.
   \item \code{GPUMemUtilization}: The percentage of frame buffer memory usage per process.
@@ -293,107 +266,72 @@ Because NVML does not provide high-resolution energy counters, Kepler approximat
 
 If \code{GetProcessUtilization()} is not supported by the hardware or fails at runtime, Kepler falls back to using \code{GetComputeRunningProcesses()} combined with per-process memory usage to estimate GPU utilization. In this mode, energy is attributed proportionally to memory usage rather than compute activity. Alternative backends such as Habana or DCGM are supported but do not offer per-process utilization data, and are thus not used for fine-grained attribution in Kepler’s default configuration.
 
+\paragraph{Summary if Inputs}
+Tables~\ref{tab:kepler-metric-inputs} and~\ref{tab:kepler-metadata-inputs} summarize the distinct types of input Kepler collects. Metric inputs provide raw resource and energy data, while metadata inputs allow this data to be mapped to containers, VMs, or system processes.
 
+\begin{table}[h]
+    \small
+    \centering
+    \begin{tabular}{ |L{4.5cm} | L{5cm} | L{4.5cm}| } 
+        \hline
+        \textbf{Metric Type} & \textbf{Source} & \textbf{Purpose} \\
+        \Xhline{1.5pt}
+        CPU hardware counters & \code{perf\_event\_open} via eBPF & Track cycles, instructions, cache misses per process \\
+        \hline
+        CPU software counters & Custom eBPF programs & Capture CPU time, IRQs, page cache activity \\
+        \hline
+        RAPL energy counters & \code{/sys/class/powercap} & Direct energy measurement for CPU and memory domains \\
+        \hline
+        Platform power & Redfish REST API, ACPI sysfs & Estimate total node energy from external sensors \\
+        \hline
+        GPU utilization & NVML (via Go bindings) & Track per-process compute and memory usage \\
+        \hline
+        GPU energy (approx.) & NVML power reading $\times$ interval & Estimate per-device energy usage \\
+        \hline
+    \end{tabular}
+    \caption[Metric inputs used by Kepler]{Metric inputs used by Kepler for energy and resource monitoring}
+    \label{tab:kepler-metric-inputs}
+\end{table}
 
-
-
-
-
-
-
+\begin{table}[h]
+    \small
+    \centering
+    \begin{tabular}{ |L{4.5cm} | L{5cm} | L{4.5cm}| } 
+        \hline
+        \textbf{Metadata Type} & \textbf{Source} & \textbf{Purpose} \\
+        \Xhline{1.5pt}
+        Container ID extraction & \code{/proc/<pid>/cgroup} & Identify container context of each process \\
+        \hline
+        Pod and namespace info & Kubelet API or Kubernetes API server & Map container ID to pod, namespace, container name \\
+        \hline
+        System process fallback & Internal constants + missing container ID & Label processes outside containers as \code{system\_processes} \\
+        \hline
+        Kernel thread fallback & \code{cgroupID = 1} & Label root-cgroup processes as \code{kernel\_processes} \\
+        \hline
+        Virtual machine ID & \code{machine-qemu-*.scope} + optional libvirt lookup & Label QEMU/KVM-based VMs by scope or libvirt metadata \\
+        \hline
+        GPU process association & PID-based matching via NVML & Associate GPU usage with Linux processes \\
+        \hline
+    \end{tabular}
+    \caption[Metadata inputs used by Kepler]{Metadata inputs used by Kepler to organize and label monitored workloads}
+    \label{tab:kepler-metadata-inputs}
+\end{table}
 
 \paragraph{Export Interface and Metric Exposure}
 
-All metrics collected by Kepler are ultimately exposed via Prometheus. This includes both raw utilization metrics (e.g., CPU time, instructions, cache misses) and derived energy metrics (e.g., power estimates per container). The Prometheus export format allows flexible time series queries and integration with Grafana or other observability platforms.
-
-\paragraph{Summary of Input Metrics}
-
-\begin{table}[h]
-\centering
-\begin{tabular}{|l|l|l|l|}
-\hline
-\textbf{Metric} & \textbf{Description} & \textbf{Source} & \textbf{Interface} \\
-\hline
-CPU Time & Time spent on CPU per process & eBPF & kprobe on \code{finish\_task\_switch} \\
-CPU Cycles & Total CPU cycles & perf events & \code{perf\_event\_open} \\
-Ref. Cycles & Reference (non-scaled) cycles & perf events & \code{perf\_event\_open} \\
-Instructions & Retired instructions & perf events & \code{perf\_event\_open} \\
-Cache Misses & LLC cache misses & perf events & \code{perf\_event\_open} \\
-SoftIRQs & Soft IRQ vector counts & eBPF & [TBD: implementation details] \\
-Page Cache Hits & Memory access tracking & eBPF & \code{kprobe\_\_mark\_page\_accessed} \\
-Energy (pkg) & Package-level energy & RAPL & sysfs / msr / hwmon \\
-Energy (dram) & DRAM energy & RAPL & sysfs / msr \\
-Container CPU Time & Aggregated container time & cAdvisor & cgroupfs / runtime API \\
-\hline
-\end{tabular}
-\caption{Overview of Kepler Input Metrics and Their Collection Interfaces}
-\end{table}
-
-
-xxxxxxxxxxxxxxxx
-
-
-
-\paragraph{Metric Types and Sources}
-Kepler collects a broad set of low-level metrics that form the foundation for power attribution. These include hardware performance counters such as CPU instructions, CPU cycles, reference cycles (not affected by scaling), and cache misses. In addition, eBPF-based probes are used to collect CPU time, block I/O, and network IRQ activity. All metrics are exposed as Prometheus counters, allowing power consumption to be computed as a rate of energy (Joules) over time using standard PromQL expressions (e.g. \code{irate()}).
+All metrics collected by Kepler are ultimately exposed via Prometheus after power attribtion. This includes both raw utilization metrics (e.g. CPU time, instructions, cache misses) and derived energy metrics (e.g. power estimates per container). The Prometheus export format allows flexible time series queries and integration with Grafana or other observability platforms.
 
 \paragraph{Estimator Sidecar and Model Inference}
-In addition to its lightweight internal estimator, Kepler optionally supports an estimator sidecar container that uses more sophisticated regression models for power inference. The sidecar communicates with the exporter via a Unix domain socket and loads pre-trained models (e.g., Scikit-learn, XGBoost) suitable for online estimation in environments lacking direct power metrics. This mechanism is mainly intended for telemetry-sparse environments and is not used in the real-time deployment mode considered in this thesis.
+
+In addition to its lightweight internal estimator, Kepler optionally supports an estimator sidecar container that uses more sophisticated regression models for power inference. The sidecar communicates with the exporter via a Unix domain socket and loads pre-trained models (e.g. Scikit-learn, XGBoost) suitable for online estimation in environments lacking direct power metrics. This mechanism is mainly intended for telemetry-sparse environments and is not used in the real-time deployment mode considered in this thesis.
 
 \paragraph{Model Server and Model Training}
-For use cases requiring power estimation, Kepler includes a separate model server that can train energy models from Prometheus-collected metrics and power measurements. The training pipeline involves isolating dynamic power consumption using various strategies (e.g., pre-profiling or regression-based idle estimation) and applying regression techniques to fit models for node-level or component-level power. These models are then made available through a shared model repository. While model training plays a key role in estimation-only environments, it is not central to the goals of this thesis\parencite{choochotkaewAdvancingCloudSustainability2023}.
+
+For environments where energy measurement is available (e.g. via RAPL or Redfish), Kepler provides a separate model server that facilitates training of machine learning-based energy models. This component ingests time-aligned Prometheus metrics and energy readings, applies preprocessing steps, and generates regression models that estimate power consumption based on utilization metrics. Both absolute and dynamic models can be trained, using different feature groups (e.g., time-based vs instruction-based) and labeled according to power domain (e.g. core, package). The resulting models are stored in a hierarchical directory format and can be deployed in other environments via the estimator sidecar. The model server supports modular pipelines, allowing flexible input data sources, energy isolation techniques, and regression backends. This training loop is essential in contexts where hardware telemetry is available during development or profiling but not in production. While model training plays a key role in extending Kepler to new environments\parencite{choochotkaewAdvancingCloudSustainability2023}, it is not central to the goals of this thesis.
 
 \paragraph{External Integration}
+
 Kepler is designed to integrate seamlessly with existing observability tools. Prometheus is used to scrape metrics from the Kepler agent, and dashboards can be built using Grafana to visualize energy consumption across nodes, containers, or applications. While not required for the core functionality, this integration facilitates operational awareness and debugging.
-
-
-
-% - High-level architecture: Exporter, Estimator, Model Server
-% - Exporter: eBPF-based tracing, cgroup info, PID-to-container mapping
-% - Metric sources:
-%   - Utilization: CPU instructions, cycles, cache misses, IRQs
-%   - Power: RAPL (sysfs/MSR), ACPI, IPMI/Redfish, NVML
-% - Estimator sidecar: model selection and inference
-% - Model Server:
-%   - Trains regression models from Prometheus data
-%   - Supports absolute (AbsPower) and dynamic (DynPower) modes
-%   - Uses benchmark + isolator pipeline for training
-% - RAPL for CPU and DRAM
-% - ACPI for system power consumption
-% - ebpf for performance counters (at the context-level switch)
-
-% COMPONENTS:
-% - KEPLER Agent: Core monitoring agent that runs on each node, collects metrics via eBPF, cgroups, etc., and (optionally) estimates energy usage using power models
-% - KEPLER Exporter: Exposes metrics via Prometheus (both raw system metrics and estimated power consumption)
-% - KEPLER Model Server: Central service to train and serve power estimation models using usage metrics + power labels (e.g., RAPL)
-% - KEPLER Model DB: Repository of pre-trained power models (e.g., trained on SPECpower, nx12 workloads)
-% - KEPLER Estimator (Sidecar): An optional sidecar container that uses the general estimator (e.g., scikit-learn models) instead of just the lightweight local linear estimator
-% - Prometheus + Grafana (External)	Used to scrape metrics from Kepler and visualize them
-
-
-% - designed to be extensible
-% - provides integratesd view of node power consumptino across different resources and modes.
-% - promotes fair distribution o f system pwoer consumption on the basis of the Green House Gas (GHG) Protocol\parencite{gesi2024ictguidance}.
-%     includes separation of idle power and any overhead based on allocated capacity, as well as dynamic power based on utilization.
-
-% Components:
-% - Metric exporter (module)
-%     uses a BPF program to extract process-related metrics. Also collects real-time power metrics (RAPL, ACPI, ...) using perf\_events functions of BPF to retrieve hardware counter information.
-%     for each BPF program, the PID of the last thread in kernel space is stored.
-%     The container ID is determined by scanning /proc/\$PID/cgroug. Using the containerID, the pod info (name/namespace) is retrieved through Kubelet Container API
-%     the module alsp performas a calibration phase to discover idle and activation power in the server as part of the training workflow
-%     the collected data is periodically sent to the model server module for training the power model
-
-% - Model server (module)
-%     responsible for training the power model for each node using the data collected during the training phase
-%     determine model parameters
-%     IMPORTANT: the idea of these models is to accurately estimate energy consumption in the ABSENCE of power data, having used them as ground truth for training.
-%     implemented in python -> strong support for statistical libraries (e.g. Scikit-learn, XGBoost, PyGam) to hanle regression models
-
-% - Energy Inference (module) (not mentioned often)
-%     uses power model parameters and aggregated metrics to calculate power consumption at process level
-
-
 
 \subsubsection{Attribution Model and Output}
 \label{sec:kepler-attribution}
@@ -409,6 +347,19 @@ Kepler is designed to integrate seamlessly with existing observability tools. Pr
 - idle: minimum power of system at rest / background: minimum power of all background processes
 - dynamic constrant: "activated by initial processes and remains constant regardless of load: "activation power"
 - dynamic variable: solely dependent on resource utilization: "load-dependent power"
+
+% // UpdateNodeIdleEnergy calculates the node idle energy consumption based on the minimum power consumption when real-time system power metrics are accessible.
+% // When the node power model estimator is utilized, the idle power is updated with the estimated power considering minimal resource utilization.
+
+
+
+% func (c *Collector) UpdateEnergyUtilizationMetrics() {
+% 	c.UpdateNodeEnergyUtilizationMetrics()
+% 	c.UpdateProcessEnergyUtilizationMetrics()
+% 	// aggregate the process metrics per container and/or VMs
+% 	c.AggregateProcessEnergyUtilizationMetrics()
+% }
+
 
 % - Processes not in a kubernetes or libvirt domain are identified as system_processes or kernel\_processes
 "self-calibrating and extensible"
@@ -504,7 +455,7 @@ The default Linux implementation, \code{PowercapRAPLSensor} (located in \code{po
 
 In addition to the Powercap-based sensor, a Windows-only sensor is available that reads energy consumption directly from Intel or AMD-specific Model-Specific Registers (MSRs).
 
-System utilization metrics are collected by helper functions implemented in \path{utils.rs}, which rely on Rust’s \code{sysinfo} and \code{procfs} crates. These libraries extract data from virtual filesystems such as \path{/proc}, \path{/sys}, and \path{/dev}. When container support is enabled, cgroups are also read—but solely to map processes to containers. The collected metrics are stored in a custom data structure along with timestamps, while cgroup information is attached to each process as additional metadata labels. Apart from metrics of processes, CPU and memory, disk read/write operations are also collected.
+System utilization metrics are collected by helper functions implemented in \path{utils.rs}, which rely on Rust’s \code{sysinfo} and \code{procfs} crates. These libraries extract data from virtual filesystems such as \path{/proc}, \path{/sys}, and \path{/dev}. When container support is enabled, cgroups are also read, but solely to map processes to containers. The collected metrics are stored in a custom data structure along with timestamps, while cgroup information is attached to each process as additional metadata labels. Apart from metrics of processes, CPU and memory, disk read/write operations are also collected.
 
 The \textit{sensors} abstraction layer also applies key data preprocessing steps with are discussed in section ~\ref{sec:scaphandre-attribution}.
 
@@ -560,7 +511,7 @@ First, its fixed measurement interval of 2 seconds limits temporal resolution. A
 
 Second, Scaphandre attempts to refine CPU-based attribution by subtracting inactive time (\code{idle}, \code{iowait}, \code{irq}, \code{softirq}) from the denominator of its proportional model. While this adjustment excludes clearly non-active states, it does not fully resolve the underlying ambiguity of CPU utilization as a proxy for energy. As noted by Tarara\parencite{Tarara2023CpuUtilization}, when overall system load is low, the total observed energy (especially idle platform power) is still fully distributed among a small set of active processes. This can result in inflated or misleading per-process energy values, particularly for lightweight workloads.
 
-Scaphandre relies exclusively on Intel’s RAPL interface for energy measurements. The developers of Scaphandre acknowledge the lack of detailed public documentation, especially for the \code{PSys} domain, which they assume to represent total SoC power. Their experiments also highlight ambiguity regarding domain overlaps—for instance, whether the \code{DRAM} domain is already included in \code{PKG}, or whether it must be treated as a separate component. These uncertainties may affect the interpretation of host-level energy metrics and the completeness of total system energy accounting.
+Scaphandre relies exclusively on Intel’s RAPL interface for energy measurements. The developers of Scaphandre acknowledge the lack of detailed public documentation, especially for the \code{PSys} domain, which they assume to represent total SoC power. Their experiments also highlight ambiguity regarding domain overlaps (for instance, whether the \code{DRAM} domain is already included in \code{PKG}, or whether it must be treated as a separate component). These uncertainties may affect the interpretation of host-level energy metrics and the completeness of total system energy accounting.
 
 In a comparison experiment between Scaphandre and other tools, Raffin\parencite{raffin2024dissecting} was unable to push scaphandres measurement frequency beyond 28 Hz, indicating a suboptimal implementation. Despite being written in Rust, Scaphandre performed significantly worse than the python-based tool \textit{CodeCarbon}. Raffin measured Scaphandre's overhead at a non-negligible 3-4\% at 10 Hz on an Intel Server.
 
