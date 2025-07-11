@@ -236,7 +236,7 @@ Importantly, Kepler does not rely on eBPF or perf events to retrieve energy valu
 \paragraph{Platform-Level Energy Consumption}
 Kepler supports platform-level energy monitoring through external power interfaces exposed by the underlying server hardware. These measurements represent the total energy consumed by the entire node, as opposed to specific hardware components or processes. The implementation is modular, with each power source encapsulated in a corresponding \code{source} module. Currently supported backends include ACPI (via the \path{/sys/class/hwmon} interface), Redfish (via the Redfish REST API), and a stub for IBM's HMC interface on \code{s390x} systems.
 
-Among these, Redfish provides the most detailed and reliable node-level power data. It queries the server's Baseboard Management Controller (BMC) for the \code{PowerConsumedWatts} value using a REST endpoint. This value is then converted into energy (in milliJoules) by multiplying with the time elapsed since the previous query. Kepler spawns a background goroutine that polls this value at regular intervals; the interval is user-configurable via the \code{REDFISH\_PROBE\_INTERVAL\_IN\_SECONDS} parameter in the Kepler configuration. This design allows Redfish to provide cumulative energy measurements with known sampling resolution.
+Among these, Redfish provides the most detailed and reliable node-level power data. It queries the server's Baseboard Management Controller (BMC) for the \code{PowerConsumedWatts} value using a REST endpoint. This value is then converted into energy (in milliJoules) by multiplying with the time elapsed since the previous query. Kepler spawns a background goroutine that polls this value at regular intervals (user-configurable via the \code{REDFISH\_PROBE\_INTERVAL\_IN\_SECONDS} parameter in the Kepler configuration). This design allows Redfish to provide cumulative energy measurements with known sampling resolution.
 
 ACPI-based sources offer an alternative when Redfish is unavailable. These rely on instantaneous power averages and do not necessarily represent total node power. The HMC source, by contrast, is currently a non-functional placeholder used only on unsupported platforms. Overall, platform-level metrics are treated as node-wide aggregate energy values without internal attribution, but they offer valuable ground truth for cross-validating other metrics or monitoring infrastructure-level power trends.
 
@@ -333,8 +333,379 @@ For environments where energy measurement is available (e.g. via RAPL or Redfish
 
 Kepler is designed to integrate seamlessly with existing observability tools. Prometheus is used to scrape metrics from the Kepler agent, and dashboards can be built using Grafana to visualize energy consumption across nodes, containers, or applications. While not required for the core functionality, this integration facilitates operational awareness and debugging.
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\subsubsection{Attribution Model and Implementation Flow}
+\paragraph{Overview}
+Kepler estimates the energy consumption of containers by attributing measured or estimated node-level power metrics to individual processes, and aggregating them to container or VM level. This section presents the methodology and implementation approach.
+
+\paragraph{Attribution Methodology}
+At each sampling interval, Kepler separates absolute node power into idle and dynamic components. Process-level dynamic energy is estimated proportionally:
+\[
+E^{\text{dyn}}_{\text{process}} = \frac{U_{\text{process}}}{\sum_i U_i} \cdot E^{\text{dyn}}_{\text{node}}
+\]
+where \( U \) is the process's utilization of a given resource (e.g., CPU time).
+
+\paragraph{Data Collection and Flow}
+The data pipeline is composed of modular collectors:
+\begin{itemize}
+  \item \textbf{Resource Collectors:} Gather CPU and GPU usage via eBPF, perf events, and device APIs.
+  \item \textbf{Node Power Collectors:} Query power interfaces (e.g., RAPL, IPMI, Redfish).
+  \item \textbf{Energy Estimators:} Calculate idle and dynamic energy.
+  \item \textbf{Process Attribution:} Assign energy to processes using ratio-based models.
+  \item \textbf{Aggregation Layers:} Summarize process metrics per container or VM.
+\end{itemize}
+
+\paragraph{Modular Design}
+Kepler dynamically activates modules based on the availability of telemetry:
+\begin{itemize}
+  \item Real-time power available → measurement-based attribution.
+  \item Real-time unavailable → model-based estimation.
+  \item Optional components (e.g., GPU attribution, platform power) are enabled by configuration.
+\end{itemize}
+
+\paragraph{Implementation Notes}
+The main orchestration is handled by the \texttt{Collector} class, which delegates tasks to dedicated modules: \texttt{process\_bpf\_collector}, \texttt{process\_gpu\_collector}, \texttt{node\_energy\_collector}, and \texttt{process\_energy\_collector}.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 \subsubsection{Attribution Model and Output}
 \label{sec:kepler-attribution}
+
+general Notes
+    dynamic power directly related to resource utilization and idle power is constant power that does not vary regardless of load. SPLIT DIFFERENTLY ACROSS Processes
+    
+    POWER RATIO MODEL -> divides dynamic power across all processes.
+        The Ratio Power model calculates the ratio of a process's resource utilization to the entire system's resource utilization and then multiplying this ratio by the dynamic power consumption of a resource. This allows us to accurately estimate power usage based on actual resource utilization, ensuring that if, for instance, a program utilizes 10\% of the CPU, it consumes 10\% of the total CPU power.
+
+        The idle power estimation follows the GreenHouse Gas (GHG) protocol guideline, which defines that the constant host idle power should be split among processes/containers based on their size (relative to the total size of other containers running on the host). 
+        
+        Additionally, it's important to note that different resource utilizations are estimated differently in Kepler. We utilize hardware counters to assess resource utilization in bare-metal environments, using CPU instructions to estimate CPU utilization, collecting cache misses for memory utilization, and assessing Streaming Multiprocessor (SM) utilization for GPUs utilization
+
+
+- funamentally 3 different models (see model.go)
+\paragraph{Process Power Estimation Model}
+
+\paragraph{Node Platform Estimation Model}
+\paragraph{Node Component Estimation Model}
+
+
+
+
+- Please mention that kepler uses flags like IsGPUEnabled() to track the availability of metrics.This allows for a 
+
+
+
+\paragraph{Division into idle and dynamic power}
+\paragraph{}
+\paragraph{}
+\paragraph{}
+\paragraph{}
+\paragraph{}
+
+
+\begin{comment}
+Information Flow:
+
+metric_collector.go
+    process_bpf_collector
+    process_gpu_collector
+    node_energy_collector
+    process_energy_collector
+
+
+type Collector struct {
+	// NodeStats holds all node energy and resource usage metrics
+	NodeStats stats.NodeStats
+
+	// ProcessStats hold all process energy and resource usage metrics
+	ProcessStats map[uint64]*stats.ProcessStats
+
+	// ContainerStats holds the aggregated processes metrics for all containers
+	ContainerStats map[string]*stats.ContainerStats
+
+	// VMStats holds the aggregated processes metrics for all virtual machines
+	VMStats map[string]*stats.VMStats
+
+	// bpfExporter handles gathering metrics from bpf probes
+	bpfExporter bpf.Exporter
+	// bpfSupportedMetrics holds the supported metrics by the bpf exporter
+	bpfSupportedMetrics bpf.SupportedMetrics
+}
+
+
+
+func (c *Collector) Update() {
+	// collect process resource utilization and aggregate it per node, container and VMs
+	c.updateResourceUtilizationMetrics()
+        // NOTE: no node resource utilization metrics to aggregate
+        c.updateProcessResourceUtilizationMetrics()
+          	resourceBpf.UpdateProcessBPFMetrics(c.bpfExporter, c.ProcessStats)
+                // UpdateProcessBPFMetrics reads the BPF tables with process/pid/cgroupid metrics (CPU time, available HW counters)
+                updateSWCounters(mapKey, &ct, processStats, bpfSupportedMetrics)
+                    AddDeltaStat
+                updateHWCounters(mapKey, &ct, processStats, bpfSupportedMetrics)
+                    AddDeltaStat
+            // UpdateProcessGPUUtilizationMetrics reads the GPU metrics of each process using the GPU
+            (if enabled) accelerator.UpdateProcessGPUUtilizationMetrics(c.ProcessStats)
+                - for all GPU devices (or if applicable, for all MIG devices)
+                addGPUUtilizationToProcessStats(d, processStats, migDevice.(dev.GPUDevice), migDevice.(dev.GPUDevice).ParentID)
+                    for pid, processUtilization := range processesUtilization
+                        // if the pid is within a container, it will have an container ID --> fail
+                        // if the pid is within a VM, it will have an VM ID --> fail
+                        addDeltaStat
+        // aggregate processes' resource utilization metrics to containers, virtual machines and nodes
+        c.AggregateProcessResourceUtilizationMetrics()
+            // for - for - for EVERYTHING
+            AddDeltaStat
+
+	// collect node power and estimate process power
+	c.UpdateEnergyUtilizationMetrics()
+	    c.UpdateNodeEnergyUtilizationMetrics()
+            // UpdateNodeEnergyUtilizationMetrics collects real-time node resource power utilization
+            // if there is no real-time power meter, use the container resource usage metrics to estimate the node's resource power
+            energy.UpdateNodeEnergyMetrics(&c.NodeStats)
+                UpdateNodeComponentsEnergy(nodeStats)
+                    // UpdateNodeComponentsEnergy updates each node component power consumption, i.e., the CPU core, uncore, package/socket and DRAM
+                    nodeComponentsEnergy := components.GetAbsEnergyFromNodeComponents()
+                    for socket, energy := range nodeComponentsEnergy {
+                        strID := strconv.Itoa(socket)
+			            nodeStats.EnergyUsage[config.AbsEnergyInPkg].SetAggrStat(strID, energy.Pkg)
+                UpdateNodeGPUEnergy(nodeStats)
+                    gpuEnergy := gpu.Device().AbsEnergyFromDevice()
+                    for gpu, energy := range gpuEnergy {
+                        nodeStats.EnergyUsage[config.AbsEnergyInGPU].SetDeltaStat(fmt.Sprintf("%d", gpu), uint64(energy))
+                    }
+                UpdatePlatformEnergy(nodeStats)
+                    if platform.IsSystemCollectionSupported() {
+                        nodePlatformEnergy, _ := platform.GetAbsEnergyFromPlatform()
+                        for sourceID, energy := range nodePlatformEnergy {
+                            nodeStats.EnergyUsage[config.AbsEnergyInPlatform].SetDeltaStat(sourceID, uint64(energy))
+                        }
+                    } else if model.IsNodePlatformPowerModelEnabled() {
+                        model.UpdateNodePlatformEnergy(nodeStats)
+                    }
+                // after updating the total energy we calculate the idle, dynamic and other components energy
+                (if enabled) UpdateNodeIdleEnergy(nodeStats)
+                    // UpdateNodeIdleEnergy calculates the node idle energy consumption based on the minimum power consumption when real-time system power metrics are accessible.
+                    // When the node power model estimator is utilized, the idle power is updated with the estimated power considering minimal resource utilization.
+                    
+                    // the idle energy is only updated if we find the node using less resources than previously observed
+                    // TODO: Use regression to estimate the idle power when real-time system power metrics are available, instead of relying on the minimum power consumption.
+                    nodeStats.UpdateIdleEnergyWithMinValue(isComponentsSystemCollectionSupported)    
+                        ne.CalcIdleEnergy(config.AbsEnergyInGPU, config.IdleEnergyInGPU, config.GPUComputeUtilization)
+                        ne.CalcIdleEnergy(config.AbsEnergyInCore, config.IdleEnergyInCore, config.CPUTime)
+                        ne.CalcIdleEnergy(config.AbsEnergyInDRAM, config.IdleEnergyInDRAM, config.CPUTime) // TODO: we should use another resource for DRAM
+                        ne.CalcIdleEnergy(config.AbsEnergyInUnCore, config.IdleEnergyInUnCore, config.CPUTime)
+                        ne.CalcIdleEnergy(config.AbsEnergyInPkg, config.IdleEnergyInPkg, config.CPUTime)
+                        ne.CalcIdleEnergy(config.AbsEnergyInPlatform, config.IdleEnergyInPlatform, config.CPUTime)        
+                            func (ne *NodeStats) CalcIdleEnergy(absM, idleM, resouceUtil string) {
+                                newTotalResUtilization := ne.ResourceUsage[resouceUtil].SumAllDeltaValues()
+                                currIdleTotalResUtilization := ne.IdleResUtilization[resouceUtil]
+                                for socketID, value := range ne.EnergyUsage[absM] {
+                                    // during the first power collection iterations, the delta values could be 0, so we skip until there are delta values
+                                    currIdleDelta := ne.EnergyUsage[idleM][socketID].GetDelta()
+                                    // verify if there is a new minimal energy consumption for the given resource
+                                    // TODO: fix verifying the aggregated resource utilization from all sockets, the update the energy per socket can lead to inconsistency
+                                    if (newTotalResUtilization <= currIdleTotalResUtilization) || (currIdleDelta == 0) {
+                                        if (currIdleDelta == 0) || (currIdleDelta >= newIdleDelta) {
+                                            ne.EnergyUsage[idleM].SetDeltaStat(socketID, newIdleDelta)
+                                            ne.IdleResUtilization[resouceUtil] = newTotalResUtilization
+                                            continue
+                                        }
+                                    }
+                                    // as the dynamic and absolute power, the idle power is also a counter to be exported to prometheus
+                                    // therefore, we accumulate the minimal found idle if no new one was found
+                                    ne.EnergyUsage[idleM].SetDeltaStat(socketID, currIdleDelta)
+
+                nodeStats.UpdateDynEnergy()
+                    // UpdateDynEnergy calculates the dynamic energy.
+                    func (s *Stats) UpdateDynEnergy() {
+                        for pkgID := range s.EnergyUsage[config.AbsEnergyInPkg] {
+                            s.CalcDynEnergy(config.AbsEnergyInPkg, config.IdleEnergyInPkg, config.DynEnergyInPkg, pkgID)
+                            s.CalcDynEnergy(config.AbsEnergyInCore, config.IdleEnergyInCore, config.DynEnergyInCore, pkgID)
+                            s.CalcDynEnergy(config.AbsEnergyInUnCore, config.IdleEnergyInUnCore, config.DynEnergyInUnCore, pkgID)
+                            s.CalcDynEnergy(config.AbsEnergyInDRAM, config.IdleEnergyInDRAM, config.DynEnergyInDRAM, pkgID)
+                        }
+                        for sensorID := range s.EnergyUsage[config.AbsEnergyInPlatform] {
+                            s.CalcDynEnergy(config.AbsEnergyInPlatform, config.IdleEnergyInPlatform, config.DynEnergyInPlatform, sensorID)
+                        }
+                        // GPU metric
+                        if config.IsGPUEnabled() {
+                            if acc.GetActiveAcceleratorByType(config.GPU) != nil {
+                                for gpuID := range s.EnergyUsage[config.AbsEnergyInGPU] {
+                                    s.CalcDynEnergy(config.AbsEnergyInGPU, config.IdleEnergyInGPU, config.DynEnergyInGPU, gpuID)
+                                }
+                            }
+                        }
+                    }
+                    // CalcDynEnergy calculates the difference between the absolute and idle energy/power.
+                    func (s *Stats) CalcDynEnergy(absM, idleM, dynM, id string) {
+                        if _, exist := s.EnergyUsage[absM][id]; !exist {
+                            return
+                        }
+                        totalPower := s.EnergyUsage[absM][id].GetDelta()
+                        klog.V(6).Infof("Absolute Energy stat: %v (%s)", s.EnergyUsage[absM], id)
+                        idlePower := uint64(0)
+                        if idleStat, found := s.EnergyUsage[idleM][id]; found {
+                            idlePower = idleStat.GetDelta()
+                            klog.V(6).Infof("Idle Energy stat: %v (%s)", s.EnergyUsage[idleM], id)
+                        }
+                        dynPower := calcDynEnergy(totalPower, idlePower)
+                        s.EnergyUsage[dynM].SetDeltaStat(id, dynPower)
+                        klog.V(6).Infof("Dynamic Energy stat: %v (%s)", s.EnergyUsage[dynM], id)
+                    }
+
+                    // calcDynEnergy calculates the dynamic energy.
+                    func calcDynEnergy(totalE, idleE uint64) uint64 {
+                        if (totalE == 0) || (totalE < idleE) {
+                            return 0
+                        }
+                        return totalE - idleE
+                    }
+
+                nodeStats.SetNodeOtherComponentsEnergy()
+                    // SetNodeOtherComponentsEnergy adds the latest energy consumption collected from the other node's components than CPU and DRAM
+                    // Other components energy is a special case where the energy is calculated and not measured
+                    func (ne *NodeStats) SetNodeOtherComponentsEnergy() {
+                        // calculate dynamic energy in other components
+                        dynCPUComponentsEnergy := ne.EnergyUsage[config.DynEnergyInPkg].SumAllDeltaValues() +
+                            ne.EnergyUsage[config.DynEnergyInDRAM].SumAllDeltaValues() +
+                            ne.EnergyUsage[config.DynEnergyInGPU].SumAllDeltaValues()
+
+                        dynPlatformEnergy := ne.EnergyUsage[config.DynEnergyInPlatform].SumAllDeltaValues()
+
+                        if dynPlatformEnergy >= dynCPUComponentsEnergy {
+                            otherComponentEnergy := dynPlatformEnergy - dynCPUComponentsEnergy
+                            ne.EnergyUsage[config.DynEnergyInOther].SetDeltaStat(utils.GenericSocketID, otherComponentEnergy)
+                        }
+
+                        // calculate idle energy in other components
+                        idleCPUComponentsEnergy := ne.EnergyUsage[config.IdleEnergyInPkg].SumAllDeltaValues() +
+                            ne.EnergyUsage[config.IdleEnergyInDRAM].SumAllDeltaValues() +
+                            ne.EnergyUsage[config.IdleEnergyInGPU].SumAllDeltaValues()
+
+                        idlePlatformEnergy := ne.EnergyUsage[config.IdleEnergyInPlatform].SumAllDeltaValues()
+
+                        if idlePlatformEnergy >= idleCPUComponentsEnergy {
+                            otherComponentEnergy := idlePlatformEnergy - idleCPUComponentsEnergy
+                            ne.EnergyUsage[config.IdleEnergyInOther].SetDeltaStat(utils.GenericSocketID, otherComponentEnergy)
+                        }
+                    }
+
+	    c.UpdateProcessEnergyUtilizationMetrics()
+            // UpdateProcessEnergyUtilizationMetrics estimates the process energy consumption using its resource utilization and the node components energy consumption
+            energy.UpdateProcessEnergy(c.ProcessStats, &c.NodeStats)
+                // UpdateProcessEnergy resets the power model samples, add new samples to the power models, then estimates the idle and dynamic energy
+                // reset power sample slide window
+                processPlatformPowerModel.ResetSampleIdx()
+                processComponentPowerModel.ResetSampleIdx()
+                // add features values for prediction
+                processIDList := addSamplesToPowerModels(processesMetrics, nodeMetrics)
+                addEstimatedEnergy(processIDList, processesMetrics, idlePower)
+                addEstimatedEnergy(processIDList, processesMetrics, absPower)
+                    // addEstimatedEnergy estimates the idle power consumption
+                    if processComponentPowerModel.IsEnabled()
+                        processComponentsPower, errComp = processComponentPowerModel.GetComponentsPower(isIdlePower)
+                        if config.IsGPUEnabled()
+                        processGPUPower, errGPU = processComponentPowerModel.GetGPUPower(isIdlePower)
+                    // estimate the associated power consumption of platform for each process
+                    if processPlatformPowerModel.IsEnabled()
+                        processPlatformPower, errPlat = processPlatformPowerModel.GetPlatformPower(isIdlePower)
+                    ....
+                    for i, processID := range processIDList
+                        for pkg, core, dram, uncore, GPU
+                            energy = processComponentsPower[i].Pkg * config.SamplePeriodSec()
+                            if isIdlePower {
+                                processesMetrics[processID].EnergyUsage[config.IdleEnergyInPkg].SetDeltaStat(utils.GenericSocketID, energy)
+                            } else {
+                                processesMetrics[processID].EnergyUsage[config.DynEnergyInPkg].SetDeltaStat(utils.GenericSocketID, energy)
+                            }
+                    // estimate other components power if both platform and components power are available
+                        // TODO: verify if Platform power also includes the GPU into consideration
+                        var otherPower uint64
+                        if processPlatformPower[i] <= (processComponentsPower[i].Pkg + processComponentsPower[i].DRAM) {
+                            otherPower = 0
+                        } else {
+                            otherPower = processPlatformPower[i] - processComponentsPower[i].Pkg - processComponentsPower[i].DRAM
+                        }
+                        energy = otherPower * config.SamplePeriodSec()
+                        if isIdlePower {
+                            processesMetrics[processID].EnergyUsage[config.IdleEnergyInOther].SetDeltaStat(utils.GenericSocketID, energy)
+                        } else {
+                            processesMetrics[processID].EnergyUsage[config.DynEnergyInOther].SetDeltaStat(utils.GenericSocketID, energy)
+                        }
+	    // aggregate the process metrics per container and/or VMs
+        c.AggregateProcessEnergyUtilizationMetrics()
+            // AggregateProcessEnergyUtilizationMetrics aggregates processes' utilization metrics to containers and virtual machines
+            func (c *Collector) AggregateProcessEnergyUtilizationMetrics()
+                // for - for - for EVERYTHING
+                AddDeltaStat
+
+
+\end{comment}
+
+notes
+
+\paragraph{Kepler configuratibilty and measurement interval}
+- Kepler updates all input metics at a configurable interval (default: SamplePeriodSec = 3 seconds), except the redfish interval, which is user configurable (default 15 seconds). Even though utilization metrics and RAPL energy metrics technically allow for more fine-grained attribution, Keplers attribution algorithm only attributes based on the aggregated metrics within this configurable window. While this design choice helps to keep keplers overhead low, it may miss short-lived changes in energy use.
+- Keplers attribution model is build to be modular. Implementing a new power source is made easy with standardized interfaces and functions. depending on the availability of metrics, kepler uses different attribution models. In the absence of power metrics, kepler uses utilization metics and regression models. These models can be custom-trained on a system where RAPL is available, using RAPL as ground truth for training. in the context of this thesis, the focus will be on models where all potential sources of information are available, including the primary sources described in chapter [insert ref here]
+
+\paragraph{Division of absolute power into idle and dynamic}
+- fundamentally, Kepler distinguishes between idle power and dynamic power, the sum of which builds the absolute power, both on a process or node level. To be more specific, the dynamic power is directly related to the resource utilization and the idle power is the constant power that does not vary regardless if the system is at rest or with load. This concept is important because the idle and dynamic power are splitted differently across all processes.\parencite{amaral2023exploring}. The idle power estimation aims to follow the GreenHouse Gas (GHG) protocol guideline \parencite{gesi2024ictguidance}, which defines that the constant host idle power should be splitted among processes/containers based on their size (relative to the total size of other containers running on the host). Additionally, it’s important to note that different resource utilizations are estimated differently in Kepler
+
+\paragraph{node Energy attribution}
+- on a node level, Kepler directly uses the node component RAPL energy consumped in the domains Pkg, Core, Uncore and DRAM for all available sockets, in millijoule
+- Kepler gathers the energy use data for each GPU device in mJ.
+- Kepler gathers the platform energy using the chosen source (described in chapter xxxxxxxx) which is redfish by default. Kepler iterates through all "members" if the chassis. As the redfish module sets a timer interally, and handles measurement interval itself, Kepler can treat the redfish input metric like a (slow-to-update) regular metric. Notably, redfish metrics (which are exposed in watts() are internally converted to milliwatts and later multiplied with \code{SamplePeriodSec} to convert them to millijoules, making them compatible with the rest of the kepler architecture. 
+- After the collection of all node-level energy, kepler updates the node dynamic power in the event that it is lower than any previously recorded idle power, tracking also the resource utilization in that case. this is done for all RAPL domains and GPU
+- Kepler calulates the node level dynamic energy as the difference between absolute energy consumption and idle energy consumption. this is done for all RAPL domains and GPU.
+- Kepler caluclates the 'other' energy consumption. this is essentially just a calculation: KEpler defines 'other' as the entire system (given by the platform energy) verything minus PKG, DRAM and GPU, suggesting that this metric contains all other server components. This is done for for idle and dynamic metrics separately.
+
+
+
+
+
 % - Ratio Power Model:
 %   - Dynamic power → attributed by usage ratio
 %   - Idle power → split by container size (GHG Protocol)
@@ -342,11 +713,11 @@ Kepler is designed to integrate seamlessly with existing observability tools. Pr
 % - Node-level aggregation
 % - Metric types: core, dram, uncore, package, gpu, other
 % - Prometheus integration, usage of rate()/irate() for power
-"our approach ensures the fair distribution of constant power among the user’s processes."
-3 CATEGORIES:
-- idle: minimum power of system at rest / background: minimum power of all background processes
-- dynamic constrant: "activated by initial processes and remains constant regardless of load: "activation power"
-- dynamic variable: solely dependent on resource utilization: "load-dependent power"
+% "our approach ensures the fair distribution of constant power among the user’s processes."
+% 3 CATEGORIES:
+% - idle: minimum power of system at rest / background: minimum power of all background processes
+% - dynamic constrant: "activated by initial processes and remains constant regardless of load: "activation power"
+% - dynamic variable: solely dependent on resource utilization: "load-dependent power"
 
 % // UpdateNodeIdleEnergy calculates the node idle energy consumption based on the minimum power consumption when real-time system power metrics are accessible.
 % // When the node power model estimator is utilized, the idle power is updated with the estimated power considering minimal resource utilization.
@@ -365,6 +736,23 @@ Kepler is designed to integrate seamlessly with existing observability tools. Pr
 "self-calibrating and extensible"
 % https://sustainable-computing.io/usage/deep_dive/#ratio-power-model-explained
 % https://github.com/sustainable-computing-io/kepler/blob/main/doc/design/markdown/kepler-exporter.md
+
+% https://www.cncf.io/blog/2023/10/11/exploring-keplers-potentials-unveiling-cloud-application-power-consumption/
+
+
+
+
+
+
+
+\subsubsection{Attribution Timing and Export Granularity}
+\label{sec:kepler-attribution-timing}
+
+Kepler attributes energy at fixed internal intervals (default: 3 seconds). These deltas are exposed via Prometheus metrics such as \texttt{kepler\_container\_joules\_total}, but the Prometheus scrape interval is user-defined and may not align with Kepler's update loop. If the export interval is not a multiple of the internal interval (e.g., 5s vs. 3s), metric misalignment can occur, leading to visible fluctuations even for stable workloads. Since Kepler does not smooth or interpolate values, this behavior is expected and intentional. For more stable time series, it is recommended to configure the export interval as a multiple of Kepler’s internal interval.
+
+
+
+
 
 \subsubsection{Validation and Research Context}
 \label{sec:kepler-validation}
