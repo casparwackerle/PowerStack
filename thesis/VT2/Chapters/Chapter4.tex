@@ -392,8 +392,64 @@ Empirical evaluation confirms that KubeWatt reduces RMSE in total node power est
 
 Overall, KubeWatt represents a targeted refinement of Kepler's architectural and attribution approach, favoring interpretability and correctness over feature completeness. While limited in scope (e.g., no support for GPU or memory attribution), it successfully mitigates several of the critical limitations identified in Kepler.
 
-\subsubsection{Kepler v0.10.0: Architectural Shift and Future Direction}
-\label{sec:kepler-new-version}
+\subsubsection{Re-Release of Kepler Version 0.10.0}
+\label{sec:kepler-0.10}
+
+During the final stages of this work, Kepler version 0.10.0 was released as a significant architectural rewrite. While maintaining its fundamental role as a Prometheus exporter for container-level energy metrics, the new release introduces considerable changes to both its internal implementation and energy attribution methodology. This section provides an overview of the revised architecture and critically analyzes the implications of these changes in the context of container-level energy observability.
+
+\paragraph{Implementation Changes}
+
+Kepler 0.10.0 represents a ground-up redesign focusing on modularity, thread-safety, and accessibility. Mutex locks are used extensively throughout the codebase to ensure safe concurrent metric collection. Unlike previous versions, Kepler now requires only readonly access to \texttt{/proc} and \texttt{/sys} filesystems, eliminating the need for elevated privileges (\texttt{CAP\_SYSADMIN}, \texttt{CAP\_BPF}). This marks a significant improvement in deployability and security.
+
+Container detection still relies on traditional cgroup path analysis, with per-process cgroups parsed via regex matching to identify container runtimes and IDs. However, unlike prior versions, container-level resource metrics are no longer derived by aggregating per-process metrics. Instead, Kepler 0.10.0 treats containers as first-class workloads: CPU usage statistics for containers are read directly from cgroups, without requiring process-level aggregation.
+
+Node-level CPU activity is determined via the Linux \texttt{/proc/stat} interface, using the formula:
+
+\begin{equation}
+\text{CPUActiveTime} = \text{TotalTime} - (\text{IdleTime} + \text{IOWaitTime})
+\end{equation}
+
+A node-level usage ratio is computed as:
+\begin{equation}
+\text{CPUUsageRatio} = \frac{\text{CPUActiveTime}}{\text{TotalTime}}
+\end{equation}
+
+This represents a significantly simplified utilization model compared to prior versions, which relied on more granular hardware performance counters (e.g., instructions retired, cache misses).
+
+At the power measurement layer, Kepler continues to rely on RAPL readings, now referred to as ``energy zones''. In addition to standard \texttt{package}, \texttt{core}, \texttt{uncore}, and \texttt{dram} zones, Kepler 0.10.0 dynamically detects the \texttt{psys} domain, expanding applicability to non-server-grade processors. Multi-socket systems are supported via automatic aggregation of zones with identical names.
+
+Finally, pod lifecycle awareness has seen notable improvements. Kepler now tracks ephemeral and init containers explicitly, indexing container IDs via Kubernetes' native API server. This mitigates previous observability gaps for short-lived and Completed pods, which were previously problematic due to reliance on cAdvisor and cgroup detection alone.
+
+\paragraph{Power Attribution Model}
+
+The energy attribution model has undergone a substantial simplification. Kepler 0.10.0 attributes energy solely based on CPU time. The node's total RAPL-reported active energy is distributed proportionally to workload CPU activity:
+
+\begin{itemize}
+    \item \textbf{Node-level attribution:} At each interval, total energy deltas are computed from RAPL readings. Active and idle energy components are calculated using the node's CPU usage ratio:
+    \begin{equation}
+        E_{\text{active}} = \Delta E \cdot \text{CPUUsageRatio}
+    \end{equation}
+    \begin{equation}
+        E_{\text{idle}} = \Delta E - E_{\text{active}}
+    \end{equation}
+
+    \item \textbf{Process- and container-level attribution:} Containers and processes are treated as independent workloads. Each receives a fraction of the node's active energy based on its CPU time share:
+    \begin{equation}
+        E_{\text{workload}} = E_{\text{node, active}} \cdot \frac{\text{CPUTimeDelta}_{\text{workload}}}{\text{CPUTimeDelta}_{\text{node}}}
+    \end{equation}
+\end{itemize}
+
+It is important to emphasize that container metrics are no longer derived from per-process metrics. Instead, both processes and containers draw energy directly from node-level active energy based on their own independently tracked CPU usage statistics. This parallel accounting structure avoids process-level aggregation but introduces the risk of double-counting energy when interpreting results, as processes and containers report independently attributed metrics.
+
+\paragraph{Critical Analysis}
+
+While Kepler 0.10.0 improves accessibility, security, and operational simplicity, these enhancements come at the cost of reduced modeling fidelity. CPU time has replaced more nuanced metrics such as CPU instructions and cache misses for workload attribution. The new model assumes linear energy scaling with CPU activity, disregarding workload heterogeneity and hardware-level power behaviors such as frequency scaling or turbo boost. Furthermore, the removal of idle power attribution at workload level, while addressing certain attribution errors, limits total energy accountability.
+
+From a research perspective, these changes represent a methodological regression. Kepler now favors accessibility over precision: while more deployable and stable, its measurements are less representative of actual workload energy use. As such, Kepler 0.10.0 should be viewed as an operational monitoring tool rather than a fine-grained energy analysis framework.
+
+\textit{In the author's view, Kepler's redesign trades attribution accuracy for simplicity and usability. While this architectural shift benefits practical deployment, it diminishes the tool's value for research-focused energy observability. Finer-grained temporal attribution and more diverse utilization metrics would have been desirable developments.}
+
+\begin{comment}
 
 findings so far:
 General changes:
@@ -472,7 +528,7 @@ Power attribution model:
 
 % used in other research\parencite{gudepuDemonstratingEnergyConsumption2024}
 
-
+\end{comment}
 
 % \subsubsection{Validation and Research Context}
 % \label{sec:kepler-validation}
