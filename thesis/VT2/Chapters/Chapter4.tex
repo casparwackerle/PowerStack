@@ -110,7 +110,7 @@ Kepler (\textit{Kubernetes-based Efficient Power Level Exporter})\parencite{kepl
 
 Kepler integrates seamlessly with Kubernetes and Prometheus-based observability stacks. It supports both real-time energy metrics (e.g., RAPL, ACPI, NVML) and model-based estimation through trained regression models, making it applicable across a wide range of deployment environments, from bare-metal servers to virtual machines. Developed as an open-source CNCF project, Kepler’s architecture is designed to be extensible, allowing researchers and practitioners to contribute new power models and adapt it to diverse system architectures.
 
-It should be noted that shortly before the completion of this thesis, version 0.10.0 of Kepler was released. This version constitutes a major architectural rewrite of the project, intended to address structural limitations of earlier versions. However, the analysis in this chapter focuses on Kepler versions 0.9.x and earlier, which remain the most widely deployed at the time of writing. Section~\ref{sec:kepler-new-version} briefly summarizes the key changes introduced in the new release.
+\textbf{It should be noted that shortly before the completion of this thesis, version 0.10.0 of Kepler was released.} This version constitutes a major architectural rewrite of the project, intended to address structural limitations of earlier versions. However, the analysis in this chapter focuses on Kepler versions 0.9.x and earlier, which remain the most widely deployed at the time of writing. Section~\ref{sec:kepler-new-version} briefly summarizes the key changes introduced in the new release.
 \subsubsection{Architecture and Metric Sources}
 \label{sec:kepler-architecture}
 
@@ -394,6 +394,71 @@ Overall, KubeWatt represents a targeted refinement of Kepler's architectural and
 
 \subsubsection{Kepler v0.10.0: Architectural Shift and Future Direction}
 \label{sec:kepler-new-version}
+
+findings so far:
+General changes:
+- Full architecture rewerite, modernized code, service-oriented, thread-safe.
+- Sigificantly reduced security priviledges (no CAP_SYSADMIN ro CAP_BPF)
+- Focus exclusively on CPU power via RAPL
+- GPU, Memory, disk, network remain unsupported
+- documentation minimal, likely auto-generated
+
+Power attribution:
+- idle/dynamic split removed at workload level
+--> total container, pod, VM and process energy now reflects ONLY ACTIVE cpu usage (like in Pijnacker)
+--> Node-level still exports both idle and active energy
+New attribution model
+- strictly usage-based (CPU TIME NOOO)
+- potential fixes???
+
+completed/terminated workloads:
+- introduced tracking mechanisms:
+--> monitor.max-terminated limits number of terminated workloads tracked
+--> minTerminatedEnergyThreshold filters low2-energy workloads
+
+Sampling interval
+- 5 secodns default
+
+RAPL
+- dynamic RAPL zone detection (no more hardcoded detection)
+
+Architecture
+- YAML configuration enables modular deployment
+
+
+MOST PRESSING ISSUES:
+- new metrics sources only /proc???
+- idle power attribution
+--> validate distribution
+- completed pods handling
+--> review termination handling code
+- Sampling interval
+
+
+Comments:
+- many functionalities were removed, notably eBPF metrics. some of these metrics were great ideas and a central selling point of the old kepler version. So far, it is still unclear it these will be re-added in the new architecture, or if this consitutes an entirely new direction. in other words: has Kepler 0.10.0 only introduced a new framework architecture, or is this a major deviation from the original product, more in favor of lightweigh but less accurate measurement.
+
+Code analysis:
+- mutex locks ensure thread safety
+- only /sys and /proc are needed
+- cgroup is still used to get infos about the container a process is running in
+- /proc/pid/stat is used via procfs to extract CPU statistics.
+- IMPORTANT: (implemented in CPUUsaatgeRatio): the cpu usage time (node-level) is calculated across the node: activeTime = total time - (idle + iowait). In addition, a ration \frac{active time}{total time} is calculated. This model is much simpler when compared to the previous kepler version, and the use of CPUtime for attribution is a questioable move (see ~\ref{sec:cpu-metric-challenges})
+- in addition to the rapl domains (called 'zones' in the new codebase) pkg, core, uncore and DRAM, kepler now also looks for Psys, making this more useful for non-server-grade machines. Zones are dynamically detected, and can be filtered by user configuration.
+- for multi-socket devices, zones are grouped.
+- 8s pod lifecycle awareness has significantly improved. (please insert some insights based on the codebase we analyzed, such as the handling of ephemeral/init containers)
+
+Power attribution model:
+- Node-level: activeEnergy = deltaEnergy * nodeCPUUsageRatio and idleEnergy = deltaEnergy - activeEnergy
+- conainer-level: Each process gets a share of the node’s total active energy, proportional to its CPU time relative to total node CPU time.
+- Kepler now treats containers as first-class workloads
+
+
+
+
+
+
+
 
 %     RAPL sampling interval and metric aggregation logic
 %     Whether energy attribution models have changed (still ratio? new regression? per-container? centralized?)
