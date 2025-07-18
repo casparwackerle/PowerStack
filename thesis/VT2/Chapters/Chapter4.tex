@@ -416,7 +416,7 @@ A node-level usage ratio is computed as:
 
 This represents a significantly simplified utilization model compared to prior versions, which relied on more granular hardware performance counters (e.g. instructions retired, cache misses). While the new architecture is once again designed in a modular way, this specific ratio model is not, perhaps suggesting that no user-selectable utilization metric is aimed for, as there was in the previous version.
 
-At the power measurement layer, Kepler continues to rely on RAPL readings, now referred to as ``energy zones''. In addition to standard \code{package}, \code{core}, \code{uncore}, and \code{dram} zones, Kepler v0.10.0 dynamically detects the \code{psys} domain, expanding applicability to non-server-grade processors. Multi-socket systems are supported via automatic aggregation of zones with identical names.
+At the power measurement layer, Kepler continues to rely on RAPL readings, now referred to as ``energy zones''. In addition to standard \code{package}, \code{core}, \code{uncore}, and \code{dram} zones, Kepler v0.10.0 dynamically detects the \code{psys} domain, expanding applicability to non-server-grade processors. Multi-socket systems are supported via automatic aggregation of identically named RAPL zones, with counter wraparounds correctly handled through delta calculations based on maximum energy values.
 
 Finally, pod lifecycle awareness has seen notable improvements. Kepler now tracks ephemeral and init containers explicitly, indexing container IDs via Kubernetes' native API server. This mitigates previous observability gaps for short-lived and Completed pods, which were previously problematic due to reliance on cAdvisor and cgroup detection alone.
 
@@ -439,13 +439,15 @@ The energy attribution model has undergone a substantial simplification. Kepler 
     \end{equation}
 \end{itemize}
 
-It is important to emphasize that container metrics are no longer derived from per-process metrics. Instead, both processes and containers draw energy directly from node-level active energy based on their own independently tracked CPU usage statistics. This parallel accounting structure avoids process-level aggregation but introduces the risk of double-counting energy when interpreting results, as processes and containers report independently attributed metrics.
+It is important to emphasize that container metrics are no longer derived from per-process metrics. Instead, both processes and containers draw energy directly from node-level active energy based on their own independently tracked CPU usage statistics. This parallel accounting structure avoids process-level aggregation.
 
 \paragraph{Critical Analysis}
 
-While Kepler v0.10.0 improves accessibility, security, and operational simplicity, these enhancements come at the cost of reduced modeling fidelity. CPU time has replaced more nuanced metrics such as CPU instructions and cache misses for workload attribution. The new model assumes linear energy scaling with CPU activity, disregarding workload heterogeneity and hardware-level power behaviors such as frequency scaling or turbo boost. Furthermore, the removal of idle power attribution at workload level, while addressing certain attribution errors, limits total energy accountability.
+While Kepler v0.10.0 improves accessibility, security, and operational simplicity, these enhancements come at the cost of reduced modeling fidelity. CPU time has replaced more nuanced metrics such as CPU instructions and cache misses for workload attribution. The new model assumes linear energy scaling with CPU activity, disregarding workload heterogeneity and hardware-level power behaviors such as frequency scaling or turbo boost. By not attributing idle power to workloads, Kepler focuses on actionable energy consumption linked to active resource use. While this limits full node-level energy accountability at workload granularity, it avoids inaccuracies introduced by arbitrary idle power distribution.
 
-From a research perspective, these changes represent a methodological regression. Kepler now favors accessibility over precision: while more deployable and stable, its measurements are less representative of actual workload energy use. As such, Kepler v0.10.0 should be viewed as an operational monitoring tool rather than a fine-grained energy analysis framework.
+Additionally, Kepler's model assumes that CPU time directly correlates to power consumption, overlooking variations introduced by CPU frequency scaling, idle states, instruction-level differences, and workload-specific resource behaviors (e.g. memory-bound tasks). These factors can significantly distort power attribution, especially in heterogeneous or bursty workloads.
+
+rom a research perspective, the simplification represents a methodological compromise: Kepler prioritizes operational deployability and stability over modeling granularity. While suitable for general monitoring, its current attribution model is less suited to detailed workload-specific energy analysis.
 
 \textit{In the author's view, Kepler's redesign trades attribution accuracy for simplicity and usability. While this architectural shift benefits practical deployment, it diminishes the tool's value for research-focused energy observability. Finer-grained temporal attribution and more diverse utilization metrics would have been desirable developments.}
 
