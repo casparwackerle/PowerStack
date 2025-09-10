@@ -63,6 +63,7 @@ k3s_cluster:
     monitoring_namespace: monitoring
     testing_namespace: testing  #careful: Testing scripts are not adjusted automatically
     prometheus_scrape_interval: 10s
+    prometheus_kepler_port: 9102
 
     # NodePorts. MUST BE BETWEEN 30000 AND 32767
     #rancher_custom_nodeport: 30001     # does not work, reachable instead on {{rancher_hostname}}

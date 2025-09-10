@@ -46,9 +46,17 @@ prometheus:
       - job_name: 'kepler-metrics'
         static_configs:
           - targets:
-              - {{ groups['server'][0] | default('') }}:9102  # Control node
-              - {{ groups['agent'][0] | default('') }}:9102   # Worker node 1
-              - {{ groups['agent'][1] | default('') }}:9102   # Worker node 2
+{% set scrape_port = prometheus_kepler_port | default(9102) %}
+{% set servers = groups['server'] | default([]) %}
+{% set agents  = groups['agent']  | default([]) %}
+{% set all_hosts = (servers + agents) %}
+{% if all_hosts|length > 0 %}
+{%   for h in all_hosts %}
+            - "{{ hostvars[h].internal_ip | default(h) }}:{{ scrape_port }}"
+{%   endfor %}
+{% else %}
+            []
+{% endif %}
     scrapeInterval: "{{ prometheus_scrape_interval }}"
     securityContext:
       enabled: true
