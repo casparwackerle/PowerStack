@@ -10,61 +10,62 @@
     helm repo add kepler {{ kepler_repo_url }}
     helm repo update
 
-- name: Check if kepler namespace exists
+- name: Check if tycho namespace exists
   command: kubectl get namespace {{ kepler_namespace }}
   register: namespace_check
   ignore_errors: true
 
-- name: Create kepler namespace if necessary
+- name: Create tycho namespace if necessary
   when: namespace_check.rc != 0
   command: kubectl create namespace {{ kepler_namespace }}
   ignore_errors: true
 
-- name: Ensure /var/lib/kepler directory exists
+- name: Ensure /var/lib/tycho directory exists
   file:
-    path: /var/lib/kepler
+    path: /var/lib/tycho
     state: directory
     owner: root
     group: root
     mode: '0755'
 
-- name: Check if kepler already exists
+- name: Check if tycho already exists
   stat:
-    path: /var/lib/kepler/kepler-installed
-  register: kepler_installed
+    path: /var/lib/tycho/tycho-installed
+  register: tycho_installed
 
-- name: Ensure kepler values file is rendered locally
+- name: Ensure tycho values file is rendered locally
   template:
-    src: kepler-values.yml.j2
-    dest: /tmp/kepler-values.yml  # Rendered on control machine
+    src: tycho-values.yml.j2      # was kepler-values.yml.j2
+    dest: /tmp/tycho-values.yml   # was /tmp/kepler-values.yml
   delegate_to: localhost
   become: false
 
-- name: Debug rendered kepler values file
-  command: cat /tmp/kepler-values.yml
+- name: Debug rendered tycho values file
+  command: cat /tmp/tycho-values.yml
   delegate_to: localhost
   run_once: true
   become: false
 
-- name: Copy kepler values file to the target machine
+- name: Copy tycho values file to the target machine
   copy:
-    src: /tmp/kepler-values.yml
-    dest: /tmp/kepler-values.yml
+    src: /tmp/tycho-values.yml
+    dest: /tmp/tycho-values.yml
     mode: '0644'
   become: true
 
-- name: Install kepler using Helm
-  when: not kepler_installed.stat.exists
+# Public-facing: Helm release name is now "tycho"
+- name: Install tycho (Kepler) using Helm
+  when: not tycho_installed.stat.exists
   shell: |
-    helm install kepler kepler/kepler \
+    helm install tycho kepler/kepler \
       --namespace {{ kepler_namespace }} \
-      -f /tmp/kepler-values.yml
+      -f /tmp/tycho-values.yml
   environment:
     KUBECONFIG: /home/ubuntu/.kube/config
   become: true
 
-- name: Mark kepler as installed
+- name: Mark tycho as installed
   file:
-    path: /var/lib/kepler/kepler-installed
+    path: /var/lib/tycho/tycho-installed
     state: touch
-  when: not kepler_installed.stat.exists
+  when: not tycho_installed.stat.exists
