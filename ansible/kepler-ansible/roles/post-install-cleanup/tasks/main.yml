@@ -14,6 +14,7 @@
     state: absent
   loop:
     - /tmp/kepler-values.yml
+    - /tmp/tycho-values.yml
     - /tmp/kepler-grafana-dashboard.json
     - /tmp/kepler-grafana-dashboard-configmap.yaml
   delegate_to: localhost
