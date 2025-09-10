@@ -5,7 +5,7 @@
   roles:
     - role: perf-event-config
 
-- name: Install and configure Kepler
+- name: Install and configure {{ kepler_name }}
   hosts: server
   become: true
   vars_files:

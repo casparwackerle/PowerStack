@@ -5,35 +5,35 @@
   args:
     creates: /usr/local/bin/helm
 
-- name: Add kepler repository and update Helm
+- name: Add {{ kepler_name }} repository and update Helm
   shell: |
-    helm repo add kepler {{ kepler_repo_url }}
+    helm repo add {{ kepler_name }} {{ kepler_repo_url }}
     helm repo update
 
-- name: Check if tycho namespace exists
+- name: Check if {{ kepler_namespace }} namespace exists
   command: kubectl get namespace {{ kepler_namespace }}
   register: namespace_check
   ignore_errors: true
 
-- name: Create tycho namespace if necessary
+- name: Create {{ kepler_namespace }} namespace if necessary
   when: namespace_check.rc != 0
   command: kubectl create namespace {{ kepler_namespace }}
   ignore_errors: true
 
-- name: Ensure /var/lib/tycho directory exists
+- name: Ensure /var/lib/{{ kepler_name }} directory exists
   file:
-    path: /var/lib/tycho
+    path: /var/lib/{{ kepler_name }}
     state: directory
     owner: root
     group: root
     mode: '0755'
 
-- name: Check if tycho already exists
+- name: Check if {{ kepler_name }} already exists
   stat:
-    path: /var/lib/tycho/tycho-installed
+    path: /var/lib/{{ kepler_name }}/{{ kepler_name }}-installed
   register: tycho_installed
 
-- name: Ensure tycho values file is rendered locally
+- name: Ensure {{ kepler_name }} values file is rendered locally
   template:
     src: tycho-values.yml.j2      # was kepler-values.yml.j2
     dest: /tmp/tycho-values.yml   # was /tmp/kepler-values.yml
@@ -46,26 +46,37 @@
   run_once: true
   become: false
 
-- name: Copy tycho values file to the target machine
+- name: Copy {{ kepler_name }} values file to the target machine
   copy:
     src: /tmp/tycho-values.yml
     dest: /tmp/tycho-values.yml
     mode: '0644'
   become: true
 
-# Public-facing: Helm release name is now "tycho"
-- name: Install tycho (Kepler) using Helm
-  when: not tycho_installed.stat.exists
+# # Public-facing: Helm release name is now "tycho"
+# - name: Install {{ kepler_name }} using Helm
+#   when: not tycho_installed.stat.exists
+#   shell: |
+#     helm install {{ kepler_name }} kepler/kepler \
+#       --namespace {{ kepler_namespace }} \
+#       --create-namespace \
+#       -f /tmp/tycho-values.yml
+#   environment:
+#     KUBECONFIG: /home/ubuntu/.kube/config
+#   become: true
+
+- name: Deploy {{ kepler_name }} via Helm (idempotent)
   shell: |
-    helm install tycho kepler/kepler \
-      --namespace {{ kepler_namespace }} \
+    helm upgrade --install tycho kepler/kepler \
+      --namespace tycho --create-namespace \
+      --wait --timeout 10m \
       -f /tmp/tycho-values.yml
   environment:
     KUBECONFIG: /home/ubuntu/.kube/config
   become: true
 
-- name: Mark tycho as installed
+- name: Mark {{ kepler_name }} as installed
   file:
-    path: /var/lib/tycho/tycho-installed
+    path: /var/lib/{{ kepler_name }}/{{ kepler_name }}-installed
     state: touch
   when: not tycho_installed.stat.exists

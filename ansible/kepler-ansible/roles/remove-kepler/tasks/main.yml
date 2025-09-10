@@ -1,8 +1,8 @@
 ---
 # Step 1: Uninstall kepler using Helm
-- name: Uninstall kepler stack Helm release
+- name: Uninstall {{ kepler_namespace }} stack Helm release
   shell: |
-    helm uninstall kepler -n monitoring
+    helm uninstall {{ kepler_name }} -n monitoring
   register: helm_uninstall_result
   failed_when: false
 - name: Debug Helm uninstall result
@@ -10,9 +10,9 @@
     var: helm_uninstall_result.stdout
 
 # Step 2: Delete kepler namespace
-- name: Delete kepler namespace
+- name: Delete {{ kepler_namespace }} namespace
   shell: |
-    kubectl delete namespace kepler --wait=false
+    kubectl delete namespace {{ kepler_namespace }} --wait=false
   register: namespace_delete_result
   failed_when: false
 - name: Debug namespace delete result
@@ -20,9 +20,9 @@
     var: namespace_delete_result.stdout
 
 # Step 6: Remove installation marker file
-- name: Remove kepler installation marker file
+- name: Remove {{ kepler_namespace }} installation marker file
   file:
-    path: /var/lib/kepler/kepler-installed
+    path: /var/lib/{{ kepler_name }}/{{ kepler_name }}installed
     state: absent
   become: true
 

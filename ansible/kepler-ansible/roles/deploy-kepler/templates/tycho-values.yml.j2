@@ -1,14 +1,14 @@
 ---
 # -- Replaces the name of the chart in the Chart.yaml file
-nameOverride: "tycho"
+nameOverride: ""
 # -- Replaces the generated name
-fullnameOverride: "tycho-energy"
+fullnameOverride: ""
 
 image:
   # -- Repository to pull the image from
   repository: "ghcr.io/casparwackerle/tycho-energy"
   # -- Image tag, if empty it will get it from the chart's appVersion
-  tag: ""
+  tag: "latest"
   # -- Pull policy
   pullPolicy: Always
 
@@ -83,7 +83,7 @@ serviceAccount:
 
 serviceMonitor:
   enabled: true
-  namespace: "kepler"
+  namespace: {{ kepler_namespace }} 
   interval: 10s
   scrapeTimeout: 5s
   labels: {}
