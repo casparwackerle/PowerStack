@@ -13,7 +13,7 @@
   roles:
    - deploy-benchmarking-pod
     # - deploy-pods-high-cpu
-   - deploy-pods-high-mem
+    # - deploy-pods-high-mem
    - install-tools
    - setup-openssh
    - install-kubecontrol
