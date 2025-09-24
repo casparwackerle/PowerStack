@@ -30,7 +30,9 @@
 %----------------------------
 %   Environments
 %----------------------------
-
+\setcounter{secnumdepth}{3}
+\usepackage{amsmath}
+\usepackage{array}
 \usepackage{caption}           % Customized caption
 \usepackage{subcaption}        % Subfigure captions
 \usepackage{makecell}          % Per-cell formatting in tables (\makecell)
@@ -116,10 +118,11 @@
     sorting=none,              % Enumerates the reference in order of their appearance
     style=numeric-comp         % Choose here your preferred citation style
 ]{biblatex}
-\addbibresource{example.bib}   % The filename of the bibliography
+\addbibresource{bibliography.bib}   % The filename of the bibliography
 \usepackage[autostyle=true]{csquotes} 
                                % Required to generate language-dependent quotes 
                                % in the bibliography
+\AtBeginBibliography{\tiny}  % This line sets a smaller font for the bibliography
 
 %----------------------------------------------------------------------------------------
 %   MARGIN SETTINGS
@@ -153,3 +156,32 @@
 
 \usepackage{etoolbox}
 \AtBeginDocument{\patchcmd{\include}{\@include}{\@input}{}{}}
+
+
+
+\usepackage{xparse}
+
+\ExplSyntaxOn
+
+% Define a breakable monospace macro
+\NewDocumentCommand{\code}{m}
+ {
+  \marian_codevar:n { #1 }
+ }
+
+\cs_new_protected:Npn \marian_codevar:n #1
+ {
+  \texttt{ \marian_insert_breaks:n { #1 } }
+ }
+
+\cs_new:Npn \marian_insert_breaks:n #1
+ {
+  \tl_set:Nn \l_tmpa_tl { #1 }
+  \tl_replace_all:Nnn \l_tmpa_tl { \_ } { \_\allowbreak }
+  \tl_use:N \l_tmpa_tl
+ }
+
+\ExplSyntaxOff
+
+\usepackage{array}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}

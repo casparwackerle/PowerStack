@@ -1,38 +1,18 @@
 \section{System Environment for Development, Build and Debugging}
 \label{sec:tycho_sysenv}
-This section documents the environment used to develop, build, and debug \textit{Tycho}. The description remains concise by design; detailed setup guides, manifests, and debug notes are maintained in the project repository \cite{TychoRepo}.
-
+This section documents the environment used to develop, build, and debug \textit{Tycho}; detailed guides live in \cite{TychoRepo}.
 
 \subsection{Host Environment and Assumptions}
 \label{sec:tycho_sysenv_host}
 
-All development and debugging activities for \textit{Tycho} were performed on bare-metal servers rather than virtualized instances. This choice was motivated by two factors. First, the target evaluation environment is equally based on bare-metal systems, which reduces the risk of discrepancies between development and deployment. Second, access to hardware-level telemetry is improved on enterprise-grade servers. Processor counters such as RAPL and GPU telemetry such as NVML provide more reliable results on these systems, while Redfish interfaces are typically not available on workstations.
+All development and debugging activities for \textit{Tycho} were performed on bare-metal servers rather than virtualized instances. Development matched the evaluation target and preserved access to hardware telemetry such as RAPL, NVML, and BMC Redfish. The host environment consisted of Lenovo ThinkSystem SR530 servers, equipped with Intel Xeon processors, 64 GB of memory, and a mix of solid-state and hard-disk storage. Each server is managed by the Lenovo XClarity Controller, which exposes a Redfish-capable BMC interface.
 
-The host environment consisted of Lenovo ThinkSystem SR530 servers, equipped with Intel Xeon processors, 64 GB of memory, and a mix of solid-state and hard-disk storage. Each server is managed by the Lenovo XClarity Controller, which exposes a Redfish-capable BMC interface. For the purpose of this work, the following characteristics are most relevant:
-\begin{itemize}
-    \item \textbf{CPU:} Intel Xeon Bronze 3104 with six cores at 1.70 GHz.
-    \item \textbf{Memory:} 64 GB DDR4.
-    \item \textbf{Storage:} Combination of SSDs for boot and persistent data, and HDDs for bulk storage.
-    \item \textbf{BMC:} Lenovo XClarity Controller, firmware version 8.88.
-\end{itemize}
-
-The systems ran Ubuntu 22.04 with a Linux 5.15 kernel. Full root access was available and required in order to access privileged interfaces such as eBPF. Kubernetes was installed directly on these servers using PowerStack\cite{PowerStack}, and served as the platform for deploying and testing \textit{Tycho}. The cluster was operated using \code{kubectl}, which was available on the development workstation and used to manage deployments. 
-
-Networking requirements were minimal. The servers were reachable via SSH within the university environment, with access restricted to authenticated users through a VPN connection.
-
-The main constraints of this environment were defined by the requirements of \textit{Tycho}. All workloads were executed natively on bare-metal, without virtualization. This ensured both the availability of accurate hardware telemetry and consistency with the system under test used in the evaluation phase.
+The systems ran Ubuntu 22.04 with a Linux 5.15 kernel. Full root access was available and required in order to access privileged interfaces such as eBPF. Kubernetes was installed directly on these servers using PowerStack\cite{PowerStack}, and served as the platform for deploying and testing \textit{Tycho}. Access was via VPN and SSH within the university network.
 
 \subsection{Build Toolchain}
 \label{sec:tycho_sysenv_build}
 
-\subsubsection{Workflows}
-\label{subsec:tycho_sysenv_build_workflows}
-The build and packaging setup for \textit{Tycho} supports two complementary ways of working that were used throughout development and evaluation.
-
-\begin{itemize}
-  \item \textbf{Dev oriented.} After code changes the exporter is built locally with \code{make build} and the resulting binary is executed directly on a Kubernetes node. This enables interactive debugging and rapid iteration without container packaging. The node uses the same operating system and kernel family as the system under test.
-  \item \textbf{Deploy oriented.} The exporter is built into a container image and pushed to the GitHub Container Registry. The image is deployed to the cluster as a privileged DaemonSet through \textit{PowerStack}. This mirrors the installation method used during evaluation and is used for end to end tests.
-\end{itemize}
+Two complementary workflows are used: a dev path (local build, run directly on a node for interactive debugging) and a deploy path (build a container image, push to GHCR, deploy as a privileged DaemonSet via \textit{PowerStack}).
 
 \subsubsection{Local builds}
 \label{subsec:tycho_sysenv_build_local}
@@ -40,89 +20,54 @@ The implementation language is Go, using \code{go version go1.25.1} on \code{lin
 
 \subsubsection{Container images}
 \label{subsec:tycho_sysenv_build_images}
-Container builds use Docker Buildx with multi arch output for \code{linux/amd64} and \code{linux/arm64}. Images are pushed to the GitHub Container Registry under the project repository. For convenience there are targets that build a base image and optional variants that enable GPU related components when required. When working locally the repository and tag can be selected through \code{IMAGE_REPO}, \code{IMAGE_NAME}, and \code{IMAGE_TAG}.
+Container builds use Docker Buildx with multi arch output for \code{linux/amd64} and \code{linux/arm64}. Images are pushed to the GitHub Container Registry under the project repository. For convenience there are targets that build a base image and optional variants that enable individual software components when required. 
 
 \subsubsection{Continuous integration}
 \label{subsec:tycho_sysenv_build_ci}
-GitHub Actions performs deterministic builds on pushes to the main branches and on demand. The workflow derives an immutable set of tags and publishes images to the registry:
-\begin{itemize}
-  \item \textbf{Commit tag.} A tag that encodes the commit identifier, which allows any build to be recovered later.
-  \item \textbf{Time stamped development tag.} A tag of the form \code{dev-YYYYMMDD-HHmmss} for ad hoc testing and short lived experiments.
-  \item \textbf{Latest.} Published for the \code{main} branch to denote the current release candidate when a specific tag is not pinned.
-\end{itemize}
-The workflow uses Buildx caching to reduce build time while keeping outputs reproducible. A short debug step prints the resolved tag set into the job log, which documents the exact image coordinates associated with a given commit.
+GitHub Actions produces deterministic images with an immutable commit-encoded tag, a time stamped dev tag, and a latest for \code{main}. Builds are triggered on pushes to the main branches and on demand. Buildx cache shortens builds without affecting reproducibility.
 
-\subsubsection{Version control and branching}
-\label{subsec:tycho_sysenv_build_vcs}
-Development proceeds on feature branches with pull requests into \code{main}. Release images are produced automatically for commits on \code{main}. Development images are produced for commits on \code{dev} and for feature branches when needed.
-
-\subsubsection{Dependencies and reproducibility}
-\label{subsec:tycho_sysenv_build_deps}
-Dependency management uses Go modules with a populated \path{vendor/} directory. The files \path{go.mod} and \path{go.sum} pin the module versions, and \code{go mod vendor} materializes the dependency tree for offline builds. The combination of vendored modules, immutable image tags, link time version metadata, and automated builds provides a consistent chain of evidence from source to binary and image. The description is intentionally kept concise. Installation instructions and component specific options are omitted in favor of documenting the decisions that ensure repeatable builds and the two workflows that support day to day development and deployment through \textit{PowerStack}.
+\subsubsection{Versioning and reproducibility}
+\label{subsec:tycho_sysenv_versioning}
+Development proceeds on feature branches with pull requests into \code{main}. Release images are produced automatically for commits on \code{main}. Development images are produced for commits on \code{dev} and for feature branches when needed. Dependency management uses Go modules with a populated \path{vendor/} directory. The files \path{go.mod} and \path{go.sum} pin the module versions, and \code{go mod vendor} materializes the dependency tree for offline builds. 
 
 \subsection{Debugging Environment}
 \label{sec:tycho_sysenv_debug}
-
-\subsubsection{Choice of debugger}
-\label{subsec:tycho_sysenv_debug_choice}
 The debugger used for \textit{Tycho} is \textbf{Delve} in headless mode with a Debug Adapter Protocol listener. This provides a stable front end for interactive sessions while the debugged process runs on the target node. Delve was selected because it is purpose built for Go, supports remote attach, and integrates reliably with common editors without altering the build configuration beyond standard debug symbols.
 
 \subsubsection{Remote debugging setup}
 \label{subsec:tycho_sysenv_debug_remote}
-Debug sessions are executed on a Kubernetes worker node. The exporter binary is started under Delve in headless mode with a DAP listener on a dedicated TCP port. The workstation connects over an authenticated channel. In practice an SSH tunnel is used to forward the listener port from the node to the workstation. This keeps the debugger endpoint inaccessible from the wider network and avoids additional access controls on the cluster. The debugged process is launched with the privileges required for eBPF and performance counters as described in \S\ref{sec:tycho_sysenv_host}. To prevent metric interference the node used for debugging excludes the deployed DaemonSet, so only the debug instance is active on that host.
+Debug sessions are executed on a Kubernetes worker node. The exporter binary is started under Delve in headless mode with a DAP listener on a dedicated TCP port. The workstation connects over an authenticated channel. In practice an SSH tunnel is used to forward the listener port from the node to the workstation. This keeps the debugger endpoint inaccessible from the wider network and avoids additional access controls on the cluster. To prevent metric interference the node used for debugging excludes the deployed DaemonSet, so only the debug instance is active on that host.
 
 \subsubsection{Integration with the editor}
 \label{subsec:tycho_sysenv_debug_ide}
 The editor is configured to attach through the Debug Adapter Protocol. In practice a minimal launch configuration points the adapter at the forwarded listener. Breakpoints, variable inspection, step control, and log capture work without special handling. No container specific extensions are required because the debugged process runs directly on the node.
 
-\subsubsection{Workflow}
-\label{subsec:tycho_sysenv_debug_workflow}
-Debugging follows the dev oriented path introduced in \S\ref{subsec:tycho_sysenv_build_workflows}. The iterative cycle is:
-\begin{itemize}
-  \item \textbf{Build locally.} Compile the exporter with \code{make build}. Version metadata is injected at link time to keep builds traceable.
-  \item \textbf{Launch on the node.} Start the binary under Delve in headless mode with a DAP listener. Ensure the required privileges for eBPF and counters are present.
-  \item \textbf{Attach from the workstation.} Establish an SSH tunnel to the listener port and attach from the editor through DAP.
-  \item \textbf{Iterate.} Set breakpoints, inspect state, adjust code, and repeat the cycle.
-\end{itemize}
-When the goal is to validate behavior in a cluster setting rather than to step through code, the deploy oriented path is used instead. In that case the image is built and pushed as described in \S\ref{subsec:tycho_sysenv_build_images} and \S\ref{subsec:tycho_sysenv_build_ci}, and observation relies on logs and metrics rather than an attached debugger.
+The editor attaches over the SSH-forwarded DAP port; the inner loop is build locally with \code{make}, launch under Delve with a DAP listener, attach via SSH, inspect, adjust, repeat. When the goal is to validate behavior in a cluster setting rather than to step through code, the deploy oriented path is used instead. In that case the image is built and pushed, and observation relies on logs and metrics rather than an attached debugger.
 
 \subsubsection{Limitations and challenges}
 \label{subsec:tycho_sysenv_debug_limits}
-Headless remote debugging introduces some constraints. Interactive sessions depend on network reachability and an SSH tunnel, which adds a small amount of latency. The debugged process must retain the privileges needed for eBPF and access to hardware counters, which narrows the choice of where to run sessions on multi tenant systems. Running a second exporter in parallel on the same node would distort measurements, which is why the DaemonSet is excluded on the debug host. Container based debugging is possible but less convenient given the required privileges and the need to coordinate with cluster security policies. For these reasons most active debugging uses a locally built binary that runs directly on the node, while container based deployments are reserved for integration tests and evaluation runs.
+Headless remote debugging introduces some constraints. Interactive sessions depend on network reachability and an SSH tunnel, which adds a small amount of latency. The debugged process must retain the privileges needed for eBPF and access to hardware counters, which narrows the choice of where to run sessions on multi tenant systems. Running a second exporter in parallel on the same node would distort measurements, which is why the DaemonSet is excluded on the debug host. Container based debugging is possible but less convenient given the need to coordinate with cluster security policies. For these reasons, most active debugging uses a locally built binary that runs directly on the node, while container based deployments are reserved for integration tests and evaluation runs.
 
 \subsection{Supporting Tools and Utilities}
 \label{sec:tycho_sysenv_util}
 
 \subsubsection{Configuration and local orchestration}
 \label{subsec:tycho_sysenv_util_config}
-A lightweight configuration file \path{config.yaml} consolidates development toggles that influence local runs and selective deployment. Repository scripts read this file and translate high level options into concrete command line flags and environment variables for the exporter and for auxiliary processes. This keeps day to day operations consistent without editing manifests or code, and aligns with the two workflows in \S~\ref{subsec:tycho_sysenv_build_workflows}.
+A lightweight configuration file \path{config.yaml} consolidates development toggles that influence local runs and selective deployment. Repository scripts read this file and translate high level options into concrete command line flags and environment variables for the exporter and for auxiliary processes. This keeps day to day operations consistent without editing manifests or code, and aligns with the two workflows in \S~\ref{subsec:tycho_sysenv_build}. Repository scripts map configuration keys to explicit flags for local runs, debug sessions, and ad hoc deploys.
 
-\subsubsection{Scripted entry points and flag mapping}
-\label{subsec:tycho_sysenv_util_scripts}
-Bootstrap scripts provide a small set of entry points for common tasks:
-\begin{itemize}
-  \item \textbf{Local run.} Parse \path{config.yaml} with \textit{yq} and start the exporter on the node with the required privileges from \S~\ref{sec:tycho_sysenv_host}. Flags such as log verbosity or probe selection are derived from the configuration and passed explicitly.
-  \item \textbf{Debug session.} Start the exporter under Delve with a listener for the Debug Adapter Protocol as in \S~\ref{subsec:tycho_sysenv_debug_remote}, then open an editor session that attaches through an SSH tunnel.
-  \item \textbf{Ad hoc deploy.} Build or select a development image as in \S~\ref{subsec:tycho_sysenv_build_images} and update the cluster side manifest with the same configuration values, so that local and cluster runs observe the same settings.
-\end{itemize}
-This pattern keeps the configuration declarative and the invocation explicit. It also makes future options easy to add by extending the mapping from configuration keys to flags.
+\subsubsection{Container, cluster, and monitoring utilities}
+\label{subsec:tycho_sysenv_util}
+Supporting tools: Docker, kubectl, Helm, k3s, Rancher, Ansible, Prometheus, Grafana. Each is used only where it reduces friction, for example Docker for image builds, kubectl for interaction, and Prometheus/Grafana for observability.
 
-\subsubsection{Container and cluster utilities}
-\label{subsec:tycho_sysenv_util_cluster}
-The following tools support the two workflows without duplicating functionality already described in \S~\ref{sec:tycho_sysenv_build}:
-\begin{itemize}
-  \item \textbf{Docker.} Build and test container images for the deploy oriented path.
-  \item \textbf{kubectl.} Interact with the cluster during development and evaluation.
-  \item \textbf{Helm.} Manage manifests when templating is convenient for parameter injection.
-  \item \textbf{k3s} Lightweight Kubernetes used in early automation stages and retained for compatibility.
-  \item \textbf{Rancher.} Browser based cluster administration, workload visibility, and convenient access to logs and metrics during tests.
-  \item \textbf{Ansible.} System level tasks and repeatable host preparation when needed.
-\end{itemize}
+\subsection{Relevance and Limitations}
+\label{sec:tycho_sysenv_relevance}
 
-\subsubsection{Monitoring and observability}
-\label{subsec:tycho_sysenv_util_monitoring}
-Prometheus and Grafana were available to inspect metrics and logs during development and when validating behavior in cluster runs. For active debugging the attached session from \S~\ref{subsec:tycho_sysenv_debug_workflow} was preferred. When container images were evaluated without an attached debugger, inspection relied on exporter logs, Prometheus queries, and ad hoc Grafana panels.
+\subsubsection{Scope and contribution}
+\label{subsec:tycho_sysenv_relevance_scope}
+The development, build, and debugging environment described in \S~\ref{sec:tycho_sysenv_build} and \S~\ref{sec:tycho_sysenv_debug} is enabling infrastructure rather than a scientific contribution. Its purpose is to make modifications to \textit{Tycho} feasible and to support evaluation, not to advance methodology in software engineering or tooling.
 
-\subsubsection{Rationale and scope}
-\label{subsec:tycho_sysenv_util_rationale}
-Only tools that remove friction from the two workflows or improve reproducibility are included here. Configuration parsing utilities such as \textit{yq} are mentioned once for completeness and are not discussed further. Detailed usage examples and scripts that implement the configuration to flag mapping live in the repository referenced at the beginning of this section in \S~\ref{sec:tycho_sysenv}.
+Documenting the environment serves reproducibility and auditability. A reader can verify that results were obtained on bare-metal with access to the required telemetry, and can reconstruct the build pipeline from source to binary and container image. The references to the repository at the start of this section in \S~\ref{sec:tycho_sysenv} provide the operational detail that is intentionally omitted from the main text.
+
+\subsubsection{Boundaries and omissions}
+\label{subsec:tycho_sysenv_relevance_bounds}
+Installation steps, editor-specific configuration, system administration, security hardening, and multi tenant policy are out of scope; concrete commands live in the repository. Where concrete commands matter for reproducibility they are available in the repository documentation cited in \S~\ref{sec:tycho_sysenv}.
