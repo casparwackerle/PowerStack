@@ -5,7 +5,7 @@ This section documents the environment used to develop, build, and debug \textit
 \subsection{Host Environment and Assumptions}
 \label{sec:tycho_sysenv_host}
 
-All development and debugging activities for \textit{Tycho} were performed on bare-metal servers rather than virtualized instances. Development matched the evaluation target and preserved access to hardware telemetry such as RAPL, NVML, and BMC Redfish. The host environment consisted of Lenovo ThinkSystem SR530 servers, equipped with Intel Xeon processors, 64 GB of memory, and a mix of solid-state and hard-disk storage. Each server is managed by the Lenovo XClarity Controller, which exposes a Redfish-capable BMC interface.
+All development and debugging activities for \textit{Tycho} were performed on bare-metal servers rather than virtualized instances. Development matched the evaluation target and preserved access to hardware telemetry such as RAPL, NVML, and BMC Redfish. The host environment consisted of Lenovo ThinkSystem SR530 servers (Xeon Bronze 3104, 64 GB DDR4, SSD+HDD, Redfish-capable BMC).
 
 The systems ran Ubuntu 22.04 with a Linux 5.15 kernel. Full root access was available and required in order to access privileged interfaces such as eBPF. Kubernetes was installed directly on these servers using PowerStack\cite{PowerStack}, and served as the platform for deploying and testing \textit{Tycho}. Access was via VPN and SSH within the university network.
 
