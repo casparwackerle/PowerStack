@@ -1,8 +1,8 @@
-\section{eBPF-Based CPU Time Attribution}
-\label{sec:ebpf-architecture}
+\section{ebpf-collector-Based CPU Time Attribution}
+\label{sec:ebpf-collector-architecture}
 
 \subsection{Scope and Motivation}
-\label{subsec:ebpf-scope-motivation}
+\label{subsec:ebpf-collector-scope-motivation}
 
 The kernel-level \code{eBPF} subsystem in Tycho provides the foundation for process-level energy attribution.  
 It captures CPU scheduling, interrupt, and performance-counter events directly inside the Linux kernel, translating them into continuous measurements of CPU ownership and activity.  
@@ -21,7 +21,7 @@ Cgroup identifiers are refreshed at every scheduling event to maintain accurate 
 The result is a stable, low-overhead data source that describes CPU usage continuously and with sufficient granularity to support fine-grained energy partitioning in the subsequent analysis.
 
 \subsection{Baseline and Architecture Overview}
-\label{subsec:ebpf-overview}
+\label{subsec:ebpf-collector-overview}
 
 Kepler’s kernel instrumentation consisted of a compact set of \code{eBPF} programs that sampled process-level CPU activity and a few hardware performance metrics.  
 The core tracepoint, \code{tp\_btf/sched\_switch}, captured context switches and estimated per-process runtime by measuring the on-CPU duration between successive events.  
@@ -43,7 +43,7 @@ Data flows linearly from tracepoints to per-CPU maps and onward to the userspace
 This architecture transforms Kepler’s periodic snapshot model into a streaming telemetry layer that maintains temporal consistency and provides the necessary basis for accurate, time-aligned energy attribution.
 
 \subsection{Kernel Programs and Data Flow}
-\label{subsec:ebpf-programs}
+\label{subsec:ebpf-collector-programs}
 
 Tycho’s \code{eBPF} subsystem consists of a small set of tracepoints and helper maps that together maintain a continuous record of CPU activity.  
 Each program updates per-CPU or per-task data structures in response to kernel events, ensuring that all processor time is accounted for across user, kernel, and idle contexts.
@@ -73,45 +73,48 @@ PMU event readers for cycles, instructions, and cache misses remain shared with 
 At runtime, data flows from tracepoints to these maps and then to the userspace collector through batched lookups, forming a deterministic, lock-free telemetry path from kernel to analysis.
 
 \subsection{Collected Metrics}
-\label{subsec:ebpf-metrics}
+\label{subsec:ebpf-collector-metrics}
 
 The kernel \code{eBPF} subsystem exports a defined set of metrics describing CPU usage at process and system levels.  
 These values are aggregated in kernel maps and periodically retrieved by the userspace collector for time-aligned energy analysis.  
-Table~\ref{tab:ebpf-metrics} summarizes all metrics grouped by category.
+Table~\ref{tab:ebpf-collector-metrics} summarizes all metrics grouped by category.
 
 \begin{table}[h]
-\centering
-\caption{Metrics collected by the kernel \code{eBPF} subsystem.}
-\label{tab:ebpf-metrics}
-\begin{tabular}{p{3cm} p{3.2cm} p{2.2cm} p{6.4cm}}
-\toprule
-\textbf{Metric} & \textbf{Source hook} & \textbf{Granularity} & \textbf{Description} \\
-\midrule
-\multicolumn{4}{l}{\textit{Time-based metrics}} \\[2pt]
-Process runtime & \code{tp\_btf/sched\_switch} & per process & Elapsed on-CPU time accumulated at context switches. \\
-Idle time & derived from \code{sched\_switch} & per CPU & Time with no runnable task (PID 0). \\
-IRQ time & \code{irq\_handler\_{\{entry,exit\}}} & per CPU & Duration spent in hardware interrupt handlers. \\
-SoftIRQ time & \code{softirq\_{\{entry,exit\}}} & per CPU & Duration spent in deferred kernel work. \\[4pt]
+    \centering
+    \begin{tabular}{p{3cm} p{3.4cm} p{6.2cm}}
+    \toprule
+    \textbf{Metric} & \textbf{Source hook} & \textbf{Description} \\
+    \midrule
+    \multicolumn{3}{l}{\textit{Time-based metrics}} \\[2pt]
+    Process runtime & \code{tp\_btf/sched\_switch} & Per process. Elapsed on-CPU time accumulated at context switches. \\
+    Idle time & Derived from \code{sched\_switch} & Per CPU. Time with no runnable task (PID 0). \\
+    IRQ time & \code{irq\_handler\_{\{entry,exit\}}} & Per CPU. Duration spent in hardware interrupt handlers. \\
+    SoftIRQ time & \code{softirq\_{\{entry,exit\}}} & Per CPU. Duration spent in deferred kernel work. \\[4pt]
+    
+    \multicolumn{3}{l}{\textit{Hardware-based metrics}} \\[2pt]
+    CPU cycles & PMU (\code{perf\_event\_array}) & Per process. Retired CPU cycle count during task execution. \\
+    Instructions & PMU (\code{perf\_event\_array}) & Per process. Retired instruction count. \\
+    Cache misses & PMU (\code{perf\_event\_array}) & Per process. Last-level cache misses; indicator of memory intensity. \\[4pt]
+    
+    \multicolumn{3}{l}{\textit{Classification and enrichment metrics}} \\[2pt]
+    Cgroup ID & \code{sched\_switch} & Per process. Control group identifier for container attribution. \\
+    Kernel thread flag & \code{sched\_switch} & Per process. Marks kernel threads executing in system context. \\
+    Page cache hits & \code{mark\_page\_accessed} & Per process. Read or write access to cached pages; proxy for I/O activity. \\
+    IRQ vectors & \code{softirq\_entry} & Per CPU. Frequency of specific soft interrupt vectors. \\
+    \bottomrule
+    \end{tabular}
+    \caption{Metrics collected by the kernel \code{eBPF} subsystem.}
+    \label{tab:ebpf-collector-metrics}
+    \end{table}
+    
 
-\multicolumn{4}{l}{\textit{Hardware-based metrics}} \\[2pt]
-CPU cycles & PMU (\code{perf\_event\_array}) & per process & Retired CPU cycle count during task execution. \\
-Instructions & PMU (\code{perf\_event\_array}) & per process & Retired instruction count. \\
-Cache misses & PMU (\code{perf\_event\_array}) & per process & Last-level cache miss count; indicates memory intensity. \\[4pt]
-
-\multicolumn{4}{l}{\textit{Classification and enrichment metrics}} \\[2pt]
-Cgroup ID & \code{sched\_switch} & per process & Control group identifier for container attribution. \\
-Kernel thread flag & \code{sched\_switch} & per process & Marks kernel threads executing in system context. \\
-Page cache hits & \code{mark\_page\_accessed} & per process & Read or write access to cached pages; proxy for I/O activity. \\
-IRQ vectors & \code{softirq\_entry} & per CPU & Frequency of specific soft interrupt vectors. \\
-\bottomrule
-\end{tabular}
-\end{table}
 
 Together these metrics form a coherent description of CPU activity.  
 Time-based data quantify ownership of processing resources, hardware counters capture execution intensity, and classification attributes link activity to its origin.  
 This dataset serves as the kernel-level foundation for energy attribution and higher-level modeling in userspace.
+
 \subsection{Integration with Energy Measurements}
-\label{subsec:ebpf-integration-energy}
+\label{subsec:ebpf-collector-integration-energy}
 
 The data exported from the kernel define how CPU resources are distributed among processes, kernel threads, interrupts, and idle periods during each observation window.  
 When combined with energy readings obtained over the same interval, these temporal shares provide the basis for proportional energy partitioning.  
@@ -123,7 +126,7 @@ This alignment ensures that every joule of measured energy can be traced to a sp
 Through this mechanism, the \code{eBPF} subsystem provides the precise temporal structure required for fine-grained, container-level energy attribution in the subsequent analysis stages.
 
 \subsection{Efficiency and Robustness}
-\label{subsec:ebpf-efficiency}
+\label{subsec:ebpf-collector-efficiency}
 
 The kernel instrumentation is designed to operate continuously with negligible system impact while ensuring correctness across kernel versions.  
 All high-frequency data reside in per-CPU maps, eliminating cross-core contention and locking.  
@@ -141,7 +144,7 @@ The idle task (PID 0) and kernel threads are handled explicitly to prevent user-
 Together, these measures yield a stable and version-tolerant tracing layer that can run indefinitely without producing inconsistent or overlapping samples.
 
 \subsection{Limitations and Future Work}
-\label{subsec:ebpf-limitations}
+\label{subsec:ebpf-collector-limitations}
 
 Although the extended \code{eBPF} subsystem provides comprehensive temporal coverage of CPU activity, several limitations remain.  
 Its precision is ultimately bounded by the granularity of available energy telemetry, as energy readings must be averaged over fixed sampling windows to remain stable.  

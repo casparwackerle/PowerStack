@@ -1,0 +1,83 @@
+\section{GPU Collector Integration}
+\label{sec:gpu_collector}
+
+The GPU collector extends Tycho’s measurement framework to include accelerator energy and utilization data. Building on Kepler’s existing device abstraction, it reuses and refines NVIDIA-specific collection paths while integrating them into Tycho’s modular timing and buffering architecture.
+
+\subsection{Overview and Objectives}
+\label{subsec:gpu_overview}
+
+The GPU collector extends Tycho’s energy measurement framework to include accelerator telemetry. Its purpose is not to introduce new metrics, but to integrate existing GPU energy and utilization data into Tycho’s synchronized collection cycle. By reusing and refining Kepler’s accelerator interface, Tycho can obtain GPU-level power and activity data without duplicating existing logic.  
+
+The collector operates identically across hardware tiers. On systems equipped with NVIDIA’s DCGM or NVML interfaces, it retrieves instantaneous power, utilization, and memory metrics, aligning them with Tycho’s monotonic timebase for unified analysis with CPU and platform energy data.
+
+\subsection{Architecture and Backend Selection}
+\label{subsec:gpu_backend}
+
+Kepler’s accelerator abstraction exposes a uniform device interface backed by multiple telemetry providers. Tycho reuses this structure to maintain compatibility and minimize maintenance effort. Two NVIDIA backends are supported: \code{DCGM} (Data Center GPU Manager) and \code{NVML} (NVIDIA Management Library).  
+
+DCGM is preferred when available, as it provides high-resolution telemetry, process-level utilization, and Multi-Instance GPU (MIG) awareness on enterprise hardware. NVML serves as a fallback for consumer-grade devices with limited instrumentation. This layered design ensures that Tycho can operate across development and production environments without configuration changes.  
+
+Through this abstraction, the GPU collector accesses metrics through a single interface. Backend selection, device enumeration, and capability handling are managed internally, allowing Tycho to treat GPU data as a consistent input source, regardless of the underlying driver.
+
+\subsection{Collected Metrics}
+\label{subsec:gpu_metrics}
+
+The GPU collector retrieves instantaneous and cumulative telemetry from the active accelerator backend (\code{DCGM} or \code{NVML}).  
+All values are sampled at fixed intervals and aligned to Tycho’s monotonic timebase.  
+Table~\ref{tab:gpu-metrics} lists the available input metrics.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{p{3cm} p{2cm} p{8cm}}
+\toprule
+\textbf{Metric} & \textbf{Unit} & \textbf{Description} \\
+\midrule
+\multicolumn{3}{l}{\textit{Utilization metrics}} \\[2pt]
+\code{SMUtilPct} & \% & Percentage of active streaming multiprocessors (SMs), representing compute load. \\
+\code{MemUtilPct} & \% & GPU memory controller utilization. \\
+\code{EncUtilPct} & \% & Hardware video encoder utilization. \\
+\code{DecUtilPct} & \% & Hardware video decoder utilization. \\[4pt]
+
+\multicolumn{3}{l}{\textit{Energy and thermal metrics}} \\[2pt]
+\code{PowerMilliW} & mW & Instantaneous power draw per device. \\
+\code{EnergyMicroJ} & µJ & Integrated energy derived from power samples over time. \\
+\code{TempC} & °C & Current GPU temperature. \\[4pt]
+
+\multicolumn{3}{l}{\textit{Memory and frequency metrics}} \\[2pt]
+\code{MemUsedBytes} & bytes & Allocated frame-buffer memory. \\
+\code{MemTotalBytes} & bytes & Total available frame-buffer memory. \\
+\code{SMClockMHz} & MHz & Streaming multiprocessor clock frequency. \\
+\code{MemClockMHz} & MHz & Memory clock frequency. \\
+\bottomrule
+\end{tabular}
+\caption{Metrics collected by the GPU collector.}
+\label{tab:gpu-metrics}
+\end{table}
+
+Together these metrics describe the GPU’s operational state and power consumption.  
+They provide the foundation for process-level energy attribution by combining instantaneous power with per-process utilization data retrieved from the same backend.
+
+\subsection{Integration and Data Flow}
+\label{subsec:gpu_flow}
+
+The GPU collector operates as an independent module within Tycho’s collection framework.  
+Initialization occurs during startup, where Kepler’s accelerator registry detects available devices and activates either the DCGM or NVML backend.  
+Once initialized, the collector periodically polls device metrics using Tycho’s scheduling engine and stores each result in a synchronized ring buffer.  
+
+Each collected sample is timestamped through the system’s monotonic clock to maintain temporal consistency with other subsystems such as RAPL and eBPF.  
+This design allows GPU data to be directly correlated with CPU and platform measurements during post-processing.  
+By aligning all sources under a shared timebase and buffer structure, Tycho guarantees consistent sampling intervals and deterministic integration across heterogeneous energy domains.
+
+\subsection{Robustness and Limitations}
+\label{subsec:gpu_limitations}
+
+The collector was designed for stability across varying hardware and driver configurations.  
+Additional validation and error handling were introduced to tolerate missing or partially initialized devices, ensuring safe operation even when GPUs are unavailable or the driver interface is incomplete. The NVML backend was slightly refactored for safer initialization and shutdown semantics. Device enumeration and map handling were hardened to prevent stale handles or nil dereferences during partial driver availability, improving resilience when GPUs are not yet ready or temporarily absent.
+These changes primarily improve reliability rather than extend measurement scope.
+
+Process-level resolution depends on backend capabilities.  
+Enterprise GPUs exposed through DCGM support per-process utilization, while consumer-grade devices using NVML typically provide aggregate values only.  
+This limitation affects attribution accuracy but does not compromise energy sampling itself.  
+
+The current implementation was validated on a consumer GPU; full verification on data-center hardware will follow once suitable test systems become available.  
+Despite these differences, the collector provides stable and temporally precise GPU telemetry, completing Tycho’s set of primary energy input sources.
