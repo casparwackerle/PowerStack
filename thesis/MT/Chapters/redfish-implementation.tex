@@ -1,0 +1,145 @@
+\section{Redfish Collector Integration}
+\label{sec:redfish_collector}
+
+The Redfish collector retrieves node-level power data from the server’s Baseboard Management Controller (BMC) via the Redfish API.  
+As an out-of-band source, it complements in-band interfaces such as RAPL by providing an external, hardware-validated view of total system power.  
+Tycho integrates this telemetry into its synchronized measurement framework, ensuring consistent timing and comparability across collectors.
+
+\subsection{Overview and Objectives}
+\label{subsec:redfish_overview}
+
+Redfish power metrics are vendor-defined and updated asynchronously, with variable latency and precision.  
+The Tycho implementation therefore focuses on reliability, timing control, and consistent timestamping.  
+All polling, freshness tracking, and temporal alignment are managed centrally by Tycho, allowing Redfish samples to be merged with other data sources for later workload-level energy attribution.
+
+\subsection{Baseline in Kepler}
+\label{subsec:redfish_baseline}
+
+In Kepler, the Redfish implementation provided a minimal wrapper around the BMC’s \code{/redfish/v1/Chassis/*/Power} endpoint.  
+Its sole purpose was to retrieve aggregated chassis power at a fixed interval and expose it through the node-level energy interface used by the power model.  
+The default polling frequency was set to 60 seconds, adequate for coarse monitoring but too infrequent for detailed analysis.
+
+At such long intervals, issues like repeated values or timing drift were largely masked by the coarse sampling period.  
+However, the design offered no mechanisms to detect new versus stale data, to associate samples with BMC timestamps, or to align readings precisely with other metrics.  
+The internal background ticker operated independently of other Kepler collectors, providing no unified notion of time or freshness.  
+Kepler’s Redfish integration was therefore sufficient for low-resolution system energy reporting, but not designed for higher measurement intervals or fine-grained temporal correlation.
+
+\subsection{Refactoring and Tycho Extensions}
+\label{subsec:redfish_refactor}
+\subsubsection{Timing Ownership and Polling Control}
+\label{subsubsec:redfish_timing}
+
+Tycho removes Kepler’s internal ticker and delegates all Redfish polling to its centralized timing engine. To account for the unpredictable nature of BMC update cycles, Tycho introduces an optional adaptive mode governed by \code{TYCHO\_REDFISH\_POLL\_AUTOTUNE}. 
+When enabled, the collector dynamically infers a suitable polling interval from observed publication gaps, learning the effective refresh frequency of the specific Redfish implementation. 
+When disabled, Tycho performs fixed-interval polling strictly at the user-defined cadence, preserving deterministic operation. 
+
+By externalizing timing control, the collector decouples sampling from Redfish’s internal pacing, enabling reproducible experiments and consistent temporal correlation with other measurement sources.
+
+\subsubsection{Header-Based Newness and Sequence Tracking}
+\label{subsubsec:redfish_newness}
+
+When polled at higher frequencies, Redfish endpoints often repeat identical payloads until the BMC updates its internal sensors.  
+To avoid redundant samples, Tycho introduces a lightweight newness detection mechanism combining HTTP headers and value comparison.  
+
+Each response is inspected for the \code{ETag} and \code{Date} headers.  
+If an \code{ETag} differs from the previously stored value, or if the \code{Date} timestamp is newer, the sample is treated as fresh.  
+If no header change is observed, Tycho falls back to value-based detection by comparing the reported power against the previous reading.  
+A monotonically increasing \code{seq} counter is maintained per chassis to mark every distinct update, allowing downstream components to identify repeated or skipped readings unambiguously.
+
+This design provides consistent differentiation between new and stale measurements without requiring vendor-specific heuristics.  
+It also ensures that timestamp alignment and freshness analysis remain reliable even when Redfish responses arrive irregularly or contain repeated values.
+
+\subsubsection{Heartbeat Mechanism and Freshness Metric}
+\label{subsubsec:redfish_heartbeat}
+
+Because Redfish publication intervals can vary considerably between BMC implementations, Tycho introduces a heartbeat mechanism to ensure continuous sample availability.  
+If no new data are received within a configurable timeout, defined by \code{TYCHO\_REDFISH\_HEARTBEAT\_MAX\_GAP\_MS}, the collector emits a heartbeat sample that reuses the last known power value.  
+This prevents temporal gaps in the time series and maintains a consistent data flow for later energy integration.
+
+Each emitted sample also carries a \emph{freshness} metric, representing the time difference between the Redfish-reported \code{Date} header (if present) and the local collection timestamp.  
+This value quantifies the staleness of a reading and allows the analysis layer to account for delayed or buffered updates.  
+In practice, freshness remains below one second on well-behaved BMCs but can increase significantly under heavy load or poor firmware timing.
+
+Together, the heartbeat and freshness metric allow Tycho to stabilize asynchronous Redfish data streams and provide temporal confidence estimates for each sample.
+
+\subsubsection{Fixed vs Auto Polling Mode}
+\label{subsubsec:redfish_autopoll}
+
+Tycho supports two complementary Redfish polling strategies, selectable via \code{TYCHO\_REDFISH\_POLL\_AUTOTUNE}.  
+In \emph{fixed mode} (\code{false}), polling occurs strictly at the user-defined cadence \code{TYCHO\_REDFISH\_POLL\_MS}.  
+This mode guarantees deterministic timing and is suited for controlled experiments where Redfish irregularities are tolerable or where timing synchronization with other collectors is critical.  
+
+When \emph{auto mode} (\code{true}) is enabled, the collector dynamically adjusts its internal expectations to match the observed publication rhythm of the BMC.  
+It derives the median inter-arrival time of new Redfish samples and adapts the expected heartbeat gap accordingly.  
+This allows the collector to align its emission behavior with the actual update frequency of the hardware, minimizing redundant polls and improving temporal coherence between samples.
+
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+THIS SECTION NEEDS TO BE UPDATED UPON CALIBRATION PACKAGE COMPLETION\\
+A future calibration module will further refine \code{POLL\_MS} and related delay parameters based on startup profiling, but this mechanism remains outside the collector itself.  
+Within Tycho, the auto mode provides a self-stabilizing behavior that balances responsiveness with measurement overhead, while the fixed mode ensures reproducibility for benchmark-oriented studies.
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+
+\subsection{Collected Metrics}
+\label{subsec:redfish_metrics}
+
+The Redfish collector retrieves instantaneous power readings from the BMC for each physical chassis.  
+Unlike software-based collectors, it provides direct hardware telemetry at node level and does not expose component-level breakdowns.  
+All readings are timestamped, aligned to Tycho’s global monotonic clock, and supplemented with freshness and sequence metadata to support temporal correlation.  
+Table~\ref{tab:redfish-metrics} lists the collected fields.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{p{3cm} p{2cm} p{8cm}}
+\toprule
+\textbf{Metric} & \textbf{Unit} & \textbf{Description} \\
+\midrule
+\multicolumn{3}{l}{\textit{Primary power metrics}} \\[2pt]
+\code{PowerWatts} & W & Instantaneous chassis power draw reported by the BMC via \code{/redfish/v1/Chassis/*/Power}. \\
+\code{EnergyMilliJ} & mJ & Integrated node energy derived from consecutive power samples (computed downstream). \\[4pt]
+
+\multicolumn{3}{l}{\textit{Temporal and identity metadata}} \\[2pt]
+\code{ChassisID} & - & Identifier of the chassis or enclosure corresponding to the Redfish endpoint. \\
+\code{Seq} & - & Incremental counter marking each new reading as determined by header or value changes. \\
+\code{SourceTime} & s & Original BMC timestamp parsed from the HTTP \code{Date} header, if available. \\
+\code{CollectorTime} & s & Local collection time according to Tycho’s monotonic clock. \\
+\code{FreshnessMs} & ms & Time difference between \code{SourceTime} and \code{CollectorTime}, indicating sample latency. \\[4pt]
+
+\multicolumn{3}{l}{\textit{Operational context}} \\[2pt]
+\code{Heartbeat} & flag & Marks a repeated emission when no new BMC data were available within the configured heartbeat interval. \\
+\code{PollMode} & enum & Indicates whether fixed or auto polling mode was active during sampling. \\
+\bottomrule
+\end{tabular}
+\caption{Metrics collected by the Redfish collector.}
+\label{tab:redfish-metrics}
+\end{table}
+
+These metrics provide a coherent node-level view of power consumption with explicit temporal context, forming the hardware baseline for higher-level attribution in later stages of the Tycho pipeline.
+
+\subsection{Integration and Data Flow}
+\label{subsec:redfish_integration}
+
+The Redfish collector operates as a passive data source within Tycho’s unified collection framework.  
+It queries the BMC through the Redfish API, extracts instantaneous chassis power, and writes each result into a synchronized ring buffer shared with the central engine.  
+Each record carries both system- and collection-time metadata, enabling later temporal alignment during analysis.  
+
+This integration layer is deliberately lightweight: the collector’s responsibility ends once valid samples are obtained and buffered.  
+All subsequent processing is handled by Tycho’s analysis modules.  
+This separation keeps the collector simple, minimizes coupling to higher layers, and isolates potential BMC irregularities from the rest of the system.
+
+\subsection{Accuracy and Robustness Improvements}
+\label{subsec:redfish_accuracy}
+
+Tycho introduces several measures to improve the precision and reliability of Redfish telemetry compared to Kepler.  
+Header-based newness detection ensures that only genuinely updated readings are processed, reducing redundant samples caused by repeated BMC responses.  
+Each reading carries a freshness metric that quantifies its temporal distance from the BMC’s internal timestamp, providing explicit visibility into data latency. A lightweight heartbeat mechanism compensates for occasional gaps or stalls in BMC reporting, maintaining continuity in the power time series without fabricating new information.  
+
+These measures collectively enhance stability across heterogeneous Redfish implementations and ensure that all retained samples are both valid and chronologically consistent.
+
+\subsection{Limitations}
+\label{subsec:redfish_limitations}
+
+Despite its improved design, the Redfish collector remains constrained by the capabilities and responsiveness of the underlying BMC.  
+Sampling frequency is typically limited to one or two seconds, and the precision of reported timestamps varies widely across vendors.  
+No component-level breakdown is available (only total chassis power), restricting fine-grained attribution to software-based collectors such as RAPL or eBPF.
