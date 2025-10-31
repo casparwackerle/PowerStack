@@ -1,0 +1,134 @@
+\section{Timing Engine}
+\label{sec:tycho_timing_engine}
+
+\subsection{Overview and Motivation}
+\label{subsec:tycho_timing_overview}
+
+Tycho introduces a dedicated timing engine that replaces the synchronous update loop used in Kepler with an event-driven, per-metric scheduling layer.  
+While the conceptual motivation for this change was discussed in \S~\ref{sec:theoretical_timing}, its practical purpose is straightforward: to decouple the collection frequencies of heterogeneous telemetry sources and to establish a common temporal reference for subsequent analysis.
+
+Each collector in Tycho (e.g., RAPL, eBPF, GPU, Redfish) operates under its own polling interval and is triggered by an aligned ticker maintained by the timing engine.  
+All tickers share a single epoch (base timestamp) and are aligned to a configurable time quantum, ensuring deterministic phase relationships and bounded drift across all metrics.  
+This architecture allows high-frequency sources to capture fine-grained temporal variation while preserving coherence with slower metrics.
+
+The timing engine thus provides the temporal backbone of Tycho: it defines *when* each collector produces samples and ensures that all samples can later be correlated on a unified, monotonic timeline.  
+Collected samples are pushed immediately into per-metric ring buffers, described in \S~\ref{sec:ringbuffer}, which retain recent histories for downstream integration and attribution.
+
+\subsection{Architecture and Design}
+\label{subsec:tycho_timing_design}
+
+The timing engine is implemented in the \code{engine.Manager} module.  
+It acts as a lightweight scheduler that governs the execution of all metric collectors through independent, phase-aligned tickers.  
+During initialization, each collector registers its callback function, polling interval, and enable flag with the manager.  
+Once started, the manager creates one aligned ticker per enabled registration and launches each collector in a dedicated goroutine.  
+All tickers share a single epoch, captured at startup, to guarantee deterministic alignment across collectors.
+
+This design contrasts sharply with the global ticker used in Kepler, where a single update loop refreshed all metrics at a fixed interval.  
+In Tycho, each ticker operates at its own cadence, determined by the configured polling period of the respective collector.  
+For instance, RAPL may poll every 50 ms, GPU metrics every 200 ms, and Redfish telemetry every second, yet all remain phase-aligned through the shared epoch.
+
+To maintain temporal consistency, the timing engine relies on the \code{clock} package, which defines both the aligned ticker and a monotonic timeline abstraction.  
+The aligned ticker computes the initial delay to the next multiple of the polling period and then emits ticks at strictly periodic intervals.  
+Each emitted epoch is converted into Tycho’s internal time representation using the \code{Mono} clock, which maps wall-clock time to discrete quantum indices.  
+The quantum defines the global temporal resolution (default: 1 ms) and guarantees strictly non-decreasing tick values, even under concurrency or system jitter.
+
+The engine imposes minimal constraints on collector behavior: callbacks are expected to perform non-blocking work, typically pushing samples into the respective ring buffer, and to return immediately.  
+This ensures low scheduling jitter and prevents slow collectors from influencing others.  
+Lifecycle control is context-driven: when the execution context is cancelled, all ticker goroutines stop gracefully, and the manager waits for their completion before shutdown.
+
+\subsection{Synchronization and Collector Integration}
+\label{subsec:tycho_timing_sync}
+
+All collectors in Tycho are synchronized through a shared temporal reference established at engine startup.  
+The \code{Manager} captures a single epoch and provides it to every aligned ticker, ensuring that all collectors operate on the same epoch even if their polling intervals differ by several orders of magnitude.  
+As a result, each collector’s tick sequence can be expressed as a deterministic multiple of the global epoch, allowing later correlation between independently sampled metrics without interpolation artefacts.
+
+Collectors register themselves before the timing engine is started.  
+Each registration includes the collector’s name, polling period, enable flag, and a \code{collect()} callback that executes whenever the corresponding ticker emits a tick.  
+This callback receives both the current execution context and the aligned epoch, which is immediately converted into Tycho’s internal monotonic time representation via the \code{Mono.From()} function.  
+The collector then packages its raw measurements into a typed sample and pushes it to its corresponding ring buffer.
+
+Because all collectors share the same monotonic clock and quantization step, the resulting sample streams can be merged and compared without further time normalization.  
+Fast sources, such as RAPL or eBPF, provide dense sequences of measurements at fine granularity, while slower sources such as Redfish or GPU telemetry produce sparser but phase-aligned data points.  
+This synchronization model eliminates the implicit coupling between sources that existed in Kepler and replaces it with a deterministic, time-driven coordination layer suitable for high-frequency, heterogeneous metrics.
+
+\subsection{Lifecycle and Configuration}
+\label{subsec:tycho_timing_lifecycle}
+
+The timing engine is initialized during Tycho’s startup phase, after the metric collectors and buffer managers have been constructed.  
+Before activation, each collector registers its collection parameters with the \code{Manager}, including polling intervals, enable flags, and callback references.  
+Once registration is complete, the engine locks its configuration and starts the aligned tickers.  
+Further modifications are prevented to guarantee a stable scheduling environment during runtime.
+
+At startup, all timing parameters are validated and normalized.  
+Invalid or negative values are rejected or normalized to safe defaults, and the global quantum is verified to be strictly positive.  
+Polling intervals and buffer windows are cross-checked to ensure consistency across collectors, and derived values such as buffer sizes are recomputed from the validated configuration.  
+This guarantees deterministic timing behavior even under partial or malformed configuration files.
+
+The configuration layer also provides flexible control over measurement cadence.  
+Polling periods for individual collectors can be adjusted independently, allowing users to balance temporal precision against system overhead.  
+The default parameters represent a high-frequency but safe baseline: 50 ms for RAPL, 50 ms for eBPF, 200 ms for GPU, and 1 s for Redfish telemetry.  
+All tickers are aligned to the global epoch defined by the monotonic clock, ensuring that these differences in cadence do not lead to drift over time.
+
+Engine termination is context-driven: cancellation of the parent context signals all tickers to stop, after which the manager waits for all goroutines to complete.  
+This unified shutdown mechanism ensures a clean and deterministic teardown sequence without leaving residual workers or buffers in undefined states.
+
+\subsection{Discussion and Limitations}
+\label{subsec:tycho_timing_limits}
+
+The timing engine establishes the foundation for Tycho’s decoupled and fine-grained metric collection.  
+By aligning all collectors to a shared epoch while allowing individual polling intervals, it eliminates the rigid synchronization that limited Kepler’s temporal accuracy.  
+This design provides a lightweight yet deterministic coordination layer, enabling heterogeneous telemetry sources to contribute time-consistent samples at their native cadence.
+
+The engine’s strengths lie in its simplicity and extensibility.  
+Each collector operates independently, governed by its own aligned ticker, while context-driven lifecycle control ensures deterministic startup and shutdown.  
+Because callbacks perform minimal, non-blocking work, jitter remains bounded even at high polling frequencies.  
+This structure scales naturally with the number of collectors and provides a separation between timing logic, collection routines, and subsequent analysis stages.
+
+Nevertheless, several practical limitations remain.  
+The current implementation assumes a stable system clock and does not compensate for jitter introduced by the Go runtime or external scheduling delays.  
+Collectors are expected to execute quickly; long-running or blocking operations may distort effective sampling intervals.  
+Moreover, the engine’s alignment is restricted to a single node and does not extend to multi-host synchronization, which would require external clock coordination.  
+At very high sampling rates, the cumulative scheduling overhead may also become non-negligible on resource-constrained systems.
+
+Despite these constraints, the timing engine represents a decisive architectural improvement over Kepler’s fixed-interval model.  
+It provides the temporal backbone for Tycho’s data collection pipeline and enables accurate, high-resolution correlation across diverse telemetry sources.  
+The following section, \S~\ref{sec:ringbuffer}, describes how these samples are buffered and retained for subsequent analysis, completing the temporal layer that underpins Tycho’s measurement and attribution framework.
+
+\section{Ring Buffer Implementation}
+\label{sec:ringbuffer}
+
+\subsection{Overview}
+\label{subsec:ringbuffer_overview}
+
+Tycho employs a per-metric ring buffer to store recent samples produced by the individual collectors.  
+Each collector owns a dedicated buffer that maintains a fixed number of entries, replacing the oldest values once full.  
+This approach provides predictable memory usage and allows fast, allocation-free access to recent measurement histories.  
+All samples are stored in chronological order and include a monotonic epoch, ensuring consistent temporal alignment with the timing engine.  
+The buffers are primarily used as transient storage for downstream analysis, enabling energy and utilization data to be correlated across metrics without incurring synchronization overhead.
+
+\subsection{Data Model and Sample Types}
+\label{subsec:ringbuffer_samples}
+
+Each ring buffer is strongly typed and holds a single metric-specific sample structure.  
+These sample types encapsulate the data collected by their respective sources and all embed the \code{SampleMeta} structure, which records Tycho’s monotonic epoch.  
+Depending on the metric, samples may contain simple scalar values or more complex objects such as maps or nested counters.  
+For example, a \code{RaplSample} stores per-socket energy readings in a map of domains, while \code{BpfSample} includes process-level counters and hardware event deltas.  
+This typed approach simplifies access and ensures that all samples, regardless of complexity, can be correlated on a uniform temporal axis defined by the timing engine.
+
+\subsection{Dynamic Sizing and Spare Capacity}
+\label{subsec:ringbuffer_sizing}
+
+The capacity of each ring buffer is determined dynamically at startup from the configured buffer window and the polling interval of the corresponding collector.  
+This calculation is performed by the \code{SizeForWindow()} function, which estimates the number of samples required to represent the desired time window and adds a small margin of spare capacity to tolerate irregular sampling or short bursts of delayed ticks.  
+As a result, each buffer maintains a stable temporal horizon while avoiding premature overwrites during transient load variations.  
+If configuration changes occur, buffers can be resized at runtime, preserving the most recent entries to ensure data continuity across reinitializations.
+
+\subsection{Thread Safety and Integration}
+\label{subsec:ringbuffer_sync}
+
+Each ring buffer can be wrapped in a synchronized variant to ensure safe concurrent access between collectors and analysis routines.  
+The synchronized type, \code{Sync[T]}, extends the basic ring with a read-write mutex, allowing simultaneous readers while protecting write operations during sample insertion.  
+In practice, collectors append samples concurrently to their respective synchronized buffers, while downstream components such as the analysis engine or exporters read snapshots asynchronously.  
+A central \code{Manager} maintains references to all buffers, handling creation, resizing, and typed access.  
+This design provides deterministic retention and thread safety without introducing locking overhead into the collectors themselves, keeping the critical path lightweight and predictable.

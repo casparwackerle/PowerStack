@@ -1,0 +1,119 @@
+\section{Configuration Management}
+\label{subsec:tycho_config}
+
+\subsection{Overview and Role in the Architecture}
+\label{subsubsec:tycho_config_overview}
+
+Tycho adopts a simple, centralized configuration layer that is initialized during exporter startup and made globally accessible through typed structures.
+This layer defines all runtime parameters controlling timing, collection, and analysis behaviour.
+It serves as the interface between user-defined settings and the internal scheduling and buffering logic described in \S~\ref{sec:tycho_timing}.
+
+The configuration is loaded once at startup, combining defaults, environment variables, and optional overrides passed through Helm or local flags.
+Its purpose is not to support dynamic reconfiguration, but to provide deterministic, reproducible operation across (experimental) runs.
+No backward compatibility with previous Kepler versions is maintained.
+
+\subsection{Configuration Sources}
+\label{subsubsec:tycho_config_sources}
+
+Configuration values can be provided in three ways:
+first, through a \code{values.yml} file during Helm installation,
+second, as command-line flags for local or debugging builds,
+and third, via predefined environment variables that act as defaults.
+
+During startup, Tycho sequentially evaluates these sources in fixed order—
+defaults are loaded first, then environment variables,
+followed by any user-supplied overrides.
+The resulting configuration is stored in memory and printed once for verification.
+After initialization, all components reference the same in-memory configuration,
+ensuring consistent behaviour across collectors and analysis modules.
+
+\subsection{Implementation and Environment Variables}
+\label{subsubsec:tycho_config_env}
+The configuration implementation in Tycho closely follows the approach used in Kepler~v0.9.0.
+Each configuration key is mapped to an environment variable, which is resolved at startup through dedicated lookup functions.
+If no variable is set, the corresponding default value is applied.
+This mechanism enables flexible configuration without external dependencies or complex parsing logic.
+All variables are read once during initialization, after which they are cached in typed configuration structures.
+This guarantees consistent operation even if environment variables change later, since Tycho is not designed for live reconfiguration.
+The configuration layer is invoked before the collectors and timing engine are instantiated,
+ensuring that parameters such as polling intervals, buffer sizes, or analysis triggers are available to all components from the first cycle onward.
+
+\subsubsection{Validation and Normalization at Startup}
+\label{subsubsec:tycho_config_validate}
+
+During initialization, Tycho validates all user inputs and normalizes them to a consistent, safe configuration.
+First, basic bounds are enforced: the global timebase quantum must be positive, non-negative values are required for all periods and delays, and missing essentials fall back to minimal defaults.
+Trigger coherence is then checked. If \code{redfish} is selected while the Redfish collector is disabled, Tycho switches to the timer trigger and ensures a valid interval. Unknown triggers default to \code{timer}.
+
+All periods and delays are aligned to the global quantum so that scheduling, buffering, and analysis operate on a common time grid.
+The analysis wait \code{DelayAfterMs} is raised if needed to cover the longest enabled per-source delay.
+Buffer sizing is derived from the slowest effective acquisition path (poll period plus delay) and the analysis wait, with a small safety margin.
+If Redfish is enabled, its heartbeat requirement is included to guarantee coverage.
+Sanity checks also ensure plausible Redfish cadence and warn if no collectors are enabled.
+Non-fatal environment hints (for example the RAPL powercap path) are reported at low verbosity.
+
+The result is a single, internally consistent configuration snapshot.
+Adjustments are announced once at startup to aid reproducibility while avoiding log noise.
+
+\subsection{Evolution in Newer Kepler Versions}
+\label{subsubsec:tycho_config_evolution}
+
+Subsequent Kepler releases (v0.10.0 and later) have replaced the environment-variable system with a unified configuration interface based on CLI flags and YAML files.
+This modernized approach simplifies configuration management and aligns better with Kubernetes conventions, providing clearer defaults and validation at startup.
+
+Tycho intentionally retains the v0.9.0 model to maintain structural continuity with its experimental foundation.
+Since configuration handling is not a research focus, adopting the newer scheme would add complexity without scientific benefit.
+Nevertheless, the newer Kepler design confirms that Tycho’s configuration logic can be migrated with minimal effort if long-term maintainability becomes a requirement.
+
+\subsection{Available Parameters}
+\label{subsubsec:tycho_config_parameters}
+
+All parameters are read at startup and remain constant throughout execution.
+The following table~\ref{tab:tycho_config_parameters} summarizes the user-facing configuration variables with their default values and functional scope.
+Internal or experimental parameters are omitted for clarity.
+
+
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+CHECK THIS TABLE BEFORE HANDIN, THIS NEEDS CLEANUP\\
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+\begin{table}[h]
+\centering
+\tiny
+\begin{tabular}{p{4.8cm} p{1.2cm} p{7cm}}
+\toprule
+\textbf{Variable} & \textbf{Default} & \textbf{Description} \\
+\midrule
+\multicolumn{3}{l}{\textit{Collector enable flags}} \\[2pt]
+\code{TYCHO\_COLLECTOR\_ENABLE\_BPF} & \code{true} & Enables eBPF-based process metric collection. \\
+\code{TYCHO\_COLLECTOR\_ENABLE\_RAPL} & \code{true} & Enables RAPL energy counter collection. \\
+\code{TYCHO\_COLLECTOR\_ENABLE\_GPU} & \code{true} & Enables GPU power telemetry collection. \\
+\code{TYCHO\_COLLECTOR\_ENABLE\_REDFISH} & \code{true} & Enables Redfish-based BMC power collection. \\[4pt]
+
+\multicolumn{3}{l}{\textit{Timing and delays}} \\[2pt]
+\code{TYCHO\_TIMEBASE\_QUANTUM\_MS} & \code{1} & Base system quantum (ms) defining the global monotonic time grid. \\
+\code{TYCHO\_RAPL\_POLL\_MS} & \code{50} & RAPL polling interval (ms). \\
+\code{TYCHO\_GPU\_POLL\_MS} & \code{200} & GPU telemetry polling interval (ms). \\
+\code{TYCHO\_REDFISH\_POLL\_MS} & \code{1000} & Redfish polling interval (ms); should be below BMC publish cadence. \\
+\code{TYCHO\_RAPL\_DELAY\_MS} & \code{0} & Expected delay between workload change and RAPL visibility (ms). \\
+\code{TYCHO\_GPU\_DELAY\_MS} & \code{200} & Expected delay between workload change and GPU visibility (ms). \\
+\code{TYCHO\_REDFISH\_DELAY\_MS} & \code{0} & Expected delay between workload change and Redfish visibility (ms). \\
+\code{TYCHO\_REDFISH\_HEARTBEAT\_MAX\_GAP\_MS} & \code{3000} & Maximum tolerated gap between consecutive Redfish samples (ms). \\[4pt]
+
+\multicolumn{3}{l}{\textit{Autotuning controls}} \\[2pt]
+\code{TYCHO\_RAPL\_POLL\_AUTOTUNE} & \code{true} & Enables automatic calibration of RAPL polling interval. \\
+\code{TYCHO\_RAPL\_DELAY\_AUTOTUNE} & \code{true} & Enables automatic calibration of RAPL delay. \\
+\code{TYCHO\_GPU\_POLL\_AUTOTUNE} & \code{true} & Enables automatic calibration of GPU polling interval. \\
+\code{TYCHO\_GPU\_DELAY\_AUTOTUNE} & \code{true} & Enables automatic calibration of GPU delay. \\
+\code{TYCHO\_REDFISH\_POLL\_AUTOTUNE} & \code{true} & Enables automatic calibration of Redfish polling interval. \\
+\code{TYCHO\_REDFISH\_DELAY\_AUTOTUNE} & \code{true} & Enables automatic calibration of Redfish delay. \\[4pt]
+
+\multicolumn{3}{l}{\textit{Analysis parameters}} \\[2pt]
+\code{TYCHO\_ANALYSIS\_TRIGGER} & \code{"timer"} & Defines analysis trigger: \code{redfish} or \code{timer}. \\
+\code{TYCHO\_ANALYSIS\_EVERY\_SEC} & \code{15} & Interval for timer-based analysis (s). \\
+\code{TYCHO\_ANALYSIS\_DETECT\_LONGEST\_DELAY} & \code{false} & Enables detection of the longest observed metric delay. \\
+\bottomrule
+\end{tabular}
+\caption{User-facing configuration variables available in Tycho.}
+\label{tab:tycho_config_parameters}
+\end{table}
+
