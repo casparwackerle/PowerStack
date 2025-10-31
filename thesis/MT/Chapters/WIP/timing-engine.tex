@@ -101,34 +101,34 @@ The following section, \S~\ref{sec:ringbuffer}, describes how these samples are 
 \subsection{Overview}
 \label{subsec:ringbuffer_overview}
 
-Tycho employs a per-metric ring buffer to store recent samples produced by the individual collectors.  
-Each collector owns a dedicated buffer that maintains a fixed number of entries, replacing the oldest values once full.  
-This approach provides predictable memory usage and allows fast, allocation-free access to recent measurement histories.  
-All samples are stored in chronological order and include a monotonic epoch, ensuring consistent temporal alignment with the timing engine.  
+Tycho employs a per-metric ring buffer to store recent collection ticks produced by the individual collectors.
+Each collector owns a dedicated buffer that maintains a fixed number of entries, replacing the oldest values once full.
+This approach provides predictable memory usage and allows fast, allocation-free access to recent measurement histories.
+All ticks are stored in chronological order and include a monotonic epoch, ensuring consistent temporal alignment with the timing engine.
 The buffers are primarily used as transient storage for downstream analysis, enabling energy and utilization data to be correlated across metrics without incurring synchronization overhead.
 
 \subsection{Data Model and Sample Types}
 \label{subsec:ringbuffer_samples}
 
-Each ring buffer is strongly typed and holds a single metric-specific sample structure.  
-These sample types encapsulate the data collected by their respective sources and all embed the \code{SampleMeta} structure, which records Tycho’s monotonic epoch.  
-Depending on the metric, samples may contain simple scalar values or more complex objects such as maps or nested counters.  
-For example, a \code{RaplSample} stores per-socket energy readings in a map of domains, while \code{BpfSample} includes process-level counters and hardware event deltas.  
-This typed approach simplifies access and ensures that all samples, regardless of complexity, can be correlated on a uniform temporal axis defined by the timing engine.
+Each ring buffer is strongly typed and holds a single metric-specific tick structure.
+These tick types encapsulate all data collected during one polling interval and embed the \code{SampleMeta} structure, which records Tycho’s monotonic epoch.
+Depending on the metric, a tick may contain simple scalar values (e.g., total node power) or collections of per-entity deltas (e.g., per-process counters, per-GPU readings, or per-domain energy data).
+For example, a \code{RaplTick} stores per-socket energy deltas across all domains, while a \code{BpfTick} aggregates process-level counters and hardware event deltas observed during that tick.
+This typed approach simplifies access and ensures that all metric data (regardless of complexity) can be correlated on a uniform temporal axis defined by the timing engine.
 
 \subsection{Dynamic Sizing and Spare Capacity}
 \label{subsec:ringbuffer_sizing}
 
-The capacity of each ring buffer is determined dynamically at startup from the configured buffer window and the polling interval of the corresponding collector.  
-This calculation is performed by the \code{SizeForWindow()} function, which estimates the number of samples required to represent the desired time window and adds a small margin of spare capacity to tolerate irregular sampling or short bursts of delayed ticks.  
-As a result, each buffer maintains a stable temporal horizon while avoiding premature overwrites during transient load variations.  
+The capacity of each ring buffer is determined dynamically at startup from the configured buffer window and the polling interval of the corresponding collector.
+This calculation is performed by the \code{SizeForWindow()} function, which estimates the number of ticks required to represent the desired time window and adds a small margin of spare capacity to tolerate irregular sampling or short bursts of delayed polls.
+As a result, each buffer maintains a stable temporal horizon while avoiding premature overwrites during transient load variations.
 If configuration changes occur, buffers can be resized at runtime, preserving the most recent entries to ensure data continuity across reinitializations.
 
 \subsection{Thread Safety and Integration}
 \label{subsec:ringbuffer_sync}
 
-Each ring buffer can be wrapped in a synchronized variant to ensure safe concurrent access between collectors and analysis routines.  
-The synchronized type, \code{Sync[T]}, extends the basic ring with a read-write mutex, allowing simultaneous readers while protecting write operations during sample insertion.  
-In practice, collectors append samples concurrently to their respective synchronized buffers, while downstream components such as the analysis engine or exporters read snapshots asynchronously.  
-A central \code{Manager} maintains references to all buffers, handling creation, resizing, and typed access.  
+Each ring buffer can be wrapped in a synchronized variant to ensure safe concurrent access between collectors and analysis routines.
+The synchronized type, \code{Sync[T]}, extends the basic ring with a read-write mutex, allowing simultaneous readers while protecting write operations during tick insertion.
+In practice, collectors append new ticks concurrently to their respective synchronized buffers, while downstream components such as the analysis engine or exporters read snapshots asynchronously.
+A central \code{Manager} maintains references to all buffers, handling creation, resizing, and typed access.
 This design provides deterministic retention and thread safety without introducing locking overhead into the collectors themselves, keeping the critical path lightweight and predictable.
