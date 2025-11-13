@@ -1,0 +1,82 @@
+% !TEX root = ../main.tex
+
+%----------------------------------------------------------------------------------------
+% APPENDIX A
+%----------------------------------------------------------------------------------------
+
+\chapter{KEPLER-provided power metrics} % Main appendix title
+
+\label{AppendixA} % For referencing this appendix elsewhere, use \ref{AppendixA}
+
+\section{Summary of KEPLER-Produced Metrics,\\ according to KEPLER documentation\parencite{KEPLERDocumentation}}
+
+KEPLER collects metrics at both container and node levels, focusing on energy consumption, resource utilization, and platform-specific data.
+
+\subsection{Container-Level Metrics}
+
+\subsubsection{Energy Consumption}
+\begin{itemize}
+    \item \textbf{kepler\textunderscore container\textunderscore joules\textunderscore total}: This metric is the aggregated package/socket energy consumption of CPU, dram, gpus, and other host components for a given container. Each component has individual metrics which are detailed next in this document.
+    This metric simplifies the Prometheus metric for performance reasons. A very large promQL query typically introduces a very high overhead on Prometheus.
+    \item \textbf{kepler\textunderscore container\textunderscore core\textunderscore joules\textunderscore total}: This measures the total energy consumption on CPU cores that a certain container has used. Generally, when the system has access to RAPL metrics, this metric will reflect the proportional container energy consumption of the RAPL Power Plan 0 (PP0), which is the energy consumed by all CPU cores in the socket. However, this metric is processor model specific and may not be available on some server CPUs. The RAPL CPU metric that is available on all processors that support RAPL is the package, which we will detail on another metric.
+    In some cases where RAPL is available but core metrics are not, Kepler may use the energy consumption package. But note that package energy consumption is not just from CPU cores, it is all socket energy consumption.
+    In case RAPL is not available, Kepler might estimate this metric using the model server.
+    \item \textbf{kepler\textunderscore container\textunderscore dram\textunderscore joules\textunderscore total}: This metric describes the total energy spent in DRAM by a container.
+    \item \textbf{kepler\textunderscore container\textunderscore uncore\textunderscore joules\textunderscore total}: This measures the cumulative energy consumed by certain uncore components, which are typically the last level cache, integrated GPU and memory controller, but the number of components may vary depending on the system. The uncore metric is processor model specific and may not be available on some server CPUs.
+    When RAPL is not available, Kepler can estimate this metric using the model server if the node CPU supports the uncore metric.
+    \item \textbf{kepler\textunderscore container\textunderscore package\textunderscore joules\textunderscore total}: This measures the cumulative energy consumed by the CPU socket, including all cores and uncore components (e.g. last-level cache, integrated GPU and memory controller). RAPL package energy is typically the PP0 + PP1, but PP1 counter may or may not account for all energy usage by uncore components. Therefore, package energy consumption may be higher than core + uncore.
+    When RAPL is not available, Kepler might estimate this metric using the model server.
+    \item \textbf{kepler\textunderscore container\textunderscore other\textunderscore joules\textunderscore total}: This measures the cumulative energy consumption on other host components besides the CPU and DRAM. The vast majority of motherboards have a energy consumption sensor that can be accessed via the kernel acpi or ipmi. This sensor reports the energy consumption of the entire system. In addition, some processor architectures support the RAPL platform domain (PSys) which is the energy consumed by the "System on a chipt" (SOC).
+    Generally, this metric is the host energy consumption (from acpi) less the RAPL Package and DRAM.
+    \item \textbf{kepler\textunderscore container\textunderscore gpu\textunderscore joules\textunderscore total}: This measures the total energy consumption on the GPUs that a certain container has used. Currently, Kepler only supports NVIDIA GPUs, but this metric will also reflect other accelerators in the future. So when the system has NVIDIA GPUs, Kepler can calculate the energy consumption of the container's gpu using the GPU's processes energy consumption and utilization via NVIDIA nvml package.
+\end{itemize}
+
+\subsubsection{Resource Utilization}
+\begin{itemize}
+    \item \textbf{Base Metric}
+    \begin{itemize}
+        \item \textbf{kepler\textunderscore container\textunderscore bpf\textunderscore cpu\textunderscore time\textunderscore us\textunderscore total}: This measures the total CPU time used by the container using BPF tracing. This is a minimum exposed metric.
+    \end{itemize}
+    \item \textbf{Hardware Counter Metrics}
+    \begin{itemize}
+        \item \textbf{kepler\textunderscore container\textunderscore cpu\textunderscore cycles\textunderscore total}: This measures the total CPU cycles used by the container using hardware counters. To support fine-grained analysis of performance and resource utilization, hardware counters are particularly desirable due to its granularity and precision..
+        The CPU cycles is a metric directly related to CPU frequency. On systems where processors run at a fixed frequency, CPU cycles and total CPU time are roughly equivalent. On systems where processors run at varying frequencies, CPU cycles and total CPU time will have different values.
+        \item \textbf{kepler\textunderscore container\textunderscore cpu\textunderscore instructions\textunderscore total}: This measure the total cpu instructions used by the container using hardware counters.
+        CPU instructions are the de facto metric for accounting for CPU utilization.
+        \item \textbf{kepler\textunderscore container\textunderscore cache\textunderscore miss\textunderscore total}: This measures the total cache miss that has occurred for a given container using hardware counters.
+        As there is no event counter that measures memory access directly, the number of last-level cache misses gives a good proxy for the memory access number. If an LLC read miss occurs, a read access to main memory should occur (but note that this is not necessarily the case for LLC write misses under a write-back cache policy).
+    \end{itemize}
+    \item \textbf{IRQ Metrics}
+    \begin{itemize}
+        \item \textbf{kepler\textunderscore container\textunderscore bpf\textunderscore net\textunderscore tx\textunderscore irq\textunderscore total}: This measures the total transmitted packets to network cards of the container using BPF tracing.
+        \item \textbf{kepler\textunderscore container\textunderscore bpf\textunderscore net\textunderscore rx\textunderscore irq\textunderscore total}: This measures the total packets received from network cards of the container using BPF tracing.
+        \item \textbf{kepler\textunderscore container\textunderscore bpf\textunderscore block\textunderscore irq\textunderscore total}: This measures block I/O called of the container using BPF tracing.
+    \end{itemize}
+\end{itemize}
+
+\subsection{Node-Level Metrics}
+
+\subsubsection{Energy Consumption}
+\begin{itemize}
+    \item \textbf{kepler\textunderscore node\textunderscore core\textunderscore joules\textunderscore total}: Similar to container metrics, but representing the aggregation of all containers running on the node and operating system (i.e. "system\textunderscore process").
+    \item \textbf{kepler\textunderscore node\textunderscore dram\textunderscore joules\textunderscore total}: Similar to container metrics, but representing the aggregation of all containers running on the node and operating system (i.e. "system\textunderscore process").
+    \item \textbf{kepler\textunderscore node\textunderscore uncore\textunderscore joules\textunderscore total}: Similar to container metrics, but representing the aggregation of all containers running on the node and operating system (i.e. "system\textunderscore process").
+    \item \textbf{kepler\textunderscore node\textunderscore package\textunderscore joules\textunderscore total}: Similar to container metrics, but representing the aggregation of all containers running on the node and operating system (i.e. "system\textunderscore process").
+    \item \textbf{kepler\textunderscore node\textunderscore other\textunderscore joules\textunderscore total}: Similar to container metrics, but representing the aggregation of all containers running on the node and operating system (i.e. "system\textunderscore process").
+    \item \textbf{kepler\textunderscore node\textunderscore gpu\textunderscore joules\textunderscore total}: Similar to container metrics, but representing the aggregation of all containers running on the node and operating system (i.e. "system\textunderscore process").
+    \item \textbf{kepler\textunderscore node\textunderscore platform\textunderscore joules\textunderscore total}: This metric represents the total energy consumption of the host.
+    The vast majority of motherboards have a energy consumption sensor that can be accessed via the acpi or ipmi kernel. This sensor reports the energy consumption of the entire system. In addition, some processor architectures support the RAPL platform domain (PSys) which is the energy consumed by the "System on a chipt" (SOC).
+    Generally, this metric is the host energy consumption from Redfish BMC or acpi.
+\end{itemize}
+
+\subsubsection{Node Metadata}
+\begin{itemize}
+    \item \textbf{kepler\textunderscore node\textunderscore info}: This metric shows the node metadata like the node CPU architecture.
+    \item \textbf{kepler\textunderscore node\textunderscore energy\textunderscore stat}: This metric contains multiple metrics from nodes labeled with container resource utilization cgroup metrics that are used in the model server.
+    This metric is specific to the model server and can be updated at any time.
+\end{itemize}
+
+\subsubsection{Accelerator Metrics}
+\begin{itemize}
+    \item \textbf{kepler\textunderscore node\textunderscore accelerator\textunderscore intel\textunderscore qat}: This measures the utilization of the accelerator Intel QAT on a certain node. When the system has Intel QATs, Kepler can calculate the utilization of the node's QATs through telemetry.
+\end{itemize}

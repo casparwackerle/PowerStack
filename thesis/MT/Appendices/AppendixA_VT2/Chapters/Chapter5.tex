@@ -1,0 +1,230 @@
+\chapter{Conclusion and Future Work}
+\label{Chapter5}
+
+\section{Summary of Findings}
+
+This thesis confirms that attributing energy consumption to containerized workloads remains an inherently complex and uncertain task. While existing tools can provide detailed measurements, none can achieve exact results: fundamentally, every method introduces estimation errors due to limitations in data sources and methodological assumptions. Measurement uncertainty is unavoidable and varies depending on the chosen metrics and approach.
+
+The analyzed tools demonstrate significantly different design philosophies, largely reflecting their intended audiences and operational environments. For example, Kepler’s earlier versions (v0.9.0) prioritized measurement granularity and resource-level accuracy, relying on eBPF instrumentation and hardware counters to achieve fine-grained attribution. In contrast, Kepler’s latest version (v0.10.0) adopts a simplified, CPU-time-based attribution model that sacrifices accuracy in favor of deployability, security, and operational stability, suggesting a strategic shift.
+
+The intended audience of a measurement tool is a critical factor influencing its architecture. Researchers and infrastructure engineers working on system optimization may demand maximal granularity and accuracy, accepting additional overhead and complexity. Developers, in contrast, often seek only high-level visibility into container-level energy consumption and may prefer black-box tools that abstract away implementation details. Cluster operators balance energy awareness with priorities such as security, availability, and maintainability; conditions that typically preclude privileged monitoring techniques like eBPF.
+
+Across all tools, Intel’s RAPL interface emerges as the most reliable and promising source of real-time energy telemetry for CPU and DRAM domains. Its millisecond-level update frequency theoretically enables highly granular measurements. However, most tools (including Kepler) fail to exploit this potential. Multi-second sampling intervals remain standard, reducing the fidelity of captured workload dynamics and limiting attribution accuracy, especially for heterogeneous workloads characterized by short-lived or bursty processes. Granular temporal analysis is thus identified as a key requirement for accurate energy attribution in complex environments. Fine-grained tracking better captures workload diversity and transient behavior but introduces computational overhead. Tools attempt to balance these competing concerns, but no clear consensus or universally optimal strategy emerges.
+
+Another important trade-off lies between estimation and accuracy. While perfect energy attribution is unattainable, approximate models provide valuable insights even at lower precision. This thesis argues that estimation remains worthwhile, especially in multi-tenant and dynamic environments where detailed hardware telemetry is unavailable or incomplete.
+
+Notably, all examined tools focus exclusively on CPU, RAM, and GPU energy consumption. No attempt is made to estimate power consumption of other system components such as storage devices or network interfaces. Extending measurement capabilities beyond the core compute elements presents a significant research opportunity. While such estimations are inherently less precise, even approximate visibility could enhance observability and inform optimization efforts.
+
+In conclusion, energy attribution in containerized systems is a balancing act between detail and practicality. Existing tools demonstrate that both high-accuracy and operational simplicity are valid design goals, serving different user groups and system environments. RAPL remains central to accurate measurement, but practical deployment constraints often limit its effective use. Achieving reliable and actionable power monitoring requires careful architectural decisions, guided by the specific needs of the intended audience and the realities of the deployment environment.
+
+\section{Critical Reflection}
+
+\subsection{Methodological Reflection}
+
+This thesis adopts a purely analytical approach, centered on literature review, code analysis, and architectural evaluation of existing container-level energy attribution tools, as well as potential sources of information. This methodological choice aligns with the intended scope of the project: as a VT2-level research work, the thesis was designed to provide a theoretical foundation for subsequent practical development.
+
+While the thesis proposes concrete recommendations for future tool design (see Section~\ref{sec:future-tools}), it deliberately refrains from developing a full tool architecture or implementation. Instead, the findings are intended to inform such efforts in future research, particularly within the scope of the author’s upcoming master's thesis.
+
+While empirical validation through experimental benchmarking was deliberately omitted to prioritize tool coverage and architectural analysis, this remains a methodological limitation. Validation insights from existing literature were integrated where available.
+
+The focus on Linux and Kubernetes environments further narrows the applicability of the findings. Alternative infrastructures, proprietary tools or telemetry sources (e.g. OEM-specific BMC energy reporting interfaces) were not explored in depth. This reflects both the author's area of expertise and the practical relevance of Kubernetes in modern cloud environments but limits generalizability.
+
+Despite these limitations, the thesis’s core strengths lie in its detailed inspection of source metics, tool architectures and source code, combined with a practical understanding of Kubernetes-based deployments. This approach allowed the identification of undocumented behaviors, implementation inconsistencies, and unaddressed design trade-offs in tools such as Kepler, Scaphandre, and SmartWatts.
+
+In summary, while empirical validation and cross-environment generalization are lacking, the thesis successfully fulfills its role as a theoretical exploration of container energy attribution, providing a solid analytical foundation for future tool development and evaluation.
+
+\subsection{Tool Adoption in Real-World Systems}
+
+A critical reflection of container-level energy attribution tools reveals significant barriers to their adoption in production environments. Chief among these are security concerns and the need for privileged access. Tools that rely on kernel-level instrumentation, such as eBPF or \code{perf\_event\_open}, often require elevated permissions, introducing potential security risks. For most cluster operators, energy monitoring remains a secondary concern compared to reliability, availability, and security. This limits the practical deployment of high-precision tools in real-world systems.
+
+Operational simplicity frequently outweighs measurement accuracy. Tools with complex configurations, hardware-specific dependencies, or non-standard export interfaces are typically avoided, even if they promise higher measurement fidelity. In practice, both industry users and academic researchers often treat energy monitoring tools as black boxes. This is evident from the widespread use of tools like Kepler and Scaphandre without detailed validation or configuration tuning. While these tools offer configurability, leveraging it requires substantial technical understanding, which many users lack or are unwilling to invest.
+
+As a result, most energy monitoring tools prioritize usability over accuracy. Prometheus integration, simple deployment (e.g. via Helm charts), and minimal security concerns are often deemed more important than methodological rigor. No tool analyzed in this thesis explicitly targets researchers seeking maximal measurement accuracy; instead, tools implicitly address operators who require straightforward observability solutions.
+
+Finally, tool design often fails to recognize the fundamentally different needs of developers, operators, and researchers. Currently, no single tool effectively caters to all these audiences. This segmentation of user requirements, combined with practical deployment constraints, helps explain why most existing tools settle for operational simplicity at the expense of measurement accuracy.
+
+\subsection{Transparency, Trust, and Black-Box Measurement}
+
+A fundamental challenge in container-level energy attribution is the reliance on inherently opaque measurement interfaces. Critical telemetry sources such as Intel RAPL, NVIDIA NVML, and platform-level BMC sensors provide essential power and energy data, yet their internal operation and measurement scopes remain poorly documented. For instance, both Scaphandre and Kepler developers acknowledge uncertainty regarding the exact coverage of RAPL domains, most notably \code{PKG} and \code{PSys}. This lack of clarity complicates both tool implementation and the interpretation of reported energy metrics.
+
+Black-box measurement interfaces hinder the development of accurate and explainable energy monitoring tools. When the underlying telemetry mechanisms are closed, tool developers are forced to make assumptions which propagate into the attribution models and directly impact reported results. Without visibility into how energy counters are computed or which hardware components are included, users cannot fully trust the reported energy consumption data, nor can they debug unexpected results.
+
+To address this, future energy monitoring frameworks should:
+\begin{itemize}
+    \item Clearly document all assumptions related to telemetry sources and attribution models.
+    \item Provide visibility into the source and scope of every reported metric.
+    \item Encourage open standards for energy telemetry, advocating for greater transparency in RAPL, NVML, and similar interfaces.
+\end{itemize}
+
+\subsection{Energy Attribution Philosophies}
+
+The analysis confirms that energy attribution models (container-centric, shared-cost, and residual modeling) reflect fundamentally different perspectives. What is considered a "fair" distribution depends on the user’s priorities: developers, operators, or researchers will each favor different approaches.
+
+Current tools often make implicit attribution decisions, especially regarding idle power and system processes, without clear documentation. This obscures how reported metrics should be interpreted.
+
+To improve transparency and usability, future tools should:
+\begin{itemize}
+    \item Clearly document their attribution model.
+    \item Where feasible, allow users to choose between attribution strategies.
+    \item Make residual power explicit rather than hidden in shared costs.
+\end{itemize}
+
+\section{Recommendations for Future Tool Development}
+\label{sec:future-tools}
+
+\subsection{Towards Maximum-Accuracy Measurement Tools}
+\label{sec:future-maximum-accuracy}
+
+Future container-level monitoring tools should prioritize temporal resolution, metric flexibility, and modular attribution models to maximize measurement accuracy. Based on the findings of this thesis, the following design principles are recommended:
+
+\paragraph{High-Resolution Hardware Metrics}
+RAPL-based measurements should support sub-second sampling intervals configurable by the user. Intervals as low as 50 milliseconds (close to RAPL's practical resolution limit) would enable significantly finer-grained power attribution, especially in heterogeneous or bursty workloads. Critically, power readings should be attributed directly upon collection, avoiding fixed aggregation cycles that dilute temporal precision and introduce attribution inaccuracies.
+
+\paragraph{Decoupled Metric Handling}
+Metric collection loops should differentiate between high-frequency (e.g. RAPL, eBPF) and low-frequency (e.g. Redfish, IPMI) sources. Separating high-priority, high-frequency metrics from slower telemetry sources minimizes performance overhead and maximizes the utility of each metric type.
+
+\paragraph{Multi-Metric Integration}
+Tools should support combining diverse telemetry sources, such as RAPL, Redfish, ACPI, and BMC, in a coherent manner. Coarse-grained metrics (e.g. Redfish node-level power) can be fused with fine-grained metrics (e.g. RAPL domain-level power) to interpolate or validate measurements. However, care must be taken to preserve the distinction between direct measurements and model-based estimations when combining such sources.
+
+\paragraph{User-Configurable Estimation Modules}
+Modular estimation frameworks should be employed for subsystems lacking direct telemetry, such as storage devices or network interfaces. Default models can provide reasonable estimates based on automatic device detection (e.g. storage device type, or link speed for network interfaces). However, advanced users should be able to override idle, maximum, and typical power values to refine model accuracy.
+
+\paragraph{Selectable or configurable Attribution Models}
+Energy attribution should support multiple modeling approaches, ideally selectable at runtime. Examples include container-centric models, shared-cost models, or hybrid methods. Importantly, idle and system-level energy consumption should be accounted for explicitly, not implicitly merged into container totals, improving transparency and accuracy.
+
+\paragraph{Self-Calibration Support}
+Tools should offer automated or semi-automated calibration methods, such as idle power calibration or workload-based calibration inspired by Kavanagh et al. \parencite{kavanagh2019rapid}. Where possible, standardized interfaces for integrating external measurement devices should be considered, enabling users to validate or refine energy models via external power meters.
+
+\paragraph{Standards-Based Implementation}
+Wherever feasible, tools should adhere to standardized system interfaces such as the Linux \code{powercap} framework for RAPL access, avoiding proprietary solutions. This facilitates long-term maintainability and eases deployment across heterogeneous environments.
+
+In summary, a high-accuracy monitoring tool must prioritize both technical rigor and architectural flexibility. Drawing from design strengths observed in Kepler, KubeWatt, Scaphandre, and SmartWatts, future tools should offer high-resolution measurements, modular estimation, and transparent energy attribution as core design objectives.
+
+\subsection{Addressing Missing Domains: Disk, Network, and Others}
+\label{sec:future-missing-domains}
+
+No current container-level energy monitoring tool provides direct measurements or estimations for storage devices or network interfaces. Nevertheless, for a comprehensive understanding of node-level energy consumption, these components should not be neglected.
+
+\paragraph{Modular Estimation Frameworks}
+Future tools should include optional, modular estimation models for disks and network interface controllers (NICs). Such models could leverage existing system metrics such as I/O request counts, throughput rates, or link speeds as input signals. For example, storage energy estimation could differentiate between SSDs and HDDs based on device identification, using I/O operations as a proxy for activity levels. Similarly, NIC models could base estimations on transmitted and received data volumes or link activity states.
+
+\paragraph{Inherent Accuracy Limitations}
+These estimations will inevitably remain less accurate than direct telemetry from hardware sensors. However, including such models can enhance the completeness of node-level energy consumption analysis, particularly in environments where disks and NICs constitute non-trivial portions of total power draw.
+
+\paragraph{Residual Energy Utilization}
+In cases where total node power is known (e.g. via Redfish or BMC sensors) and major contributors like CPU and memory are directly measured, residual energy (the unaccounted portion) could be partially attributed to storage and networking components. However, reliance on residual energy must be approached cautiously, as it risks compounding measurement and attribution errors.
+
+\paragraph{Configurability}
+Estimation models should remain user-configurable. While default values enable ease of use for casual users, advanced users should be able to fine-tune idle power, maximum power, and activity-to-power correlation parameters to improve estimation accuracy.
+
+In summary, although disk and network power estimations are inherently imprecise, including them in a modular and configurable manner would significantly enhance the practical value of container-level energy monitoring tools.
+
+\subsection{Balancing Accuracy and Overhead}
+\label{sec:future-accuracy-overhead}
+
+The pursuit of maximum measurement accuracy inevitably increases monitoring overhead. Future tools should address this trade-off by offering distinct operational modes, allowing users to select between accuracy and resource efficiency based on their specific needs.
+
+\paragraph{‘Precision’ Mode}
+In this mode, all available telemetry sources and fine-grained attribution models should be enabled. High-frequency sampling intervals, detailed container-level breakdowns, and optional estimations for secondary components (e.g. disks, NICs) provide maximal measurement detail. This mode is intended for research, validation, or auditing scenarios where energy transparency is prioritized over runtime performance.
+
+\paragraph{‘Lightweight’ Mode}
+Conversely, a lightweight mode should disable high-frequency probes, omit low-relevance subsystems, and focus on core power consumers such as CPU and memory. Sampling intervals can be relaxed, and coarse-grained metrics prioritized. This configuration is suitable for production environments where minimizing monitoring overhead is critical.
+
+\paragraph{Mode Selection}
+Not all environments or users require maximum accuracy. By providing predefined operational modes, tools can adapt to a wide range of use cases without forcing users to manually configure every parameter. However, manual overrides should remain possible for expert users seeking fine control.
+
+In summary, supporting both ‘precision’ and ‘lightweight’ modes allows monitoring tools to serve diverse operational contexts without compromising on flexibility or usability.
+
+\subsection{Supporting Multiple User Roles and Needs}
+\label{sec:future-user-roles}
+
+Container-level energy monitoring tools must accommodate a diverse range of users, each with distinct goals and expectations. A future-proof tool should address these needs through architectural modularity, clear defaults, and extensive documentation.
+
+\paragraph{Developers}
+Developers typically seek simple, per-container energy consumption totals to guide software optimization. Their focus is on understanding the energy impact of specific applications or containers, without concern for the idle power waste or baseline energy consumption of the broader system. Minimal setup complexity and straightforward metric outputs are priorities for this user group.
+
+\paragraph{Operators}
+Infrastructure operators require system-wide energy observability, not limited to individual containers. Their goals include identifying idle energy waste, optimizing resource utilization, and avoiding performance degradation due to throttling or resource contention. Operators value transparency, stability, and actionable insights across the entire infrastructure stack.
+
+\paragraph{Researchers}
+Researchers demand the highest levels of accuracy, configurability, and architectural transparency. They require detailed documentation of attribution models, known limitations, and telemetry sources, alongside access to raw metrics and calibration options. Flexibility and reproducibility are critical requirements for this audience.
+
+\paragraph{Serving All Audiences}
+To accommodate these varied needs, monitoring tools should adopt a modular architecture with:
+\begin{itemize}
+    \item Sensible, production-ready defaults for black-box usability.
+    \item Optional advanced configuration layers for expert users.
+    \item Clear and comprehensive documentation describing methods, assumptions, and limitations.
+\end{itemize}
+
+Recognizing that many users will treat the tool as a black box, default configurations must produce reasonable, usable results without requiring manual tuning. However, advanced users should retain the ability to inspect, customize, and extend the tool’s behavior.
+
+In summary, serving developers, operators, and researchers simultaneously requires balancing simplicity, flexibility, and transparency within the tool’s design.
+
+\subsection{Energy Metrics for Virtualized Environments}
+\label{sec:future-virtualized-environments}
+
+Energy attribution within virtualized environments, particularly for Kubernetes clusters running inside virtual machines (VMs), remains a challenge. Existing monitoring tools primarily target bare-metal deployments, leaving a significant gap in energy observability for cloud-based and virtualized infrastructures.
+
+\paragraph{Existing Approaches}
+Two conceptual approaches have been explored:
+\begin{itemize}
+    \item \textbf{Scaphandre’s QEMU Passthrough:} Implements a basic export mechanism by writing host-side energy metrics to a virtual file system accessible by guest VMs running an identical instance of Scaphandre. This approach is functional but but limited, since input and output metrics must correlate to serve identical instances.
+    \item \textbf{Kepler’s Hypercall Concept:} Proposes using hypercalls as a mechanism for host-to-guest metric transfer. However, this concept remains unimplemented.
+\end{itemize}
+
+\paragraph{Future Directions}
+Future monitoring tools should prioritize the development of standardized telemetry export mechanisms to enable accurate energy monitoring within VMs. Potential approaches include:
+\begin{itemize}
+    \item Hypervisor-supported hypercalls specifically designed for energy metrics.
+    \item Virtio-based APIs to expose host-side telemetry directly to guest VMs.
+    \item Enhanced QEMU or container runtime interfaces capable of exporting power data.
+\end{itemize}
+
+\paragraph{Relevance}
+Given the prevalence of virtualized infrastructure in modern cloud environments, particularly for managed Kubernetes platforms, solving this problem would significantly broaden the applicability and adoption of energy observability solutions.
+
+In summary, enabling reliable host-to-VM energy metrics passthrough represents a critical development priority for future container-level energy monitoring tools.
+
+\subsection{Standardization and Hardware Vendor Transparency}
+\label{sec:future-standardization}
+
+Measurement accuracy in container-level energy monitoring is fundamentally limited by the availability and transparency of hardware telemetry. Addressing these constraints requires both industry-wide standardization efforts and increased openness from hardware vendors.
+
+\paragraph{Hardware Vendor Responsibility}
+Vendors should provide native power telemetry for additional system components, such as network interface cards (NICs), storage devices, and peripheral subsystems. These metrics should be accessible via standardized, open interfaces to facilitate direct measurement and reduce reliance on model-based estimations.
+
+\paragraph{Expanding Telemetry Standards}
+Existing interfaces like Redfish, which currently expose node-level power data, could be extended to include per-component power reporting. Similarly, the adoption of open, vendor-neutral standards for exposing telemetry at the subsystem level would significantly enhance energy observability.
+
+\paragraph{RAPL Transparency}
+The lack of public documentation regarding Intel’s Running Average Power Limit (RAPL) interface remains a barrier to fully understanding and validating the reported power domains. Vendors should disclose the internal structure and calculation methods of such telemetry systems to resolve current ‘black-box’ concerns identified by tool developers, including Kepler and Scaphandre contributors.
+
+In summary, improving measurement precision at the workload level depends not only on software design but also on cooperation from hardware manufacturers and industry standards bodies. Transparent and standardized telemetry interfaces represent a critical enabler for future progress in energy observability.
+
+\section{Broader Research and Industry Opportunities}
+\label{sec:future-research-industry}
+
+The advancement of energy observability in containerized environments extends beyond tool development. Broader collaboration across industry stakeholders and research communities is essential to drive progress.
+
+\paragraph{Role of Standards Organizations}
+Organizations such as the Cloud Native Computing Foundation (CNCF) and Kubernetes Special Interest Groups (SIGs) could play a central role in promoting standard APIs for energy metric collection and dissemination within cloud-native environments. Establishing best practices and reference implementations would encourage adoption and consistency across tools.
+
+\paragraph{Hardware Manufacturer Involvement}
+Hardware vendors are positioned to directly influence the quality and availability of energy telemetry data. By exposing accurate and accessible power metrics across all major system components, manufacturers can enable precise energy measurement without reliance on coarse or estimated models. Collaboration with open-source communities could further support development of vendor-agnostic solutions.
+
+\paragraph{Sustainable Cloud Computing}
+Energy observability should be recognized as a foundational component of sustainable cloud computing. Accurate energy measurement at the workload level enables informed optimization decisions, supports regulatory compliance, and advances corporate sustainability goals. As such, energy transparency should be integrated into both research agendas and industry roadmaps for cloud infrastructure development.
+
+In summary, advancing energy observability requires coordinated efforts spanning tool developers, standards bodies, hardware vendors, and sustainability-focused initiatives.
+
+\section{Closing Remarks}
+\label{sec:future-conclusion}
+
+Energy consumption measurement at the container or workload level remains a complex and evolving challenge. This thesis has identified key architectural and methodological features that future monitoring tools should incorporate to enhance measurement accuracy, architectural flexibility, and practical usability.
+
+However, progress in this field is constrained not only by technical trade-offs (such as balancing accuracy against monitoring overhead) but also by external limitations. Chief among these are the lack of transparent hardware telemetry, incomplete standardization of power reporting interfaces, and the absence of established methodologies for energy attribution in virtualized environments.
+
+The recommendations presented in this chapter are intended to guide both tool developers and researchers. By integrating high-resolution hardware metrics, modular estimation frameworks, user-configurable attribution models, and standardized interfaces, future tools can advance the state of energy observability in containerized infrastructures.
+
+Ultimately, energy-aware computing practices will become increasingly relevant as the industry shifts towards sustainable cloud operations. Improved energy transparency at workload granularity represents a critical foundation for enabling these efforts.

@@ -1,0 +1,71 @@
+% Indicate the main file. Must go at the beginning of the file.
+% !TEX root = ../main.tex
+
+\section{Discussion} % Main chapter title
+\label{Chapter6}
+
+\section{Conclusion and Evaluation}
+
+\subsection{Evaluation of Cluster Setup}
+
+The cluster setup has been a success and has proven viable for further Kubernetes testing. While implementing the entire setup in an automated manner introduced significant additional effort, the resulting cluster deployment functioned reliably throughout the entire project. The ability to tear down and re-deploy the cluster to any desired depth—ranging from Kubernetes deployments and configurations to a complete reinstallation—proved invaluable during testing. This ensured that any misconfigurations introduced during implementation could be entirely removed, preventing any residual effects from failed installations or incorrect configurations.
+
+The automated cluster setup was explicitly designed to be easily transferable to different hardware, a feature that, while not tested in this project, significantly enhances its reusability. Future projects could adopt and modify the setup with minimal adjustments, allowing researchers and engineers to rapidly deploy an experimental Kubernetes cluster in diverse environments.
+
+One of the main constraints of this project was the decision not to implement a high-availability (HA) cluster. Given the project's focus on energy efficiency measurements and not on production-ready reliability, this was a valid trade-off. However, in large-scale production environments, HA clusters are the norm. Energy efficiency research in these environments would provide additional insights into how energy optimizations affect large, distributed clusters in real-world workloads. 
+
+Finally, graphical tools such as Rancher proved invaluable during the configuration and experimentation phases. Rancher's centralized UI provided a clear overview of the cluster state, significantly reducing the complexity of Kubernetes troubleshooting and management. While the project was fully automated, Rancher complemented the setup by allowing real-time monitoring and rapid identification of configuration issues.
+
+\subsection{Evaluation of Monitoring Setup}
+
+The monitoring setup proved to be effective for energy consumption testing. The use of Prometheus, the de facto standard for Kubernetes monitoring, ensured compatibility with a broad range of tools and provided access to a large knowledge base of community support, documentation, and third-party integrations. This was particularly beneficial for KEPLER, which is explicitly designed to integrate with Prometheus, making its deployment and data collection seamless.
+
+A notable limitation of Prometheus is the overhead it introduces. Due to its reliance on periodic metric scraping, it is best suited for system monitoring at multi-second or minute-level intervals. While this is sufficient for general observability, it is a limiting factor in high-resolution energy consumption analysis. KEPLER itself collects an extensive amount of data from eBPF and RAPL, but the necessity of reducing data density for Prometheus-compatible metrics results in a loss of granularity. This makes Prometheus an excellent tool for tracking long-term trends but suboptimal for capturing rapid changes in power consumption.
+
+The use of an NFS-based persistent storage solution on the Kubernetes control node proved successful. Throughout the project's duration—including multiple cluster redeployments—no data was lost. The NFS configuration allowed for a seamless storage experience, ensuring that Prometheus and Grafana retained their monitoring data even when the cluster was reset.
+
+While this monitoring setup is well-suited for research and experimentation, deploying it in a production environment would require significant modifications to ensure data integrity, resilience, and security. For example, Prometheus' data retention settings and storage backend would need to be adjusted for long-term reliability, authentication mechanisms would need to be strengthened, and redundancy mechanisms would need to be introduced to prevent data loss in the event of node failure.
+
+\subsection{Evaluation of KEPLER}
+
+The implementation of KEPLER in this project was largely straightforward, facilitated by the provided Helm chart. However, several configurations were necessary to ensure compatibility with the existing infrastructure. The project documentation, while informative, has not yet reached full maturity, leading to some challenges in setup and troubleshooting. Despite these hurdles, KEPLER’s fundamental concept is well-founded, leveraging appropriate data sources to estimate energy consumption at both the container and node levels.
+
+\subsubsection{General Observations}
+
+\begin{itemize}
+\item All metrics showed a high and consistent oscillation. Since all metrics are calculated from simple counters, this indicates a sync issue, possibly between KEPLER metrics publishing and Prometheu scrape intervals. While this does not reduce the credibility of the data, fixing it would greatly unprove the usability of the metrics.
+\item \textbf{CPU Energy Metrics:}
+KEPLER successfully captures workload-dependent energy variations, demonstrating a high correlation between CPU stress levels and estimated power consumption. Given that CPU is the dominant factor in overall server energy consumption, this is a significant strength of KEPLER.
+\item \textbf{Memory Energy Metrics:}
+Unlike CPU metrics, memory energy estimates did not show a clear correlation with applied workload. However, this is not necessarily a flaw in KEPLER’s methodology. Memory generally consumes a relatively small proportion of a server’s total power budget and does not flutuate as distinctly as CPU energy consumtion. Thus, the lack of a drastic and distict correlation is not entirely unexpected. However, the experiment did not verify KEPLERs ability to measure memory energy consumption.
+\item \textbf{Disk I/O and Network I/O Metrics:}
+KEPLER’s energy estimates for these categories did not exhibit expected trends. Although the metrics responded to workload variations in a synchronized manner, the exact correlation remains unclear. In particular, disk and network energy consumption values were not directly proportional to the applied stress levels. This anomaly warrants further investigation, especially considering that HDD power consumption tends to be largely independent of workload intensity (insert reference here).
+\end{itemize}
+
+\subsection{Credible Takeaways from the test results}
+
+\textbf{KEPLER’s package metrics appear to work well and provide believable results.} While the actual numbers were not verified in this project, the reported metrics closely correlate with CPU workload trends observed during testing.
+
+\textbf{Energy consumption does not scale linearly with workload.} For package power, an increase from 10\% to 90\% workload resulted in only an approximate 250\% increase in KEPLER-measured energy consumption. This aligns with the general understanding that servers operate most efficiently at high utilization.
+
+\textbf{Idle energy consumption was consistently estimated to be much higher than dynamic energy consumption.} While it is known that older servers often have high idle power usage, KEPLER’s estimation that idle energy consumption reaches 90\% on a CPU-stressed server seems unlikely and warrants further investigation.
+
+These results suggest that KEPLER’s CPU workload estimation is reliable, but the inconsistencies in memory, disk, and network energy metrics highlight areas requiring further validation. This provides a natural transition into the areas of future research required to refine and validate KEPLER’s performance.
+
+\section{Future Work}
+
+\subsection{Detailed Analysis of KEPLER}
+
+While KEPLER demonstrates strong capabilities in CPU power estimation, the inconsistencies in its memory, disk, and network energy metrics indicate areas requiring further research. A key limitation of this study was the focus on a single server type. A valuable next step would be to compare KEPLER’s energy estimates across different hardware configurations to assess generalizability.
+
+\subsection{KEPLER metrics verification through elaborate tests, possibly using measuring hardware}
+
+KEPLER metrics should be further verified through more extensive and varied test scenarios, utilizing different tools. In some cases, integrating physical power measurement hardware could provide additional validation. With a deeper understanding of KEPLER’s functionality, it may become possible to directly verify the reported metrics. Ultimately, ensuring that KEPLER metrics accurately describe energy consumption at both the node and container levels is crucial to establishing its reliability.
+
+\subsection{Kubernetes Cluster Energy Efficiency Optimization}
+
+If KEPLER metrics can be reliably used to assess cluster-wide energy consumption, further research could focus on optimizing energy efficiency in Kubernetes environments. Potential areas of study include evaluating existing energy-saving techniques such as carbon-aware schedulers, developing new efficiency measures, and assessing the impact of different cluster configurations. For example, experiments could explore potential energy savings achieved by removing high-availability features or dynamically shutting down and restarting servers based on workload demand.
+
+\section{Final Conclusion}
+
+This project successfully established an experimental Kubernetes cluster with integrated energy monitoring. The results demonstrate that KEPLER is a promising tool for CPU energy estimation, though further refinement is needed for other resource types. Moving forward, improved metric validation, hardware comparisons, and research into cluster-wide optimizations will be key to leveraging KEPLER for practical energy efficiency improvements.

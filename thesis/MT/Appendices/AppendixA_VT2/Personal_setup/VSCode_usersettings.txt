@@ -1,0 +1,35 @@
+{
+    "git.autofetch": true,
+    "latex-workshop.latex.tools": [
+        {
+          "name": "pdflatex",
+          "command": "pdflatex",
+          "args": [
+            "-output-directory=build",
+            "-shell-escape",
+            "-synctex=1",
+            "-interaction=nonstopmode",
+            "-file-line-error",
+            "%DOC%"
+          ]
+        },
+        {
+          "name": "biber",
+          "command": "biber",
+          "args": [
+            "--output-directory=build",
+            "%DOCFILE%"
+          ]
+        }
+      ],
+      "latex-workshop.latex.recipes": [
+          {
+              "name": "pdflatex -> biber -> pdflatex*2",
+              "tools": ["pdflatex", "biber", "pdflatex", "pdflatex"]
+          }
+      ],
+      "latex-workshop.latex.autoBuild.run": "never",
+      "latex-workshop.view.pdf.viewer": "tab",
+      "hediet.vscode-drawio.resizeImages": null,
+      "hediet.vscode-drawio.theme": "min"
+}

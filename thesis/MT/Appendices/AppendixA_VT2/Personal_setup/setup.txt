@@ -1,0 +1,10 @@
+sudo apt udpate
+sudo apt install texlive-full
+
+check:
+pdflatex --version
+biber --version
+
+create build folder should be done automatically
+
+add /build to gitignore

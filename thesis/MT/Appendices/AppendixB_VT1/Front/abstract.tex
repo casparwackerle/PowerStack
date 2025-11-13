@@ -1,0 +1,24 @@
+% !TEX root = ../main.tex
+
+%----------------------------------------------------------------------------------------
+% ABSTRACT PAGE
+%----------------------------------------------------------------------------------------
+\begin{abstract}
+\addchaptertocentry{\abstractname} % Add the abstract to the table of contents
+Energy efficiency in cloud computing has become a critical concern as data centers consume an increasing share of global electricity. This thesis investigates energy consumption at the container and node level in Kubernetes-based infrastructures, using KEPLER (Kubernetes-based Efficient Power Level Exporter) to monitor and analyze power consumption in a controlled test environment.
+
+A bare-metal Kubernetes cluster was deployed on three identical servers, configured using K3s for lightweight orchestration and managed through Ansible for full automation. The entire system was designed to be fast to deploy, highly reproducible, and adaptable to different hardware environments. Configurations were centralized for easy reusability in future projects, ensuring that modifications could be made with minimal effort. Prometheus and Grafana were integrated to collect and visualize KEPLER’s real-time energy consumption metrics. A series of controlled benchmarking experiments were conducted to stress CPU, memory, disk I/O, and network I/O, assessing KEPLER’s accuracy in reporting power usage under varying workloads.
+
+The results indicate that KEPLER credibly tracks workload-induced power variations at the CPU package level, though inconsistencies arise in non-CPU power domains. High idle power consumption was observed at the node level, suggesting that infrastructure energy efficiency must account for static consumption beyond dynamic workloads. 
+
+This thesis provides a foundation for further research into energy-efficient Kubernetes environments, including improving KEPLER’s accuracy, extending workload profiling, and exploring automation-driven energy optimization strategies. The modular and automated deployment architecture ensures that the findings and methodologies can be readily adapted for use in other energy-related cloud research projects.\end{abstract}
+
+The accompanying source code for this thesis, including all deployment and automation scripts, is available in the \textbf{PowerStack}\parencite{PowerStack} repository on GitHub.
+%----------------------------------------------------------------------------------------
+% German ABSTRACT PAGE
+%----------------------------------------------------------------------------------------
+%\begin{extraAbstract}
+%\addchaptertocentry{\extraabstractname} % Add the abstract to the table of contents
+
+%Die Zusammenfassung entspricht einer Miniaturversion des gesamten Dokuments. Gliedere sie ähnlich: Beginne mit dem Kontext und der Motivation für das Projekt, einer kurzen Beschreibung der Methode und der verfügbaren Daten, Ihren Ergebnissen und den Schlussfolgerungen. Beschränke dich auf eine Seite!    
+%\end{extraAbstract}

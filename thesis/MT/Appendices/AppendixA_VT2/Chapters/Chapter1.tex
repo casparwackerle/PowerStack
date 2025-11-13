@@ -1,0 +1,79 @@
+\chapter{Introduction} % Main chapter title
+\label{Chapter1}
+\docseparator{Appendix A}
+
+\section{Cloud Computing and its Impact on the Global Energy Challenge}
+
+Global energy consumption is rising at an alarming pace, driven in part by the accelerating digital transformation of society. A significant share of this growth comes from data centers, which form the physical backbone of cloud computing. While the cloud offers substantial efficiency gains through resource sharing and dynamic scaling, its aggregate energy footprint is growing rapidly. Data centers accounted for around 1.5\% (approximately 415 TWh) of the world's electricity consumption in 2024 and are set to more than double by 2030\parencite{iea2025energyai}. This figure slightly exceeds Japan's current electricity consumption.
+
+This increase is fueled by the rising demand for compute-heavy workloads such as artificial intelligence, large-scale data processing, and real-time services. Meanwhile, traditional drivers of efficiency (such as Moore’s law and Dennard scaling) are slowing down\parencite{tomshardware2023mooreslaw, cartesian2013dennard}. Improvements in data center infrastructure, like cooling and power delivery, have helped reduce energy intensity per operation\parencite{uptime2023pue}, but these gains are approaching diminishing returns. As a result, total data center energy use is expected to grow faster than before, as efficiency per unit of compute continues to improve more slowly\parencite{masanet2020}. As containerized workloads form a significant and growing fraction of data center operations, understanding their energy impact is of increasing relevance.
+
+\subsection{Rise of the Container}
+
+Containers have become a core abstraction in modern computing, enabling lightweight, fast, and scalable deployment of applications. Compared to virtual machines, containers impose less overhead, start faster, and support finer-grained resource control. As such, they are widely used in microservice architectures and cloud-native environments\parencite{Potdar2020}.
+
+This trend is amplified by the growing popularity of Container-as-a-Service (CaaS) platforms, where containerized workloads are scheduled and managed at high density on shared infrastructure. Kubernetes has become the de facto orchestration tool for managing such workloads at scale. While containers are inherently more energy-efficient than virtual machines in many scenarios\parencite{Morabito2015}, their widespread use introduces a critical complication: accurately understanding and attributing their energy consumption. Despite their operational advantages, containers obscure energy usage due to their shared-resource architecture, making transparent monitoring and assessment of their true energy efficiency significantly more difficult.
+
+\subsection{Thesis Context and Motivation}
+
+This thesis is part of the Master's program in Computer Science at the Zurich University of Applied Sciences (ZHAW) and represents the second of two specialization projects ("VTs"). The preceding project (VT1) focused on the practical implementation of a test environment for energy efficiency research in Kubernetes clusters. This thesis (VT2) is intended to explore the theoretical and methodological aspects of container energy consumption measurements in detail.
+
+Furthermore, this thesis builds upon prior works focused on performance optimization and energy measurement. EVA1 covered topics such as operating system tools, statistics, and eBPF, while EVA2 explored energy measurement in computer systems, covering energy measurement in computer systems at the hardware, firmware, and software levels. This thesis builds upon these foundations, focusing specifically on the problem of container-level energy consumption measurement.
+
+\subsection{Use of AI Tools}
+During the writing of this thesis, \textit{ChatGPT}\parencite{OpenAI_ChatGPT_2025} (Version 4o, OpenAI, 2025) was used as an auxiliary tool to enhance efficiency in documentation and technical writing. Specifically, it assisted in:
+\begin{itemize}
+\item Assisting in LaTeX syntax corrections and document formatting.
+\item Improving clarity and structure in selected technical explanations.
+\item Supporting minor code analysis and debugging tasks.
+\end{itemize}
+All AI-generated content was critically reviewed, edited, and adapted to fit the specific context of this thesis. \textbf{AI was not used for literature research, conceptual development, methodology design, or analytical reasoning.} The core ideas, analysis, and implementation details were developed independently.
+
+\subsection{Container Energy Consumption Measurement Challenges}
+
+Containerized environments introduce fundamental challenges to energy consumption measurement. Unlike virtual machines, containers share the host operating system kernel and underlying hardware resources. This shared architecture obscures the direct relationship between a specific container and the physical energy consumed, making isolated measurement infeasible.
+
+While modern processors expose hardware-level telemetry via interfaces such as Intel’s Running Average Power Limit (RAPL), these provide only node-level or component-level insights. In addition, such telemetry is typically inaccessible from within containers, particularly in multi-tenant or cloud-hosted environments. Public cloud providers often aggregate or abstract energy-related data, further limiting observability.
+
+Attribution of energy consumption to containers is complicated by concurrent resource sharing. CPU cores, memory, network interfaces, and storage systems serve multiple containers simultaneously. Available resource utilization metrics, such as CPU time, memory usage, or performance counters, provide indirect signals that could be used for energy attribution, but don't directly attribute it.
+
+Various tools attempt to model container-level power consumption by correlating resource utilization with node-level energy telemetry. However, these models are often simplistic, opaque, or specific to particular hardware setups, and lack systematic validation.
+
+Collectively, these factors result in a complex, multi-layered measurement problem: translating node-level energy consumption into accurate, container-level usage estimates within modern cloud infrastructures.
+
+\subsection{Scope and Research Questions}
+
+This thesis investigates the theoretical and practical landscape of container energy consumption measurement, focusing on the attribution of energy usage within bare-metal Kubernetes environments. Instead of proposing a novel measurement tool or developing a new energy estimation model, the thesis aims to systematically analyze the problem space and existing solutions.
+
+The objective is to identify the methodological, technical, and practical factors that influence accurate container-level energy measurement. The study evaluates how existing tools address these challenges and highlights unresolved issues that hinder reliable and standardized energy attribution in containerized systems.
+
+To guide this exploration, the following research questions are posed:
+
+\begin{itemize}
+\item \textbf{RQ1:} What are the fundamental challenges that prevent accurate measurement of container-level energy consumption?
+\item \textbf{RQ2:} Which methods, metrics, and models currently support container energy consumption estimation, and how do they address the attribution problem?
+\item \textbf{RQ3:} How do existing tools implement container-level energy consumption estimation, and what are the limitations of their approaches?
+\end{itemize}
+
+Rather than explicitly answering these questions in isolation, the thesis addresses them throughout its analysis: These questions structure the thesis’ analytical approach. A detailed overview of the thesis structure is provided in the following section.
+
+\subsection{Terminology: Power and Energy}
+
+In this thesis, the physical units power (measured in watts) and energy (measured in joules) are used interchangeably where appropriate. While these units describe distinct physical quantities (energy representing the total amount of work performed, and power representing the rate of energy usage over time), the time interval in question is generally known or defined in all relevant contexts, rendering conversion between them trivial.
+
+As a result, discussions of container-level energy consumption, power usage, and energy attribution may reference either energy or power depending on context, without introducing ambiguity. Where necessary, the specific unit used is stated explicitly.
+
+\subsection{Contribution and Structure of the Thesis}
+
+This thesis contributes a structured, theory-focused exploration of container-level energy consumption measurement. Rather than presenting a novel tool or proposing a specific implementation concept, it synthesizes existing methods, models, and challenges relevant to this field. Its primary contribution lies in analyzing how energy consumption can be measured and attributed to individual containers in bare-metal Kubernetes environments, highlighting limitations, and identifying open challenges for future work.
+
+The thesis is structured as follows:
+
+\begin{itemize}
+\item \textbf{Chapter~\ref{Chapter2}} introduces the fundamentals of server energy consumption, including hardware-level telemetry, component-level energy behaviors, and system power management mechanisms.
+\item \textbf{Chapter~\ref{Chapter3}} analyzes the attribution problem of mapping node-level energy consumption to individual container workloads, identifying core challenges and influencing factors.
+\item \textbf{Chapter~\ref{Chapter4}} surveys existing tools and approaches that attempt to estimate container-level energy consumption, assessing their methodologies and limitations.
+\item \textbf{Chapter~\ref{Chapter5}} synthesizes the findings, identifies open questions, and outlines recommendations for future research and tool development.
+\end{itemize}
+
+Both this thesis and the preceding implementation-focused project are publicly available in the PowerStack\parencite{PowerStack} repository on GitHub. While this thesis does not come with additional code, the repository contains Ansible playbooks for automated deployment, Kubernetes configurations, monitoring stack setups, and benchmarking scripts from the preceding thesis.

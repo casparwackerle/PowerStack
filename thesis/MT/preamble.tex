@@ -143,7 +143,7 @@
 %\setlist{nosep}               % Suppress spaces before/after list environments
 
 \usepackage{float}
-
+\usepackage{subfiles}
 
 \immediate\write18{mkdir -p build}
 \AtBeginDocument{
@@ -185,3 +185,16 @@
 
 \usepackage{array}
 \newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+\newcommand{\appchapterref}[2]{%
+  \hyperref[#2]{Appendix~#1, Chapter~\ref*{#2}}%
+}
+
+\newcommand{\docseparator}[1]{%
+  % List of Figures
+  \addtocontents{lof}{\protect\addvspace{1.5\baselineskip}}%
+  \addcontentsline{lof}{section}{#1}%
+  % List of Tables
+  \addtocontents{lot}{\protect\addvspace{1.5\baselineskip}}%
+  \addcontentsline{lot}{section}{#1}%
+}

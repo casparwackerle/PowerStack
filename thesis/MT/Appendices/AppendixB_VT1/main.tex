@@ -1,0 +1,59 @@
+% main.tex (VT1 as appendix content module for the Master Thesis)
+% NOTE:
+% - No \documentclass / \begin{document} / \end{document}
+% - No \frontmatter / \mainmatter / \appendix / \printbibliography
+% - All paths are relative to MT/main.tex (root of the Master Thesis)
+
+% If you want VT1 images to be found automatically, you can optionally set:
+% \graphicspath{{Appendices/AppendixB_VT1/Figures/}}
+
+%----------------------------------------------------------------------------------------
+% VT1 FRONT MATTER AS APPENDIX CONTENT
+%----------------------------------------------------------------------------------------
+
+% Title page and imprint of VT1, now appearing inside Appendix B
+\include{Appendices/AppendixB_VT1/Front/titlepage}
+\let\cleardoublepage\clearpage
+\include{Appendices/AppendixB_VT1/Front/imprint}
+
+% Abstract of VT1
+\include{Appendices/AppendixB_VT1/Front/abstract}
+
+\graphicspath{{Appendices/AppendixB_VT1/Figures/}}
+
+% If you want acknowledgements/symbols from VT1 as well, uncomment:
+% \include{Appendices/AppendixB_VT1/Front/acknowledgements}
+% \include{Appendices/AppendixB_VT1/Front/symbols}
+
+%----------------------------------------------------------------------------------------
+% VT1 MAIN CONTENT – CHAPTERS
+%----------------------------------------------------------------------------------------
+
+% IMPORTANT:
+% In the copied chapter files under Appendices/AppendixB_VT1/Chapters/,
+% you should eventually replace top-level \chapter{...} with \section{...}
+% so they fit structurally under "Appendix B" in the main thesis.
+% For now, we keep the include structure identical.
+
+\include{Appendices/AppendixB_VT1/Chapters/Chapter1}
+\include{Appendices/AppendixB_VT1/Chapters/Chapter2}
+\include{Appendices/AppendixB_VT1/Chapters/Chapter3}
+\include{Appendices/AppendixB_VT1/Chapters/Chapter4}
+\include{Appendices/AppendixB_VT1/Chapters/Chapter5}
+\include{Appendices/AppendixB_VT1/Chapters/Chapter6}
+
+
+%----------------------------------------------------------------------------------------
+% VT1 APPENDICES INSIDE MASTER THESIS APPENDIX (OPTIONAL)
+%----------------------------------------------------------------------------------------
+
+% If VT1 has its own appendices you want to show, include them here.
+% DO NOT call \appendix here – the Master Thesis is already in appendix mode.
+% Just treat these as further sections/subsections of Appendix B.
+
+% \include{Appendices/AppendixB_VT1/Appendices/AppendixA}
+% \include{Appendices/AppendixB_VT1/Appendices/AppendixB}
+
+%----------------------------------------------------------------------------------------
+% NOTE: Bibliography of VT1 is handled by the global Master Thesis bibliography.
+%----------------------------------------------------------------------------------------

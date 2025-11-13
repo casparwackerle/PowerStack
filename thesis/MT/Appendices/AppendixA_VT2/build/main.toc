@@ -1,0 +1,214 @@
+\babel@toc {english}{}\relax 
+\contentsline {chapter}{Abstract}{iii}{chapter*.1}%
+\contentsline {chapter}{List of Figures}{vi}{chapter*.3}%
+\contentsline {chapter}{List of Tables}{vii}{chapter*.4}%
+\contentsline {chapter}{\numberline {1}Introduction}{1}{chapter.5}%
+\contentsline {section}{\numberline {1.1}Cloud Computing and its Impact on the Global Energy Challenge}{1}{section.6}%
+\contentsline {subsection}{\numberline {1.1.1}Rise of the Container}{1}{subsection.7}%
+\contentsline {subsection}{\numberline {1.1.2}Thesis Context and Motivation}{2}{subsection.8}%
+\contentsline {subsection}{\numberline {1.1.3}Use of AI Tools}{2}{subsection.9}%
+\contentsline {subsection}{\numberline {1.1.4}Container Energy Consumption Measurement Challenges}{2}{subsection.10}%
+\contentsline {subsection}{\numberline {1.1.5}Scope and Research Questions}{3}{subsection.11}%
+\contentsline {subsection}{\numberline {1.1.6}Contribution and Structure of the Thesis}{3}{subsection.12}%
+\contentsline {chapter}{\numberline {2}State of the Art and Related Research}{5}{chapter.13}%
+\contentsline {section}{\numberline {2.1}Energy Consumption Measurement and Efficiency on Data Center Level}{5}{section.14}%
+\contentsline {section}{\numberline {2.2}Energy Consumption Measurement on Server Level}{5}{section.15}%
+\contentsline {section}{\numberline {2.3}Direct Hardware Measurement}{7}{section.17}%
+\contentsline {subsection}{\numberline {2.3.1}Instrument-based Power Data Acquisition}{7}{subsection.18}%
+\contentsline {subsection}{\numberline {2.3.2}Dedicated Acquisition Systems}{7}{subsection.19}%
+\contentsline {subsubsection}{\numberline {2.3.2.1}BMC Devices, IPMI and Redfish}{7}{subsubsection.20}%
+\contentsline {section}{\numberline {2.4}In-Band Measurement Techniques}{8}{section.21}%
+\contentsline {subsection}{\numberline {2.4.1}ACPI}{8}{subsection.22}%
+\contentsline {subsection}{\numberline {2.4.2}Intel RAPL}{9}{subsection.23}%
+\contentsline {subsubsection}{\numberline {2.4.2.1}RAPL Measurement Methods}{9}{subsubsection.24}%
+\contentsline {subsubsection}{\numberline {2.4.2.2}RAPL Validation}{12}{subsubsection.27}%
+\contentsline {subsubsection}{\numberline {2.4.2.3}RAPL Limitations and Issues}{13}{subsubsection.29}%
+\contentsline {subsubsection}{\numberline {2.4.2.4}RAPL Conclusions}{15}{subsubsection.34}%
+\contentsline {subsection}{\numberline {2.4.3}Graphical Processing Units (GPU)}{15}{subsection.35}%
+\contentsline {subsubsection}{\numberline {2.4.3.1}GPU Virtualization Technologies}{16}{subsubsection.36}%
+\contentsline {paragraph}{Full GPU Virtualization}{16}{section*.37}%
+\contentsline {paragraph}{Multi-Instance GPU (MIG)}{16}{section*.38}%
+\contentsline {paragraph}{GPU Passthrough}{17}{section*.39}%
+\contentsline {subsubsection}{\numberline {2.4.3.2}GPU NVIDIA-NVML Energy Measurements and Validation}{17}{subsubsection.40}%
+\contentsline {subsubsection}{\numberline {2.4.3.3}Related Research}{18}{subsubsection.41}%
+\contentsline {paragraph}{AccelWattch}{18}{section*.42}%
+\contentsline {paragraph}{FinGraV}{18}{section*.43}%
+\contentsline {paragraph}{PowerSensor3}{20}{section*.45}%
+\contentsline {subsubsection}{\numberline {2.4.3.4}GPU Limitations in Kubernetes Context}{20}{subsubsection.46}%
+\contentsline {subsection}{\numberline {2.4.4}Storage Devices}{21}{subsection.47}%
+\contentsline {subsection}{\numberline {2.4.5}Network Devices and Other PCIe Devices}{22}{subsection.48}%
+\contentsline {section}{\numberline {2.5}Model-Based Estimation Techniques}{22}{section.49}%
+\contentsline {subsection}{\numberline {2.5.1}Component-Level Power Models}{23}{subsection.51}%
+\contentsline {subsubsection}{\numberline {2.5.1.1}Advantages and Disadvantages of Component-Level Power Models}{23}{subsubsection.53}%
+\contentsline {subsection}{\numberline {2.5.2}CPU}{24}{subsection.54}%
+\contentsline {subsection}{\numberline {2.5.3}Memory}{24}{subsection.55}%
+\contentsline {subsection}{\numberline {2.5.4}Storage Devices}{25}{subsection.56}%
+\contentsline {subsubsection}{\numberline {2.5.4.1}Generalization-Based Estimation}{25}{subsubsection.57}%
+\contentsline {paragraph}{Scope Clarification}{25}{section*.58}%
+\contentsline {subsubsection}{\numberline {2.5.4.2}GSPN Modeling for Hybrid Storage Systems (Active Power States)}{27}{subsubsection.60}%
+\contentsline {paragraph}{Validation}{28}{section*.65}%
+\contentsline {paragraph}{Limitations}{28}{section*.66}%
+\contentsline {subsection}{\numberline {2.5.5}Network devices}{29}{subsection.67}%
+\contentsline {subsubsection}{\numberline {2.5.5.1}NIC power consumption characteristics}{29}{subsubsection.68}%
+\contentsline {subsection}{\numberline {2.5.6}Other devices}{31}{subsection.74}%
+\contentsline {subsubsection}{\numberline {2.5.6.1}PSU}{32}{subsubsection.75}%
+\contentsline {subsubsection}{\numberline {2.5.6.2}Fans}{32}{subsubsection.79}%
+\contentsline {subsubsection}{\numberline {2.5.6.3}Attribution of secondary component power consumption to individual workloads}{33}{subsubsection.82}%
+\contentsline {subsection}{\numberline {2.5.7}Issues with model-based power estimation techniques}{33}{subsection.83}%
+\contentsline {section}{\numberline {2.6}Power Modeling based on Machine Learning Algorithms}{34}{section.84}%
+\contentsline {section}{\numberline {2.7}Component-specific summaries}{35}{section.85}%
+\contentsline {subsection}{\numberline {2.7.1}CPU}{35}{subsection.86}%
+\contentsline {subsubsection}{\numberline {2.7.1.1}Container-level implications}{36}{subsubsection.87}%
+\contentsline {subsection}{\numberline {2.7.2}Memory}{36}{subsection.88}%
+\contentsline {subsubsection}{\numberline {2.7.2.1}Container-level implications}{36}{subsubsection.89}%
+\contentsline {subsection}{\numberline {2.7.3}GPU}{36}{subsection.90}%
+\contentsline {subsubsection}{\numberline {2.7.3.1}Container-level implications}{37}{subsubsection.91}%
+\contentsline {subsection}{\numberline {2.7.4}Storage devices}{37}{subsection.92}%
+\contentsline {subsubsection}{\numberline {2.7.4.1}Container-level implications}{37}{subsubsection.93}%
+\contentsline {subsection}{\numberline {2.7.5}Network devices}{38}{subsection.94}%
+\contentsline {subsubsection}{\numberline {2.7.5.1}Container-level implications}{38}{subsubsection.95}%
+\contentsline {subsection}{\numberline {2.7.6}Other Devices}{38}{subsection.96}%
+\contentsline {subsubsection}{\numberline {2.7.6.1}Best-practice approach}{38}{subsubsection.97}%
+\contentsline {subsubsection}{\numberline {2.7.6.2}Container-level implications}{39}{subsubsection.98}%
+\contentsline {chapter}{\numberline {3}Attributing Power Consumption to Containerized Workloads}{40}{chapter.99}%
+\contentsline {section}{\numberline {3.1}Introduction and Context}{40}{section.100}%
+\contentsline {section}{\numberline {3.2}Power Attribution Methodology}{40}{section.101}%
+\contentsline {subsection}{\numberline {3.2.1}The Central Idea Behind Power Attribution}{40}{subsection.102}%
+\contentsline {subsection}{\numberline {3.2.2}A Short Recap of Linux Multitasking and Execution Units}{41}{subsection.103}%
+\contentsline {subsection}{\numberline {3.2.3}Resource Utilization Tracking in Linux and Kubernetes}{42}{subsection.104}%
+\contentsline {subsubsection}{\numberline {3.2.3.1}CPU Utilization Tracking}{42}{subsubsection.105}%
+\contentsline {subsubsection}{\numberline {3.2.3.2}Memory Utilization Tracking}{42}{subsubsection.106}%
+\contentsline {subsubsection}{\numberline {3.2.3.3}Disk I/O Utilization Tracking}{43}{subsubsection.107}%
+\contentsline {subsubsection}{\numberline {3.2.3.4}Network I/O Utilization Tracking}{43}{subsubsection.108}%
+\contentsline {subsubsection}{\numberline {3.2.3.5}eBPF-based Collection of Utilization Metrics}{43}{subsubsection.109}%
+\contentsline {subsubsection}{\numberline {3.2.3.6}Performance Counters and \code {perf}-based Monitoring}{44}{subsubsection.110}%
+\contentsline {subsubsection}{\numberline {3.2.3.7}Comparative Summary}{44}{subsubsection.111}%
+\contentsline {subsection}{\numberline {3.2.4}Temporal Granularity and Measurement Resolution}{44}{subsection.113}%
+\contentsline {subsection}{\numberline {3.2.5}Challenges}{45}{subsection.114}%
+\contentsline {subsubsection}{\numberline {3.2.5.1}Temporal Granularity and Synchronization}{45}{subsubsection.115}%
+\contentsline {subsubsection}{\numberline {3.2.5.2}Challenges in CPU Metric Interpretation}{46}{subsubsection.116}%
+\contentsline {subsubsection}{\numberline {3.2.5.3}Availability of Metrics}{47}{subsubsection.117}%
+\contentsline {section}{\numberline {3.3}Attribution Philosophies}{48}{section.121}%
+\contentsline {subsection}{\numberline {3.3.1}Container-Centric Attribution}{48}{subsection.122}%
+\contentsline {subsection}{\numberline {3.3.2}Shared-Cost Attribution}{49}{subsection.123}%
+\contentsline {subsection}{\numberline {3.3.3}Explicit Residual Modeling}{49}{subsection.124}%
+\contentsline {paragraph}{Challenges in Measuring Residuals.}{49}{section*.125}%
+\contentsline {paragraph}{Practical Approach to Idle Estimation.}{50}{section*.126}%
+\contentsline {subsection}{\numberline {3.3.4}Understanding the Distinction Between CPU Idling and Process Idling}{50}{subsection.128}%
+\contentsline {chapter}{\numberline {4}Existing Approaches to Container Energy Consumption Measurement Tools}{52}{chapter.129}%
+\contentsline {section}{\numberline {4.1}Introduction}{52}{section.130}%
+\contentsline {section}{\numberline {4.2}Non-container-focused Energy Monitoring Tools}{52}{section.131}%
+\contentsline {subsection}{\numberline {4.2.1}Server-Level Energy Monitoring}{52}{subsection.132}%
+\contentsline {subsubsection}{\numberline {4.2.1.1}Kavanagh and Djemame: Energy Modeling via IPMI and RAPL Calibration}{53}{subsubsection.133}%
+\contentsline {paragraph}{Overview and Architecture}{53}{section*.134}%
+\contentsline {paragraph}{Attribution Method and Scope}{53}{section*.135}%
+\contentsline {paragraph}{Validation and Limitations}{53}{section*.136}%
+\contentsline {paragraph}{Key Contributions}{53}{section*.137}%
+\contentsline {paragraph}{Relevance to Proposed Architecture}{54}{section*.138}%
+\contentsline {subsubsection}{\numberline {4.2.1.2}CodeCarbon}{54}{subsubsection.139}%
+\contentsline {paragraph}{Overview and Architecture}{54}{section*.140}%
+\contentsline {paragraph}{Limitations}{54}{section*.141}%
+\contentsline {subsubsection}{\numberline {4.2.1.3}AI Power Meter}{54}{subsubsection.142}%
+\contentsline {subsection}{\numberline {4.2.2}Telemetry-Based Estimation Frameworks}{55}{subsection.143}%
+\contentsline {subsubsection}{\numberline {4.2.2.1}PowerAPI Ecosystem\blx@tocontentsinit {0}\parencite {powerapi2024github} (PowerAPI, HWPC, SmartWatts)}{55}{subsubsection.144}%
+\contentsline {paragraph}{Overview and Architecture}{55}{section*.145}%
+\contentsline {paragraph}{Core Components}{55}{section*.146}%
+\contentsline {paragraph}{Relevance and Integration}{56}{section*.147}%
+\contentsline {subsubsection}{\numberline {4.2.2.2}Green Metrics Tool}{56}{subsubsection.148}%
+\contentsline {section}{\numberline {4.3}Container-Focused Energy Attribution Tools}{56}{section.149}%
+\contentsline {subsection}{\numberline {4.3.1}Kepler}{57}{subsection.150}%
+\contentsline {subsubsection}{\numberline {4.3.1.1}Overview and Goals}{57}{subsubsection.151}%
+\contentsline {subsubsection}{\numberline {4.3.1.2}Architecture and Metric Sources}{57}{subsubsection.152}%
+\contentsline {paragraph}{Deployment Models}{57}{section*.153}%
+\contentsline {paragraph}{Kepler Agent and Exporter}{57}{section*.155}%
+\contentsline {paragraph}{Resource Utilization via eBPF-based Hardware/Software Counters}{58}{section*.157}%
+\contentsline {paragraph}{Node Component-level Energy Consumption via RAPL}{59}{section*.158}%
+\contentsline {paragraph}{Platform-Level Energy Consumption}{60}{section*.159}%
+\contentsline {paragraph}{Metadata Inputs for Container, System, and VM Attribution}{60}{section*.160}%
+\contentsline {paragraph}{GPU Power and Resource Utilization via NVML}{61}{section*.161}%
+\contentsline {paragraph}{Summary of Inputs}{62}{section*.162}%
+\contentsline {paragraph}{Export Interface and Metric Exposure}{62}{section*.165}%
+\contentsline {paragraph}{Estimator Sidecar and Model Inference}{63}{section*.166}%
+\contentsline {paragraph}{Model Server and Model Training}{63}{section*.167}%
+\contentsline {paragraph}{External Integration}{63}{section*.168}%
+\contentsline {subsubsection}{\numberline {4.3.1.3}Attribution Model and Output}{63}{subsubsection.169}%
+\contentsline {paragraph}{Kepler Configurability and Measurement Interval}{63}{section*.170}%
+\contentsline {paragraph}{Division of Power into Idle and Dynamic Components}{63}{section*.171}%
+\contentsline {paragraph}{Node-Level Energy Attribution}{64}{section*.172}%
+\contentsline {paragraph}{Process-Level Energy Attribution}{64}{section*.173}%
+\contentsline {subsubsection}{\numberline {4.3.1.4}Attribution Timing and Export Granularity}{65}{subsubsection.176}%
+\contentsline {subsubsection}{\numberline {4.3.1.5}Validation and Research Context}{65}{subsubsection.177}%
+\contentsline {subsubsection}{\numberline {4.3.1.6}Limitations and Open Issues}{66}{subsubsection.178}%
+\contentsline {paragraph}{Validation results from Pijnacker et al.~\blx@tocontentsinit {0}\parencite {pijnackerContainerlevelEnergyObservability2025}:}{66}{section*.179}%
+\contentsline {paragraph}{Additional issues identified in this work}{67}{section*.180}%
+\contentsline {subsubsection}{\numberline {4.3.1.7}KubeWatt (Derived from Kepler)}{67}{subsubsection.181}%
+\contentsline {paragraph}{Separation of Static and Dynamic Power}{68}{section*.182}%
+\contentsline {paragraph}{Initialization Modes for Static Power Estimation}{68}{section*.183}%
+\contentsline {paragraph}{Simplified Attribution Model}{68}{section*.184}%
+\contentsline {paragraph}{Resilience Against Kepler's Pitfalls}{68}{section*.185}%
+\contentsline {paragraph}{External Power Source Integration}{68}{section*.186}%
+\contentsline {paragraph}{Improved Evaluation Outcomes}{68}{section*.187}%
+\contentsline {subsubsection}{\numberline {4.3.1.8}Re-Release of Kepler Version 0.10.0}{69}{subsubsection.188}%
+\contentsline {paragraph}{Implementation Changes}{69}{section*.189}%
+\contentsline {paragraph}{Power Attribution Model}{70}{section*.192}%
+\contentsline {paragraph}{Critical Analysis}{70}{section*.196}%
+\contentsline {subsection}{\numberline {4.3.2}Scaphandre}{71}{subsection.197}%
+\contentsline {subsubsection}{\numberline {4.3.2.1}Overview and Goals}{71}{subsubsection.198}%
+\contentsline {subsubsection}{\numberline {4.3.2.2}Architecture and Metric Sources}{71}{subsubsection.199}%
+\contentsline {paragraph}{\textit {Sensors}}{71}{section*.200}%
+\contentsline {paragraph}{\textit {Exporters}}{72}{section*.201}%
+\contentsline {paragraph}{Measurement Interval}{72}{section*.202}%
+\contentsline {subsubsection}{\numberline {4.3.2.3}Attribution Model}{73}{subsubsection.203}%
+\contentsline {paragraph}{Idle power consumption}{73}{section*.205}%
+\contentsline {subsubsection}{\numberline {4.3.2.4}Validation and Research Context}{74}{subsubsection.206}%
+\contentsline {subsubsection}{\numberline {4.3.2.5}Limitations and Open Issues}{74}{subsubsection.207}%
+\contentsline {subsection}{\numberline {4.3.3}SmartWatts}{75}{subsection.208}%
+\contentsline {subsubsection}{\numberline {4.3.3.1}Overview and Goals}{75}{subsubsection.209}%
+\contentsline {subsubsection}{\numberline {4.3.3.2}Architecture and Metric Sources}{75}{subsubsection.210}%
+\contentsline {subsubsection}{\numberline {4.3.3.3}Attribution Model}{76}{subsubsection.212}%
+\contentsline {subsubsection}{\numberline {4.3.3.4}Validation and Research Context}{77}{subsubsection.220}%
+\contentsline {subsubsection}{\numberline {4.3.3.5}Limitations and Open Issues}{78}{subsubsection.221}%
+\contentsline {chapter}{\numberline {5}Conclusion and Future Work}{79}{chapter.222}%
+\contentsline {section}{\numberline {5.1}Summary of Findings}{79}{section.223}%
+\contentsline {section}{\numberline {5.2}Critical Reflection}{80}{section.224}%
+\contentsline {subsection}{\numberline {5.2.1}Methodological Reflection}{80}{subsection.225}%
+\contentsline {subsection}{\numberline {5.2.2}Tool Adoption in Real-World Systems}{81}{subsection.226}%
+\contentsline {subsection}{\numberline {5.2.3}Transparency, Trust, and Black-Box Measurement}{81}{subsection.227}%
+\contentsline {subsection}{\numberline {5.2.4}Energy Attribution Philosophies}{82}{subsection.228}%
+\contentsline {section}{\numberline {5.3}Recommendations for Future Tool Development}{82}{section.229}%
+\contentsline {subsection}{\numberline {5.3.1}Towards Maximum-Accuracy Measurement Tools}{82}{subsection.230}%
+\contentsline {paragraph}{High-Resolution Hardware Metrics}{82}{section*.231}%
+\contentsline {paragraph}{Decoupled Metric Handling}{83}{section*.232}%
+\contentsline {paragraph}{Multi-Metric Integration}{83}{section*.233}%
+\contentsline {paragraph}{User-Configurable Estimation Modules}{83}{section*.234}%
+\contentsline {paragraph}{Selectable or configurable Attribution Models}{83}{section*.235}%
+\contentsline {paragraph}{Self-Calibration Support}{83}{section*.236}%
+\contentsline {paragraph}{Standards-Based Implementation}{83}{section*.237}%
+\contentsline {subsection}{\numberline {5.3.2}Addressing Missing Domains: Disk, Network, and Others}{83}{subsection.238}%
+\contentsline {paragraph}{Modular Estimation Frameworks}{84}{section*.239}%
+\contentsline {paragraph}{Inherent Accuracy Limitations}{84}{section*.240}%
+\contentsline {paragraph}{Residual Energy Utilization}{84}{section*.241}%
+\contentsline {paragraph}{Configurability}{84}{section*.242}%
+\contentsline {subsection}{\numberline {5.3.3}Balancing Accuracy and Overhead}{84}{subsection.243}%
+\contentsline {paragraph}{‘Precision’ Mode}{84}{section*.244}%
+\contentsline {paragraph}{‘Lightweight’ Mode}{84}{section*.245}%
+\contentsline {paragraph}{Mode Selection}{85}{section*.246}%
+\contentsline {subsection}{\numberline {5.3.4}Supporting Multiple User Roles and Needs}{85}{subsection.247}%
+\contentsline {paragraph}{Developers}{85}{section*.248}%
+\contentsline {paragraph}{Operators}{85}{section*.249}%
+\contentsline {paragraph}{Researchers}{85}{section*.250}%
+\contentsline {paragraph}{Serving All Audiences}{85}{section*.251}%
+\contentsline {subsection}{\numberline {5.3.5}Energy Metrics for Virtualized Environments}{86}{subsection.252}%
+\contentsline {paragraph}{Existing Approaches}{86}{section*.253}%
+\contentsline {paragraph}{Future Directions}{86}{section*.254}%
+\contentsline {paragraph}{Relevance}{86}{section*.255}%
+\contentsline {subsection}{\numberline {5.3.6}Standardization and Hardware Vendor Transparency}{86}{subsection.256}%
+\contentsline {paragraph}{Hardware Vendor Responsibility}{86}{section*.257}%
+\contentsline {paragraph}{Expanding Telemetry Standards}{86}{section*.258}%
+\contentsline {paragraph}{RAPL Transparency}{87}{section*.259}%
+\contentsline {section}{\numberline {5.4}Broader Research and Industry Opportunities}{87}{section.260}%
+\contentsline {paragraph}{Role of Standards Organizations}{87}{section*.261}%
+\contentsline {paragraph}{Hardware Manufacturer Involvement}{87}{section*.262}%
+\contentsline {paragraph}{Sustainable Cloud Computing}{87}{section*.263}%
+\contentsline {section}{\numberline {5.5}Closing Remarks}{87}{section.264}%
+\contentsline {chapter}{Bibliography}{89}{appendix*.265}%

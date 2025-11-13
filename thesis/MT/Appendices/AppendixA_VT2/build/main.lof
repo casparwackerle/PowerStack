@@ -1,0 +1,14 @@
+\babel@toc {english}{}\relax 
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {2.1}{\ignorespaces Rapl domains}}{10}{figure.caption.25}%
+\contentsline {figure}{\numberline {2.2}{\ignorespaces RAPL measurements: eBPF and comparison}}{12}{figure.caption.26}%
+\contentsline {figure}{\numberline {2.3}{\ignorespaces RAPL validation: CPU vs. PSU}}{13}{figure.caption.28}%
+\contentsline {figure}{\numberline {2.4}{\ignorespaces RAPL \code {ENERGY\_FILTERING\_ENABLE Granularity loss}}}{15}{figure.caption.33}%
+\contentsline {figure}{\numberline {2.5}{\ignorespaces FinGraV GPU power measurement challenges and strategies}}{19}{figure.caption.44}%
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {4.1}{\ignorespaces Kepler deployment models: direct power measurement on bare-metal, estimation on VMs, and the proposed passthrough model (currently not implemented)\blx@tocontentsinit {0}\parencite {kepler_docs}}}{58}{figure.caption.154}%
+\contentsline {figure}{\numberline {4.2}{\ignorespaces Simplified architecture of the Kepler monitoring agent and exporter components\blx@tocontentsinit {0}\parencite {kepler_docs}}}{58}{figure.caption.156}%
+\contentsline {figure}{\numberline {4.3}{\ignorespaces SmartWatts architecture}}{76}{figure.caption.211}%
+\addvspace {10\p@ }

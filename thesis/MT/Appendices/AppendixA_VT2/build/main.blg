@@ -1,0 +1,24 @@
+[0] Config.pm:307> INFO - This is Biber 2.19
+[0] Config.pm:310> INFO - Logfile is 'build/main.blg'
+[113] biber:340> INFO - === Thu Jul 17, 2025, 19:44:11
+[133] Biber.pm:419> INFO - Reading 'build/main.bcf'
+[237] Biber.pm:979> INFO - Found 111 citekeys in bib section 0
+[255] Biber.pm:4419> INFO - Processing section 0
+[269] Biber.pm:4610> INFO - Looking for bibtex file 'bibliography.bib' for section 0
+[287] bibtex.pm:1713> INFO - LaTeX decoding ...
+[517] bibtex.pm:1519> INFO - Found BibTeX data source 'bibliography.bib'
+[1815] UCollate.pm:68> INFO - Overriding locale 'en-US' defaults 'normalization = NFD' with 'normalization = prenormalized'
+[1815] UCollate.pm:68> INFO - Overriding locale 'en-US' defaults 'variable = shifted' with 'variable = non-ignorable'
+[1815] Biber.pm:4239> INFO - Sorting list 'none/global//global/global' of type 'entry' with template 'none' and locale 'en-US'
+[1815] Biber.pm:4245> INFO - No sort tailoring available for locale 'en-US'
+[1896] bbl.pm:660> INFO - Writing 'build/main.bbl' with encoding 'UTF-8'
+[1962] bbl.pm:763> INFO - Output to build/main.bbl
+[1963] Biber.pm:131> WARN - Duplicate entry key: 'yang2024accurate' in file 'bibliography.bib', skipping ...
+[1963] Biber.pm:131> WARN - Duplicate entry key: 'choDesignTradeoffsSSDs2015' in file 'bibliography.bib', skipping ...
+[1963] Biber.pm:131> WARN - Duplicate entry key: 'liWhichStorageDevice2014' in file 'bibliography.bib', skipping ...
+[1963] Biber.pm:131> WARN - Duplicate entry key: 'arjonaarocaMeasurementbasedAnalysisEnergy2014' in file 'bibliography.bib', skipping ...
+[1963] Biber.pm:131> WARN - legacy year field 'n.d.' in entry 'thomas-krenn-redfish' is not an integer - this will probably not sort properly.
+[1963] Biber.pm:131> WARN - legacy year field 'n.d.' in entry 'projectexigence_rapl' is not an integer - this will probably not sort properly.
+[1963] Biber.pm:131> WARN - legacy month field 'October' in entry 'amaral2023exploring' is not an integer - this will probably not sort properly.
+[1963] Biber.pm:131> WARN - legacy month field 'February' in entry 'scaphandre_issue280' is not an integer - this will probably not sort properly.
+[1963] Biber.pm:133> INFO - WARNINGS: 8

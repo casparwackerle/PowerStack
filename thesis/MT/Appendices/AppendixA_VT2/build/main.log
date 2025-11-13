@@ -1,0 +1,1845 @@
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2025.6.11)  17 JUL 2025 19:44
+entering extended mode
+ \write18 enabled.
+ file:line:error style messages enabled.
+ %&-line parsing enabled.
+**/home/caspar/Documents/github/PowerStack/thesis/VT2/main
+(/home/caspar/Documents/github/PowerStack/thesis/VT2/main.tex
+LaTeX2e <2023-11-01> patch level 1
+L3 programming layer <2024-01-22>
+(./MastersDoctoralThesis.cls
+Document Class: MastersDoctoralThesis 2020/08/24 v1.7 LaTeXTemplates.com
+(/usr/share/texlive/texmf-dist/tex/latex/etoolbox/etoolbox.sty
+Package: etoolbox 2020/10/05 v2.5k e-TeX tools for LaTeX (JAW)
+\etb@tempcnta=\count187
+) (/usr/share/texlive/texmf-dist/tex/latex/l3packages/xparse/xparse.sty (/usr/share/texlive/texmf-dist/tex/latex/l3kernel/expl3.sty
+Package: expl3 2024-01-22 L3 programming layer (loader) 
+ (/usr/share/texlive/texmf-dist/tex/latex/l3backend/l3backend-pdftex.def
+File: l3backend-pdftex.def 2024-01-04 L3 backend support: PDF output (pdfTeX)
+\l__color_backend_stack_int=\count188
+\l__pdf_internal_box=\box51
+))
+Package: xparse 2023-10-10 L3 Experimental document command parser
+) (/usr/share/texlive/texmf-dist/tex/latex/base/book.cls
+Document Class: book 2023/05/17 v1.4n Standard LaTeX document class
+(/usr/share/texlive/texmf-dist/tex/latex/base/bk11.clo
+File: bk11.clo 2023/05/17 v1.4n Standard LaTeX file (size option)
+)
+\c@part=\count189
+\c@chapter=\count190
+\c@section=\count191
+\c@subsection=\count192
+\c@subsubsection=\count193
+\c@paragraph=\count194
+\c@subparagraph=\count195
+\c@figure=\count196
+\c@table=\count197
+\abovecaptionskip=\skip48
+\belowcaptionskip=\skip49
+\bibindent=\dimen140
+) (/usr/share/texlive/texmf-dist/tex/latex/parskip/parskip.sty
+Package: parskip 2021-03-14 v2.0h non-zero parskip adjustments
+ (/usr/share/texlive/texmf-dist/tex/latex/kvoptions/kvoptions.sty
+Package: kvoptions 2022-06-15 v3.15 Key value format for package options (HO)
+ (/usr/share/texlive/texmf-dist/tex/latex/graphics/keyval.sty
+Package: keyval 2022/05/29 v1.15 key=value parser (DPC)
+\KV@toks@=\toks17
+) (/usr/share/texlive/texmf-dist/tex/generic/ltxcmds/ltxcmds.sty
+Package: ltxcmds 2023-12-04 v1.26 LaTeX kernel commands for general use (HO)
+) (/usr/share/texlive/texmf-dist/tex/latex/kvsetkeys/kvsetkeys.sty
+Package: kvsetkeys 2022-10-05 v1.19 Key value parser (HO)
+))) (/usr/share/texlive/texmf-dist/tex/generic/babel/babel.sty
+Package: babel 2024/01/07 v24.1 The Babel package
+\babel@savecnt=\count198
+\U@D=\dimen141
+\l@unhyphenated=\language89
+ (/usr/share/texlive/texmf-dist/tex/generic/babel/txtbabel.def)
+\bbl@readstream=\read2
+\bbl@dirlevel=\count199
+ (/usr/share/texlive/texmf-dist/tex/generic/babel-english/english.ldf
+Language: english 2017/06/06 v3.3r English support from the babel system
+Package babel Info: Hyphen rules for 'canadian' set to \l@english
+(babel)             (\language0). Reported on input line 102.
+Package babel Info: Hyphen rules for 'australian' set to \l@ukenglish
+(babel)             (\language42). Reported on input line 105.
+Package babel Info: Hyphen rules for 'newzealand' set to \l@ukenglish
+(babel)             (\language42). Reported on input line 108.
+)) (/usr/share/texlive/texmf-dist/tex/generic/babel/locale/en/babel-english.tex
+Package babel Info: Importing font and identification data for english
+(babel)             from babel-en.ini. Reported on input line 11.
+) (/usr/share/texlive/texmf-dist/tex/latex/koma-script/scrbase.sty
+Package: scrbase 2023/07/07 v3.41 KOMA-Script package (KOMA-Script-independent basics and keyval usage)
+ (/usr/share/texlive/texmf-dist/tex/latex/koma-script/scrlfile.sty
+Package: scrlfile 2023/07/07 v3.41 KOMA-Script package (file load hooks)
+ (/usr/share/texlive/texmf-dist/tex/latex/koma-script/scrlfile-hook.sty
+Package: scrlfile-hook 2023/07/07 v3.41 KOMA-Script package (using LaTeX hooks)
+ (/usr/share/texlive/texmf-dist/tex/latex/koma-script/scrlogo.sty
+Package: scrlogo 2023/07/07 v3.41 KOMA-Script package (logo)
+)))
+Applying: [2021/05/01] Usage of raw or classic option list on input line 252.
+Already applied: [0000/00/00] Usage of raw or classic option list on input line 368.
+) (/usr/share/texlive/texmf-dist/tex/latex/setspace/setspace.sty
+Package: setspace 2022/12/04 v6.7b set line spacing
+) (/usr/share/texlive/texmf-dist/tex/latex/tools/longtable.sty
+Package: longtable 2023-11-01 v4.19 Multi-page Table package (DPC)
+\LTleft=\skip50
+\LTright=\skip51
+\LTpre=\skip52
+\LTpost=\skip53
+\LTchunksize=\count266
+\LTcapwidth=\dimen142
+\LT@head=\box52
+\LT@firsthead=\box53
+\LT@foot=\box54
+\LT@lastfoot=\box55
+\LT@gbox=\box56
+\LT@cols=\count267
+\LT@rows=\count268
+\c@LT@tables=\count269
+\c@LT@chunks=\count270
+\LT@p@ftn=\toks18
+) (/usr/share/texlive/texmf-dist/tex/latex/siunitx/siunitx.sty
+Package: siunitx 2024-01-25 v3.3.10 A comprehensive (SI) units package
+\l__siunitx_number_uncert_offset_int=\count271
+\l__siunitx_number_exponent_fixed_int=\count272
+\l__siunitx_number_min_decimal_int=\count273
+\l__siunitx_number_min_integer_int=\count274
+\l__siunitx_number_round_precision_int=\count275
+\l__siunitx_number_lower_threshold_int=\count276
+\l__siunitx_number_upper_threshold_int=\count277
+\l__siunitx_number_group_first_int=\count278
+\l__siunitx_number_group_size_int=\count279
+\l__siunitx_number_group_minimum_int=\count280
+\l__siunitx_angle_tmp_dim=\dimen143
+\l__siunitx_angle_marker_box=\box57
+\l__siunitx_angle_unit_box=\box58
+\l__siunitx_compound_count_int=\count281
+ (/usr/share/texlive/texmf-dist/tex/latex/translations/translations.sty
+Package: translations 2022/02/05 v1.12 internationalization of LaTeX2e packages (CN)
+ (/usr/share/texlive/texmf-dist/tex/generic/pdftexcmds/pdftexcmds.sty
+Package: pdftexcmds 2020-06-27 v0.33 Utility functions of pdfTeX for LuaTeX (HO)
+ (/usr/share/texlive/texmf-dist/tex/generic/infwarerr/infwarerr.sty
+Package: infwarerr 2019/12/03 v1.5 Providing info/warning/error messages (HO)
+) (/usr/share/texlive/texmf-dist/tex/generic/iftex/iftex.sty
+Package: iftex 2022/02/03 v1.0f TeX engine tests
+)
+Package pdftexcmds Info: \pdf@primitive is available.
+Package pdftexcmds Info: \pdf@ifprimitive is available.
+Package pdftexcmds Info: \pdfdraftmode found.
+)) (/usr/share/texlive/texmf-dist/tex/latex/amsmath/amstext.sty
+Package: amstext 2021/08/26 v2.01 AMS text
+ (/usr/share/texlive/texmf-dist/tex/latex/amsmath/amsgen.sty
+File: amsgen.sty 1999/11/30 v2.0 generic functions
+\@emptytoks=\toks19
+\ex@=\dimen144
+))
+\l__siunitx_table_tmp_box=\box59
+\l__siunitx_table_tmp_dim=\dimen145
+\l__siunitx_table_column_width_dim=\dimen146
+\l__siunitx_table_integer_box=\box60
+\l__siunitx_table_decimal_box=\box61
+\l__siunitx_table_uncert_box=\box62
+\l__siunitx_table_before_box=\box63
+\l__siunitx_table_after_box=\box64
+\l__siunitx_table_before_dim=\dimen147
+\l__siunitx_table_carry_dim=\dimen148
+\l__siunitx_unit_tmp_int=\count282
+\l__siunitx_unit_position_int=\count283
+\l__siunitx_unit_total_int=\count284
+ (/usr/share/texlive/texmf-dist/tex/latex/tools/array.sty
+Package: array 2023/10/16 v2.5g Tabular extension package (FMi)
+\col@sep=\dimen149
+\ar@mcellbox=\box65
+\extrarowheight=\dimen150
+\NC@list=\toks20
+\extratabsurround=\skip54
+\backup@length=\skip55
+\ar@cellbox=\box66
+)) (/usr/share/texlive/texmf-dist/tex/latex/graphics/graphicx.sty
+Package: graphicx 2021/09/16 v1.2d Enhanced LaTeX Graphics (DPC,SPQR)
+ (/usr/share/texlive/texmf-dist/tex/latex/graphics/graphics.sty
+Package: graphics 2022/03/10 v1.4e Standard LaTeX Graphics (DPC,SPQR)
+ (/usr/share/texlive/texmf-dist/tex/latex/graphics/trig.sty
+Package: trig 2021/08/11 v1.11 sin cos tan (DPC)
+) (/usr/share/texlive/texmf-dist/tex/latex/graphics-cfg/graphics.cfg
+File: graphics.cfg 2016/06/04 v1.11 sample graphics configuration
+)
+Package graphics Info: Driver file: pdftex.def on input line 107.
+ (/usr/share/texlive/texmf-dist/tex/latex/graphics-def/pdftex.def
+File: pdftex.def 2022/09/22 v1.2b Graphics/color driver for pdftex
+))
+\Gin@req@height=\dimen151
+\Gin@req@width=\dimen152
+) (/usr/share/texlive/texmf-dist/tex/latex/booktabs/booktabs.sty
+Package: booktabs 2020/01/12 v1.61803398 Publication quality tables
+\heavyrulewidth=\dimen153
+\lightrulewidth=\dimen154
+\cmidrulewidth=\dimen155
+\belowrulesep=\dimen156
+\belowbottomsep=\dimen157
+\aboverulesep=\dimen158
+\abovetopsep=\dimen159
+\cmidrulesep=\dimen160
+\cmidrulekern=\dimen161
+\defaultaddspace=\dimen162
+\@cmidla=\count285
+\@cmidlb=\count286
+\@aboverulesep=\dimen163
+\@belowrulesep=\dimen164
+\@thisruleclass=\count287
+\@lastruleclass=\count288
+\@thisrulewidth=\dimen165
+) (/usr/share/texlive/texmf-dist/tex/latex/caption/caption.sty
+Package: caption 2023/08/05 v3.6o Customizing captions (AR)
+ (/usr/share/texlive/texmf-dist/tex/latex/caption/caption3.sty
+Package: caption3 2023/07/31 v2.4d caption3 kernel (AR)
+\caption@tempdima=\dimen166
+\captionmargin=\dimen167
+\caption@leftmargin=\dimen168
+\caption@rightmargin=\dimen169
+\caption@width=\dimen170
+\caption@indent=\dimen171
+\caption@parindent=\dimen172
+\caption@hangindent=\dimen173
+Package caption Info: Standard document class detected.
+)
+\c@caption@flags=\count289
+\c@continuedfloat=\count290
+Package caption Info: longtable package is loaded.
+ (/usr/share/texlive/texmf-dist/tex/latex/caption/ltcaption.sty
+Package: ltcaption 2021/01/08 v1.4c longtable captions (AR)
+)) (/usr/share/texlive/texmf-dist/tex/latex/xcolor/xcolor.sty
+Package: xcolor 2023/11/15 v3.01 LaTeX color extensions (UK)
+ (/usr/share/texlive/texmf-dist/tex/latex/graphics-cfg/color.cfg
+File: color.cfg 2016/01/02 v1.6 sample color configuration
+)
+Package xcolor Info: Driver file: pdftex.def on input line 274.
+ (/usr/share/texlive/texmf-dist/tex/latex/graphics/mathcolor.ltx)
+Package xcolor Info: Model `cmy' substituted by `cmy0' on input line 1350.
+Package xcolor Info: Model `hsb' substituted by `rgb' on input line 1354.
+Package xcolor Info: Model `RGB' extended on input line 1366.
+Package xcolor Info: Model `HTML' substituted by `rgb' on input line 1368.
+Package xcolor Info: Model `Hsb' substituted by `hsb' on input line 1369.
+Package xcolor Info: Model `tHsb' substituted by `hsb' on input line 1370.
+Package xcolor Info: Model `HSB' substituted by `hsb' on input line 1371.
+Package xcolor Info: Model `Gray' substituted by `gray' on input line 1372.
+Package xcolor Info: Model `wave' substituted by `hsb' on input line 1373.
+) (/usr/share/texlive/texmf-dist/tex/latex/geometry/geometry.sty
+Package: geometry 2020/01/02 v5.9 Page Geometry
+ (/usr/share/texlive/texmf-dist/tex/generic/iftex/ifvtex.sty
+Package: ifvtex 2019/10/25 v1.7 ifvtex legacy package. Use iftex instead.
+)
+\Gm@cnth=\count291
+\Gm@cntv=\count292
+\c@Gm@tempcnt=\count293
+\Gm@bindingoffset=\dimen174
+\Gm@wd@mp=\dimen175
+\Gm@odd@mp=\dimen176
+\Gm@even@mp=\dimen177
+\Gm@layoutwidth=\dimen178
+\Gm@layoutheight=\dimen179
+\Gm@layouthoffset=\dimen180
+\Gm@layoutvoffset=\dimen181
+\Gm@dimlist=\toks21
+) (/usr/share/texlive/texmf-dist/tex/latex/koma-script/scrlayer-scrpage.sty
+Package: scrlayer-scrpage 2023/07/07 v3.41 KOMA-Script package (end user interface for scrlayer)
+ (/usr/share/texlive/texmf-dist/tex/latex/koma-script/scrlayer.sty
+Package: scrlayer 2023/07/07 v3.41 KOMA-Script package (defining layers and page styles)
+ (/usr/share/texlive/texmf-dist/tex/latex/koma-script/scrkbase.sty
+Package: scrkbase 2023/07/07 v3.41 KOMA-Script package (KOMA-Script-dependent basics and keyval usage)
+)
+\footheight=\skip56
+Package scrlayer Info: patching LaTeX kernel macro \pagestyle on input line 2183.
+)
+Package scrbase Info: Unknown processing state.
+(scrbase)             Processing option `markcase=used'
+(scrbase)             of member `.scrlayer-scrpage.sty' of family
+(scrbase)             `KOMA' doesn't set
+(scrbase)             a valid state. This will be interpreted
+(scrbase)             as \FamilyKeyStateProcessed on input line 649.
+)
+1: chapter
+1: chapter
+1: section
+) (./preamble.tex (/usr/share/texlive/texmf-dist/tex/latex/base/inputenc.sty
+Package: inputenc 2021/02/14 v1.3d Input encoding file
+\inpenc@prehook=\toks22
+\inpenc@posthook=\toks23
+) (/usr/share/texlive/texmf-dist/tex/latex/base/fontenc.sty
+Package: fontenc 2021/04/29 v2.0v Standard LaTeX package
+) (/usr/share/texlive/texmf-dist/tex/latex/psnfss/mathpazo.sty
+Package: mathpazo 2020/03/25 PSNFSS-v9.3 Palatino w/ Pazo Math (D.Puga, WaS) 
+\symupright=\mathgroup4
+) (/usr/share/texlive/texmf-dist/tex/latex/bera/beramono.sty
+Package: beramono 2004/01/31 (WaS)
+) (/usr/share/texlive/texmf-dist/tex/generic/iftex/ifxetex.sty
+Package: ifxetex 2019/10/25 v0.7 ifxetex legacy package. Use iftex instead.
+) (/usr/share/texlive/texmf-dist/tex/latex/amsmath/amsmath.sty
+Package: amsmath 2023/05/13 v2.17o AMS math features
+\@mathmargin=\skip57
+
+For additional information on amsmath, use the `?' option.
+(/usr/share/texlive/texmf-dist/tex/latex/amsmath/amsbsy.sty
+Package: amsbsy 1999/11/29 v1.2d Bold Symbols
+\pmbraise@=\dimen182
+) (/usr/share/texlive/texmf-dist/tex/latex/amsmath/amsopn.sty
+Package: amsopn 2022/04/08 v2.04 operator names
+)
+\inf@bad=\count294
+LaTeX Info: Redefining \frac on input line 234.
+\uproot@=\count295
+\leftroot@=\count296
+LaTeX Info: Redefining \overline on input line 399.
+LaTeX Info: Redefining \colon on input line 410.
+\classnum@=\count297
+\DOTSCASE@=\count298
+LaTeX Info: Redefining \ldots on input line 496.
+LaTeX Info: Redefining \dots on input line 499.
+LaTeX Info: Redefining \cdots on input line 620.
+\Mathstrutbox@=\box67
+\strutbox@=\box68
+LaTeX Info: Redefining \big on input line 722.
+LaTeX Info: Redefining \Big on input line 723.
+LaTeX Info: Redefining \bigg on input line 724.
+LaTeX Info: Redefining \Bigg on input line 725.
+\big@size=\dimen183
+LaTeX Font Info:    Redeclaring font encoding OML on input line 743.
+LaTeX Font Info:    Redeclaring font encoding OMS on input line 744.
+\macc@depth=\count299
+LaTeX Info: Redefining \bmod on input line 905.
+LaTeX Info: Redefining \pmod on input line 910.
+LaTeX Info: Redefining \smash on input line 940.
+LaTeX Info: Redefining \relbar on input line 970.
+LaTeX Info: Redefining \Relbar on input line 971.
+\c@MaxMatrixCols=\count300
+\dotsspace@=\muskip16
+\c@parentequation=\count301
+\dspbrk@lvl=\count302
+\tag@help=\toks24
+\row@=\count303
+\column@=\count304
+\maxfields@=\count305
+\andhelp@=\toks25
+\eqnshift@=\dimen184
+\alignsep@=\dimen185
+\tagshift@=\dimen186
+\tagwidth@=\dimen187
+\totwidth@=\dimen188
+\lineht@=\dimen189
+\@envbody=\toks26
+\multlinegap=\skip58
+\multlinetaggap=\skip59
+\mathdisplay@stack=\toks27
+LaTeX Info: Redefining \[ on input line 2953.
+LaTeX Info: Redefining \] on input line 2954.
+) (/usr/share/texlive/texmf-dist/tex/latex/caption/subcaption.sty
+Package: subcaption 2023/07/28 v1.6b Sub-captions (AR)
+Package caption Info: New subtype `subfigure' on input line 238.
+\c@subfigure=\count306
+Package caption Info: New subtype `subtable' on input line 238.
+\c@subtable=\count307
+) (/usr/share/texlive/texmf-dist/tex/latex/makecell/makecell.sty
+Package: makecell 2009/08/03 V0.1e Managing of Tab Column Heads and Cells
+\rotheadsize=\dimen190
+\c@nlinenum=\count308
+\TeXr@lab=\toks28
+) (/usr/share/texlive/texmf-dist/tex/latex/pdfpages/pdfpages.sty
+Package: pdfpages 2024/01/21 v0.5y Insert pages of external PDF documents (AM)
+ (/usr/share/texlive/texmf-dist/tex/latex/base/ifthen.sty
+Package: ifthen 2022/04/13 v1.1d Standard LaTeX ifthen package (DPC)
+) (/usr/share/texlive/texmf-dist/tex/latex/tools/calc.sty
+Package: calc 2023/07/08 v4.3 Infix arithmetic (KKT,FJ)
+\calc@Acount=\count309
+\calc@Bcount=\count310
+\calc@Adimen=\dimen191
+\calc@Bdimen=\dimen192
+\calc@Askip=\skip60
+\calc@Bskip=\skip61
+LaTeX Info: Redefining \setlength on input line 80.
+LaTeX Info: Redefining \addtolength on input line 81.
+\calc@Ccount=\count311
+\calc@Cskip=\skip62
+) (/usr/share/texlive/texmf-dist/tex/latex/eso-pic/eso-pic.sty
+Package: eso-pic 2023/05/03 v3.0c eso-pic (RN)
+\ESO@tempdima=\dimen193
+\ESO@tempdimb=\dimen194
+)
+\AM@pagewidth=\dimen195
+\AM@pageheight=\dimen196
+\AM@fboxrule=\dimen197
+ (/usr/share/texlive/texmf-dist/tex/latex/pdfpages/pppdftex.def
+File: pppdftex.def 2024/01/21 v0.5y Pdfpages driver for pdfTeX (AM)
+)
+\pdfpages@includegraphics@status=\count312
+\AM@pagebox=\box69
+\AM@global@opts=\toks29
+\AM@pagecnt=\count313
+\AM@toc@title=\toks30
+\AM@lof@heading=\toks31
+\c@AM@survey=\count314
+\AM@templatesizebox=\box70
+) (/usr/share/texlive/texmf-dist/tex/latex/todonotes/todonotes.sty
+Package: todonotes 2024/01/05 v1.1.7 Todonotes source and documentation.
+Package: todonotes 2024/01/05
+ (/usr/share/texlive/texmf-dist/tex/latex/xkeyval/xkeyval.sty
+Package: xkeyval 2022/06/16 v2.9 package option processing (HA)
+ (/usr/share/texlive/texmf-dist/tex/generic/xkeyval/xkeyval.tex (/usr/share/texlive/texmf-dist/tex/generic/xkeyval/xkvutils.tex
+\XKV@toks=\toks32
+\XKV@tempa@toks=\toks33
+)
+\XKV@depth=\count315
+File: xkeyval.tex 2014/12/03 v2.7a key=value parser (HA)
+)) (/usr/share/texlive/texmf-dist/tex/latex/pgf/frontendlayer/tikz.sty (/usr/share/texlive/texmf-dist/tex/latex/pgf/basiclayer/pgf.sty (/usr/share/texlive/texmf-dist/tex/latex/pgf/utilities/pgfrcs.sty (/usr/share/texlive/texmf-dist/tex/generic/pgf/utilities/pgfutil-common.tex
+\pgfutil@everybye=\toks34
+\pgfutil@tempdima=\dimen198
+\pgfutil@tempdimb=\dimen199
+) (/usr/share/texlive/texmf-dist/tex/generic/pgf/utilities/pgfutil-latex.def
+\pgfutil@abb=\box71
+) (/usr/share/texlive/texmf-dist/tex/generic/pgf/utilities/pgfrcs.code.tex (/usr/share/texlive/texmf-dist/tex/generic/pgf/pgf.revision.tex)
+Package: pgfrcs 2023-01-15 v3.1.10 (3.1.10)
+))
+Package: pgf 2023-01-15 v3.1.10 (3.1.10)
+ (/usr/share/texlive/texmf-dist/tex/latex/pgf/basiclayer/pgfcore.sty (/usr/share/texlive/texmf-dist/tex/latex/pgf/systemlayer/pgfsys.sty (/usr/share/texlive/texmf-dist/tex/generic/pgf/systemlayer/pgfsys.code.tex
+Package: pgfsys 2023-01-15 v3.1.10 (3.1.10)
+ (/usr/share/texlive/texmf-dist/tex/generic/pgf/utilities/pgfkeys.code.tex
+\pgfkeys@pathtoks=\toks35
+\pgfkeys@temptoks=\toks36
+ (/usr/share/texlive/texmf-dist/tex/generic/pgf/utilities/pgfkeyslibraryfiltered.code.tex
+\pgfkeys@tmptoks=\toks37
+))
+\pgf@x=\dimen256
+\pgf@y=\dimen257
+\pgf@xa=\dimen258
+\pgf@ya=\dimen259
+\pgf@xb=\dimen260
+\pgf@yb=\dimen261
+\pgf@xc=\dimen262
+\pgf@yc=\dimen263
+\pgf@xd=\dimen264
+\pgf@yd=\dimen265
+\w@pgf@writea=\write3
+\r@pgf@reada=\read3
+\c@pgf@counta=\count316
+\c@pgf@countb=\count317
+\c@pgf@countc=\count318
+\c@pgf@countd=\count319
+\t@pgf@toka=\toks38
+\t@pgf@tokb=\toks39
+\t@pgf@tokc=\toks40
+\pgf@sys@id@count=\count320
+ (/usr/share/texlive/texmf-dist/tex/generic/pgf/systemlayer/pgf.cfg
+File: pgf.cfg 2023-01-15 v3.1.10 (3.1.10)
+)
+Driver file for pgf: pgfsys-pdftex.def
+ (/usr/share/texlive/texmf-dist/tex/generic/pgf/systemlayer/pgfsys-pdftex.def
+File: pgfsys-pdftex.def 2023-01-15 v3.1.10 (3.1.10)
+ (/usr/share/texlive/texmf-dist/tex/generic/pgf/systemlayer/pgfsys-common-pdf.def
+File: pgfsys-common-pdf.def 2023-01-15 v3.1.10 (3.1.10)
+))) (/usr/share/texlive/texmf-dist/tex/generic/pgf/systemlayer/pgfsyssoftpath.code.tex
+File: pgfsyssoftpath.code.tex 2023-01-15 v3.1.10 (3.1.10)
+\pgfsyssoftpath@smallbuffer@items=\count321
+\pgfsyssoftpath@bigbuffer@items=\count322
+) (/usr/share/texlive/texmf-dist/tex/generic/pgf/systemlayer/pgfsysprotocol.code.tex
+File: pgfsysprotocol.code.tex 2023-01-15 v3.1.10 (3.1.10)
+)) (/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcore.code.tex
+Package: pgfcore 2023-01-15 v3.1.10 (3.1.10)
+ (/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmath.code.tex (/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmathutil.code.tex) (/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmathparser.code.tex
+\pgfmath@dimen=\dimen266
+\pgfmath@count=\count323
+\pgfmath@box=\box72
+\pgfmath@toks=\toks41
+\pgfmath@stack@operand=\toks42
+\pgfmath@stack@operation=\toks43
+) (/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.code.tex) (/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.basic.code.tex) (/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.trigonometric.code.tex) (/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.random.code.tex) (/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.comparison.code.tex) (/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.base.code.tex) (/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.round.code.tex) (/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.misc.code.tex) (/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.integerarithmetics.code.tex) (/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmathcalc.code.tex) (/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmathfloat.code.tex
+\c@pgfmathroundto@lastzeros=\count324
+)) (/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfint.code.tex) (/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcorepoints.code.tex
+File: pgfcorepoints.code.tex 2023-01-15 v3.1.10 (3.1.10)
+\pgf@picminx=\dimen267
+\pgf@picmaxx=\dimen268
+\pgf@picminy=\dimen269
+\pgf@picmaxy=\dimen270
+\pgf@pathminx=\dimen271
+\pgf@pathmaxx=\dimen272
+\pgf@pathminy=\dimen273
+\pgf@pathmaxy=\dimen274
+\pgf@xx=\dimen275
+\pgf@xy=\dimen276
+\pgf@yx=\dimen277
+\pgf@yy=\dimen278
+\pgf@zx=\dimen279
+\pgf@zy=\dimen280
+) (/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcorepathconstruct.code.tex
+File: pgfcorepathconstruct.code.tex 2023-01-15 v3.1.10 (3.1.10)
+\pgf@path@lastx=\dimen281
+\pgf@path@lasty=\dimen282
+) (/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcorepathusage.code.tex
+File: pgfcorepathusage.code.tex 2023-01-15 v3.1.10 (3.1.10)
+\pgf@shorten@end@additional=\dimen283
+\pgf@shorten@start@additional=\dimen284
+) (/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcorescopes.code.tex
+File: pgfcorescopes.code.tex 2023-01-15 v3.1.10 (3.1.10)
+\pgfpic=\box73
+\pgf@hbox=\box74
+\pgf@layerbox@main=\box75
+\pgf@picture@serial@count=\count325
+) (/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcoregraphicstate.code.tex
+File: pgfcoregraphicstate.code.tex 2023-01-15 v3.1.10 (3.1.10)
+\pgflinewidth=\dimen285
+) (/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcoretransformations.code.tex
+File: pgfcoretransformations.code.tex 2023-01-15 v3.1.10 (3.1.10)
+\pgf@pt@x=\dimen286
+\pgf@pt@y=\dimen287
+\pgf@pt@temp=\dimen288
+) (/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcorequick.code.tex
+File: pgfcorequick.code.tex 2023-01-15 v3.1.10 (3.1.10)
+) (/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcoreobjects.code.tex
+File: pgfcoreobjects.code.tex 2023-01-15 v3.1.10 (3.1.10)
+) (/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcorepathprocessing.code.tex
+File: pgfcorepathprocessing.code.tex 2023-01-15 v3.1.10 (3.1.10)
+) (/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcorearrows.code.tex
+File: pgfcorearrows.code.tex 2023-01-15 v3.1.10 (3.1.10)
+\pgfarrowsep=\dimen289
+) (/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcoreshade.code.tex
+File: pgfcoreshade.code.tex 2023-01-15 v3.1.10 (3.1.10)
+\pgf@max=\dimen290
+\pgf@sys@shading@range@num=\count326
+\pgf@shadingcount=\count327
+) (/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcoreimage.code.tex
+File: pgfcoreimage.code.tex 2023-01-15 v3.1.10 (3.1.10)
+) (/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcoreexternal.code.tex
+File: pgfcoreexternal.code.tex 2023-01-15 v3.1.10 (3.1.10)
+\pgfexternal@startupbox=\box76
+) (/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcorelayers.code.tex
+File: pgfcorelayers.code.tex 2023-01-15 v3.1.10 (3.1.10)
+) (/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcoretransparency.code.tex
+File: pgfcoretransparency.code.tex 2023-01-15 v3.1.10 (3.1.10)
+) (/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcorepatterns.code.tex
+File: pgfcorepatterns.code.tex 2023-01-15 v3.1.10 (3.1.10)
+) (/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcorerdf.code.tex
+File: pgfcorerdf.code.tex 2023-01-15 v3.1.10 (3.1.10)
+))) (/usr/share/texlive/texmf-dist/tex/generic/pgf/modules/pgfmoduleshapes.code.tex
+File: pgfmoduleshapes.code.tex 2023-01-15 v3.1.10 (3.1.10)
+\pgfnodeparttextbox=\box77
+) (/usr/share/texlive/texmf-dist/tex/generic/pgf/modules/pgfmoduleplot.code.tex
+File: pgfmoduleplot.code.tex 2023-01-15 v3.1.10 (3.1.10)
+) (/usr/share/texlive/texmf-dist/tex/latex/pgf/compatibility/pgfcomp-version-0-65.sty
+Package: pgfcomp-version-0-65 2023-01-15 v3.1.10 (3.1.10)
+\pgf@nodesepstart=\dimen291
+\pgf@nodesepend=\dimen292
+) (/usr/share/texlive/texmf-dist/tex/latex/pgf/compatibility/pgfcomp-version-1-18.sty
+Package: pgfcomp-version-1-18 2023-01-15 v3.1.10 (3.1.10)
+)) (/usr/share/texlive/texmf-dist/tex/latex/pgf/utilities/pgffor.sty (/usr/share/texlive/texmf-dist/tex/latex/pgf/utilities/pgfkeys.sty (/usr/share/texlive/texmf-dist/tex/generic/pgf/utilities/pgfkeys.code.tex)) (/usr/share/texlive/texmf-dist/tex/latex/pgf/math/pgfmath.sty (/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmath.code.tex)) (/usr/share/texlive/texmf-dist/tex/generic/pgf/utilities/pgffor.code.tex
+Package: pgffor 2023-01-15 v3.1.10 (3.1.10)
+\pgffor@iter=\dimen293
+\pgffor@skip=\dimen294
+\pgffor@stack=\toks44
+\pgffor@toks=\toks45
+)) (/usr/share/texlive/texmf-dist/tex/generic/pgf/frontendlayer/tikz/tikz.code.tex
+Package: tikz 2023-01-15 v3.1.10 (3.1.10)
+ (/usr/share/texlive/texmf-dist/tex/generic/pgf/libraries/pgflibraryplothandlers.code.tex
+File: pgflibraryplothandlers.code.tex 2023-01-15 v3.1.10 (3.1.10)
+\pgf@plot@mark@count=\count328
+\pgfplotmarksize=\dimen295
+)
+\tikz@lastx=\dimen296
+\tikz@lasty=\dimen297
+\tikz@lastxsaved=\dimen298
+\tikz@lastysaved=\dimen299
+\tikz@lastmovetox=\dimen300
+\tikz@lastmovetoy=\dimen301
+\tikzleveldistance=\dimen302
+\tikzsiblingdistance=\dimen303
+\tikz@figbox=\box78
+\tikz@figbox@bg=\box79
+\tikz@tempbox=\box80
+\tikz@tempbox@bg=\box81
+\tikztreelevel=\count329
+\tikznumberofchildren=\count330
+\tikznumberofcurrentchild=\count331
+\tikz@fig@count=\count332
+ (/usr/share/texlive/texmf-dist/tex/generic/pgf/modules/pgfmodulematrix.code.tex
+File: pgfmodulematrix.code.tex 2023-01-15 v3.1.10 (3.1.10)
+\pgfmatrixcurrentrow=\count333
+\pgfmatrixcurrentcolumn=\count334
+\pgf@matrix@numberofcolumns=\count335
+)
+\tikz@expandcount=\count336
+ (/usr/share/texlive/texmf-dist/tex/generic/pgf/frontendlayer/tikz/libraries/tikzlibrarytopaths.code.tex
+File: tikzlibrarytopaths.code.tex 2023-01-15 v3.1.10 (3.1.10)
+))) (/usr/share/texlive/texmf-dist/tex/generic/pgf/frontendlayer/tikz/libraries/tikzlibrarypositioning.code.tex
+File: tikzlibrarypositioning.code.tex 2023-01-15 v3.1.10 (3.1.10)
+)
+\c@@todonotes@numberoftodonotes=\count337
+) (/usr/share/texlive/texmf-dist/tex/latex/tcolorbox/tcolorbox.sty
+Package: tcolorbox 2024/01/10 version 6.2.0 text color boxes
+ (/usr/share/texlive/texmf-dist/tex/latex/tools/verbatim.sty
+Package: verbatim 2023-11-06 v1.5v LaTeX2e package for verbatim enhancements
+\every@verbatim=\toks46
+\verbatim@line=\toks47
+\verbatim@in@stream=\read4
+) (/usr/share/texlive/texmf-dist/tex/latex/environ/environ.sty
+Package: environ 2014/05/04 v0.3 A new way to define environments
+ (/usr/share/texlive/texmf-dist/tex/latex/trimspaces/trimspaces.sty
+Package: trimspaces 2009/09/17 v1.1 Trim spaces around a token list
+))
+\tcb@titlebox=\box82
+\tcb@upperbox=\box83
+\tcb@lowerbox=\box84
+\tcb@phantombox=\box85
+\c@tcbbreakpart=\count338
+\c@tcblayer=\count339
+\c@tcolorbox@number=\count340
+\l__tcobox_tmpa_box=\box86
+\l__tcobox_tmpa_dim=\dimen304
+\tcb@temp=\box87
+\tcb@temp=\box88
+\tcb@temp=\box89
+\tcb@temp=\box90
+) (/usr/share/texlive/texmf-dist/tex/latex/listings/listings.sty
+\lst@mode=\count341
+\lst@gtempboxa=\box91
+\lst@token=\toks48
+\lst@length=\count342
+\lst@currlwidth=\dimen305
+\lst@column=\count343
+\lst@pos=\count344
+\lst@lostspace=\dimen306
+\lst@width=\dimen307
+\lst@newlines=\count345
+\lst@lineno=\count346
+\lst@maxwidth=\dimen308
+ (/usr/share/texlive/texmf-dist/tex/latex/listings/lstmisc.sty
+File: lstmisc.sty 2023/02/27 1.9 (Carsten Heinz)
+\c@lstnumber=\count347
+\lst@skipnumbers=\count348
+\lst@framebox=\box92
+) (/usr/share/texlive/texmf-dist/tex/latex/listings/listings.cfg
+File: listings.cfg 2023/02/27 1.9 listings configuration
+))
+Package: listings 2023/02/27 1.9 (Carsten Heinz)
+ (/usr/share/texlive/texmf-dist/tex/latex/biblatex/biblatex.sty
+Package: biblatex 2023/03/05 v3.19 programmable bibliographies (PK/MW)
+ (/usr/share/texlive/texmf-dist/tex/latex/logreq/logreq.sty
+Package: logreq 2010/08/04 v1.0 xml request logger
+\lrq@indent=\count349
+ (/usr/share/texlive/texmf-dist/tex/latex/logreq/logreq.def
+File: logreq.def 2010/08/04 v1.0 logreq spec v1.0
+)) (/usr/share/texlive/texmf-dist/tex/latex/url/url.sty
+\Urlmuskip=\muskip17
+Package: url 2013/09/16  ver 3.4  Verb mode for urls, etc.
+)
+\c@tabx@nest=\count350
+\c@listtotal=\count351
+\c@listcount=\count352
+\c@liststart=\count353
+\c@liststop=\count354
+\c@citecount=\count355
+\c@citetotal=\count356
+\c@multicitecount=\count357
+\c@multicitetotal=\count358
+\c@instcount=\count359
+\c@maxnames=\count360
+\c@minnames=\count361
+\c@maxitems=\count362
+\c@minitems=\count363
+\c@citecounter=\count364
+\c@maxcitecounter=\count365
+\c@savedcitecounter=\count366
+\c@uniquelist=\count367
+\c@uniquename=\count368
+\c@refsection=\count369
+\c@refsegment=\count370
+\c@maxextratitle=\count371
+\c@maxextratitleyear=\count372
+\c@maxextraname=\count373
+\c@maxextradate=\count374
+\c@maxextraalpha=\count375
+\c@abbrvpenalty=\count376
+\c@highnamepenalty=\count377
+\c@lownamepenalty=\count378
+\c@maxparens=\count379
+\c@parenlevel=\count380
+\blx@tempcnta=\count381
+\blx@tempcntb=\count382
+\blx@tempcntc=\count383
+\c@blx@maxsection=\count384
+\blx@maxsegment@0=\count385
+\blx@notetype=\count386
+\blx@parenlevel@text=\count387
+\blx@parenlevel@foot=\count388
+\blx@sectionciteorder@0=\count389
+\blx@sectionciteorderinternal@0=\count390
+\blx@entrysetcounter=\count391
+\blx@biblioinstance=\count392
+\labelnumberwidth=\skip63
+\labelalphawidth=\skip64
+\biblabelsep=\skip65
+\bibitemsep=\skip66
+\bibnamesep=\skip67
+\bibinitsep=\skip68
+\bibparsep=\skip69
+\bibhang=\skip70
+\blx@bcfin=\read5
+\blx@bcfout=\write4
+\blx@langwohyphens=\language90
+\c@mincomprange=\count393
+\c@maxcomprange=\count394
+\c@mincompwidth=\count395
+Package biblatex Info: Trying to load biblatex default data model...
+Package biblatex Info: ... file 'blx-dm.def' found.
+ (/usr/share/texlive/texmf-dist/tex/latex/biblatex/blx-dm.def
+File: blx-dm.def 2023/03/05 v3.19 biblatex localization (PK/MW)
+)
+Package biblatex Info: Trying to load biblatex style data model...
+Package biblatex Info: ... file 'numeric-comp.dbx' not found.
+Package biblatex Info: Trying to load biblatex custom data model...
+Package biblatex Info: ... file 'biblatex-dm.cfg' not found.
+\c@afterword=\count396
+\c@savedafterword=\count397
+\c@annotator=\count398
+\c@savedannotator=\count399
+\c@author=\count400
+\c@savedauthor=\count401
+\c@bookauthor=\count402
+\c@savedbookauthor=\count403
+\c@commentator=\count404
+\c@savedcommentator=\count405
+\c@editor=\count406
+\c@savededitor=\count407
+\c@editora=\count408
+\c@savededitora=\count409
+\c@editorb=\count410
+\c@savededitorb=\count411
+\c@editorc=\count412
+\c@savededitorc=\count413
+\c@foreword=\count414
+\c@savedforeword=\count415
+\c@holder=\count416
+\c@savedholder=\count417
+\c@introduction=\count418
+\c@savedintroduction=\count419
+\c@namea=\count420
+\c@savednamea=\count421
+\c@nameb=\count422
+\c@savednameb=\count423
+\c@namec=\count424
+\c@savednamec=\count425
+\c@translator=\count426
+\c@savedtranslator=\count427
+\c@shortauthor=\count428
+\c@savedshortauthor=\count429
+\c@shorteditor=\count430
+\c@savedshorteditor=\count431
+\c@labelname=\count432
+\c@savedlabelname=\count433
+\c@institution=\count434
+\c@savedinstitution=\count435
+\c@lista=\count436
+\c@savedlista=\count437
+\c@listb=\count438
+\c@savedlistb=\count439
+\c@listc=\count440
+\c@savedlistc=\count441
+\c@listd=\count442
+\c@savedlistd=\count443
+\c@liste=\count444
+\c@savedliste=\count445
+\c@listf=\count446
+\c@savedlistf=\count447
+\c@location=\count448
+\c@savedlocation=\count449
+\c@organization=\count450
+\c@savedorganization=\count451
+\c@origlocation=\count452
+\c@savedoriglocation=\count453
+\c@origpublisher=\count454
+\c@savedorigpublisher=\count455
+\c@publisher=\count456
+\c@savedpublisher=\count457
+\c@language=\count458
+\c@savedlanguage=\count459
+\c@origlanguage=\count460
+\c@savedoriglanguage=\count461
+\c@pageref=\count462
+\c@savedpageref=\count463
+\shorthandwidth=\skip71
+\shortjournalwidth=\skip72
+\shortserieswidth=\skip73
+\shorttitlewidth=\skip74
+\shortauthorwidth=\skip75
+\shorteditorwidth=\skip76
+\locallabelnumberwidth=\skip77
+\locallabelalphawidth=\skip78
+\localshorthandwidth=\skip79
+\localshortjournalwidth=\skip80
+\localshortserieswidth=\skip81
+\localshorttitlewidth=\skip82
+\localshortauthorwidth=\skip83
+\localshorteditorwidth=\skip84
+Package biblatex Info: Trying to load compatibility code...
+Package biblatex Info: ... file 'blx-compat.def' found.
+ (/usr/share/texlive/texmf-dist/tex/latex/biblatex/blx-compat.def
+File: blx-compat.def 2023/03/05 v3.19 biblatex compatibility (PK/MW)
+)
+Package biblatex Info: Trying to load generic definitions...
+Package biblatex Info: ... file 'biblatex.def' found.
+ (/usr/share/texlive/texmf-dist/tex/latex/biblatex/biblatex.def
+File: biblatex.def 2023/03/05 v3.19 biblatex compatibility (PK/MW)
+\c@textcitecount=\count464
+\c@textcitetotal=\count465
+\c@textcitemaxnames=\count466
+\c@biburlbigbreakpenalty=\count467
+\c@biburlbreakpenalty=\count468
+\c@biburlnumpenalty=\count469
+\c@biburlucpenalty=\count470
+\c@biburllcpenalty=\count471
+\biburlbigskip=\muskip18
+\biburlnumskip=\muskip19
+\biburlucskip=\muskip20
+\biburllcskip=\muskip21
+\c@smartand=\count472
+)
+Package biblatex Info: Trying to load bibliography style 'numeric-comp'...
+Package biblatex Info: ... file 'numeric-comp.bbx' found.
+ (/usr/share/texlive/texmf-dist/tex/latex/biblatex/bbx/numeric-comp.bbx
+File: numeric-comp.bbx 2023/03/05 v3.19 biblatex bibliography style (PK/MW)
+Package biblatex Info: Trying to load bibliography style 'numeric'...
+Package biblatex Info: ... file 'numeric.bbx' found.
+ (/usr/share/texlive/texmf-dist/tex/latex/biblatex/bbx/numeric.bbx
+File: numeric.bbx 2023/03/05 v3.19 biblatex bibliography style (PK/MW)
+Package biblatex Info: Trying to load bibliography style 'standard'...
+Package biblatex Info: ... file 'standard.bbx' found.
+ (/usr/share/texlive/texmf-dist/tex/latex/biblatex/bbx/standard.bbx
+File: standard.bbx 2023/03/05 v3.19 biblatex bibliography style (PK/MW)
+\c@bbx:relatedcount=\count473
+\c@bbx:relatedtotal=\count474
+)))
+Package biblatex Info: Trying to load citation style 'numeric-comp'...
+Package biblatex Info: ... file 'numeric-comp.cbx' found.
+ (/usr/share/texlive/texmf-dist/tex/latex/biblatex/cbx/numeric-comp.cbx
+File: numeric-comp.cbx 2023/03/05 v3.19 biblatex citation style (PK/MW)
+\c@cbx@tempcnta=\count475
+\c@cbx@tempcntb=\count476
+\c@cbx@tempcntc=\count477
+\c@cbx@tempcntd=\count478
+Package biblatex Info: Redefining '\cite'.
+Package biblatex Info: Redefining '\parencite'.
+Package biblatex Info: Redefining '\footcite'.
+Package biblatex Info: Redefining '\footcitetext'.
+Package biblatex Info: Redefining '\smartcite'.
+Package biblatex Info: Redefining '\supercite'.
+Package biblatex Info: Redefining '\textcite'.
+Package biblatex Info: Redefining '\textcites'.
+Package biblatex Info: Redefining '\cites'.
+Package biblatex Info: Redefining '\parencites'.
+Package biblatex Info: Redefining '\smartcites'.
+)
+Package biblatex Info: Trying to load configuration file...
+Package biblatex Info: ... file 'biblatex.cfg' found.
+ (/usr/share/texlive/texmf-dist/tex/latex/biblatex/biblatex.cfg
+File: biblatex.cfg 
+)
+Package biblatex Info: Input encoding 'utf8' detected.
+Package biblatex Info: Document encoding is UTF8 ....
+Package biblatex Info: ... and expl3
+(biblatex)             2024-01-22 L3 programming layer (loader) 
+(biblatex)             is new enough (at least 2020/04/06),
+(biblatex)             setting 'casechanger=expl3'.
+ (/usr/share/texlive/texmf-dist/tex/latex/biblatex/blx-case-expl3.sty
+Package: blx-case-expl3 2023/03/05 v3.19 expl3 case changing code for biblatex
+)) (/usr/share/texlive/texmf-dist/tex/latex/csquotes/csquotes.sty
+Package: csquotes 2022-09-14 v5.2n context-sensitive quotations (JAW)
+\csq@reset=\count479
+\csq@gtype=\count480
+\csq@glevel=\count481
+\csq@qlevel=\count482
+\csq@maxlvl=\count483
+\csq@tshold=\count484
+\csq@ltx@everypar=\toks49
+ (/usr/share/texlive/texmf-dist/tex/latex/csquotes/csquotes.def
+File: csquotes.def 2022-09-14 v5.2n csquotes generic definitions (JAW)
+)
+Package csquotes Info: Trying to load configuration file 'csquotes.cfg'...
+Package csquotes Info: ... configuration file loaded successfully.
+ (/usr/share/texlive/texmf-dist/tex/latex/csquotes/csquotes.cfg
+File: csquotes.cfg 
+)
+Package csquotes Info: Enabling multilingual quotes.
+) (/usr/share/texlive/texmf-dist/tex/latex/enumitem/enumitem.sty
+Package: enumitem 2019/06/20 v3.9 Customized lists
+\labelindent=\skip85
+\enit@outerparindent=\dimen309
+\enit@toks=\toks50
+\enit@inbox=\box93
+\enit@count@id=\count485
+\enitdp@description=\count486
+) (/usr/share/texlive/texmf-dist/tex/latex/float/float.sty
+Package: float 2001/11/08 v1.3d Float enhancements (AL)
+\c@float@type=\count487
+\float@exts=\toks51
+\float@box=\box94
+\@float@everytoks=\toks52
+\@floatcapt=\box95
+)
+runsystem(mkdir -p build)...executed.
+
+) (/usr/share/texlive/texmf-dist/tex/latex/koma-script/scrhack.sty
+Package: scrhack 2023/07/07 v3.41 KOMA-Script package (hacking other packages)
+ (/usr/share/texlive/texmf-dist/tex/latex/xpatch/xpatch.sty
+Package: xpatch 2020/03/25 v0.3a Extending etoolbox patching commands
+)
+Package scrhack Info: loading float hack on input line 178.
+ (/usr/share/texlive/texmf-dist/tex/latex/koma-script/float.hak
+File: float.hak 2023/07/07 v3.41 KOMA-Script scrhack part (hacking package float)
+ (/usr/share/texlive/texmf-dist/tex/latex/koma-script/tocbasic.sty
+Package: tocbasic 2023/07/07 v3.41 KOMA-Script package (handling toc-files)
+\scr@dte@tocline@numberwidth=\skip86
+\scr@dte@tocline@numbox=\box96
+)
+Package scrhack Info: redefining \newfloat on input line 163.
+Package scrhack Info: redefining \listof on input line 163.
+Package scrhack Info: undefining \float@addtolists on input line 163.
+)
+Package scrhack Info: loading listings hack on input line 185.
+ (/usr/share/texlive/texmf-dist/tex/latex/koma-script/listings.hak
+File: listings.hak 2023/07/07 v3.41 KOMA-Script scrhack part (hacking package listings)
+Package tocbasic Info: setting babel extension for `lol' on input line 157.
+Package scrhack Info: redefining \lstlistoflistings on input line 157.
+Package scrhack Info: patching \lst@MakeCaption on input line 157.
+)
+Package scrhack Info: loading setspace hack on input line 199.
+ (/usr/share/texlive/texmf-dist/tex/latex/koma-script/setspace.hak
+File: setspace.hak 2023/07/07 v3.41 KOMA-Script scrhack part (hacking package setspace)
+)) (/usr/share/texlive/texmf-dist/tex/latex/hyperref/hyperref.sty
+Package: hyperref 2024-01-20 v7.01h Hypertext links for LaTeX
+ (/usr/share/texlive/texmf-dist/tex/generic/kvdefinekeys/kvdefinekeys.sty
+Package: kvdefinekeys 2019-12-19 v1.6 Define keys (HO)
+) (/usr/share/texlive/texmf-dist/tex/generic/pdfescape/pdfescape.sty
+Package: pdfescape 2019/12/09 v1.15 Implements pdfTeX's escape features (HO)
+) (/usr/share/texlive/texmf-dist/tex/latex/hycolor/hycolor.sty
+Package: hycolor 2020-01-27 v1.10 Color options for hyperref/bookmark (HO)
+) (/usr/share/texlive/texmf-dist/tex/latex/auxhook/auxhook.sty
+Package: auxhook 2019-12-17 v1.6 Hooks for auxiliary files (HO)
+) (/usr/share/texlive/texmf-dist/tex/latex/hyperref/nameref.sty
+Package: nameref 2023-11-26 v2.56 Cross-referencing by name of section
+ (/usr/share/texlive/texmf-dist/tex/latex/refcount/refcount.sty
+Package: refcount 2019/12/15 v3.6 Data extraction from label references (HO)
+) (/usr/share/texlive/texmf-dist/tex/generic/gettitlestring/gettitlestring.sty
+Package: gettitlestring 2019/12/15 v1.6 Cleanup title references (HO)
+)
+\c@section@level=\count488
+)
+\@linkdim=\dimen310
+\Hy@linkcounter=\count489
+\Hy@pagecounter=\count490
+ (/usr/share/texlive/texmf-dist/tex/latex/hyperref/pd1enc.def
+File: pd1enc.def 2024-01-20 v7.01h Hyperref: PDFDocEncoding definition (HO)
+Now handling font encoding PD1 ...
+... no UTF-8 mapping file for font encoding PD1
+) (/usr/share/texlive/texmf-dist/tex/generic/intcalc/intcalc.sty
+Package: intcalc 2019/12/15 v1.3 Expandable calculations with integers (HO)
+)
+\Hy@SavedSpaceFactor=\count491
+ (/usr/share/texlive/texmf-dist/tex/latex/hyperref/puenc.def
+File: puenc.def 2024-01-20 v7.01h Hyperref: PDF Unicode definition (HO)
+Now handling font encoding PU ...
+... no UTF-8 mapping file for font encoding PU
+)
+Package hyperref Info: Hyper figures OFF on input line 4179.
+Package hyperref Info: Link nesting OFF on input line 4184.
+Package hyperref Info: Hyper index ON on input line 4187.
+Package hyperref Info: Plain pages OFF on input line 4194.
+Package hyperref Info: Backreferencing OFF on input line 4199.
+Package hyperref Info: Implicit mode ON; LaTeX internals redefined.
+Package hyperref Info: Bookmarks ON on input line 4446.
+\c@Hy@tempcnt=\count492
+LaTeX Info: Redefining \url on input line 4784.
+\XeTeXLinkMargin=\dimen311
+ (/usr/share/texlive/texmf-dist/tex/generic/bitset/bitset.sty
+Package: bitset 2019/12/09 v1.3 Handle bit-vector datatype (HO)
+ (/usr/share/texlive/texmf-dist/tex/generic/bigintcalc/bigintcalc.sty
+Package: bigintcalc 2019/12/15 v1.5 Expandable calculations on big integers (HO)
+))
+\Fld@menulength=\count493
+\Field@Width=\dimen312
+\Fld@charsize=\dimen313
+Package hyperref Info: Hyper figures OFF on input line 6063.
+Package hyperref Info: Link nesting OFF on input line 6068.
+Package hyperref Info: Hyper index ON on input line 6071.
+Package hyperref Info: backreferencing OFF on input line 6078.
+Package hyperref Info: Link coloring OFF on input line 6083.
+Package hyperref Info: Link coloring with OCG OFF on input line 6088.
+Package hyperref Info: PDF/A mode OFF on input line 6093.
+ (/usr/share/texlive/texmf-dist/tex/latex/base/atbegshi-ltx.sty
+Package: atbegshi-ltx 2021/01/10 v1.0c Emulation of the original atbegshi
+package with kernel methods
+)
+\Hy@abspage=\count494
+\c@Item=\count495
+\c@Hfootnote=\count496
+)
+Package scrhack Info: hyperref hack deactivated because of
+(scrhack)             detection of hyperref version, that doesn't
+(scrhack)             need that hack, on input line 131.
+Package hyperref Info: Driver (autodetected): hpdftex.
+ (/usr/share/texlive/texmf-dist/tex/latex/hyperref/hpdftex.def
+File: hpdftex.def 2024-01-20 v7.01h Hyperref driver for pdfTeX
+ (/usr/share/texlive/texmf-dist/tex/latex/base/atveryend-ltx.sty
+Package: atveryend-ltx 2020/08/19 v1.0a Emulation of the original atveryend package
+with kernel methods
+)
+\Fld@listcount=\count497
+\c@bookmark@seq@number=\count498
+ (/usr/share/texlive/texmf-dist/tex/latex/rerunfilecheck/rerunfilecheck.sty
+Package: rerunfilecheck 2022-07-10 v1.10 Rerun checks for auxiliary files (HO)
+ (/usr/share/texlive/texmf-dist/tex/generic/uniquecounter/uniquecounter.sty
+Package: uniquecounter 2019/12/15 v1.4 Provide unlimited unique counter (HO)
+)
+Package uniquecounter Info: New unique counter `rerunfilecheck' on input line 285.
+)
+\Hy@SectionHShift=\skip87
+)
+Package hyperref Info: Option `bookmarksopen' set `true' on input line 131.
+Package hyperref Info: Option `hypertexnames' set `false' on input line 131.
+Package hyperref Info: Option `colorlinks' set `true' on input line 131.
+Package hyperref Info: Option `unicode' set `true' on input line 131.
+Package hyperref Info: Option `breaklinks' set `true' on input line 131.
+Package csquotes Info: Checking for multilingual support...
+Package csquotes Info: ... found 'babel' package.
+LaTeX Font Info:    Trying to load font information for T1+ppl on input line 131.
+ (/usr/share/texlive/texmf-dist/tex/latex/psnfss/t1ppl.fd
+File: t1ppl.fd 2001/06/04 font definitions for T1/ppl.
+) (build/main.aux)
+\openout1 = `main.aux'.
+
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 131.
+LaTeX Font Info:    ... okay on input line 131.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 131.
+LaTeX Font Info:    ... okay on input line 131.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 131.
+LaTeX Font Info:    ... okay on input line 131.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 131.
+LaTeX Font Info:    ... okay on input line 131.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 131.
+LaTeX Font Info:    ... okay on input line 131.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 131.
+LaTeX Font Info:    ... okay on input line 131.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 131.
+LaTeX Font Info:    ... okay on input line 131.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 131.
+LaTeX Font Info:    ... okay on input line 131.
+LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 131.
+LaTeX Font Info:    ... okay on input line 131.
+ (/usr/share/texlive/texmf-dist/tex/latex/translations/translations-basic-dictionary-english.trsl
+File: translations-basic-dictionary-english.trsl (english translation file `translations-basic-dictionary')
+)
+Package translations Info: loading dictionary `translations-basic-dictionary' for `english'. on input line 131.
+ (/usr/share/texlive/texmf-dist/tex/context/base/mkii/supp-pdf.mkii
+[Loading MPS to PDF converter (version 2006.09.02).]
+\scratchcounter=\count499
+\scratchdimen=\dimen314
+\scratchbox=\box97
+\nofMPsegments=\count500
+\nofMParguments=\count501
+\everyMPshowfont=\toks53
+\MPscratchCnt=\count502
+\MPscratchDim=\dimen315
+\MPnumerator=\count503
+\makeMPintoPDFobject=\count504
+\everyMPtoPDFconversion=\toks54
+) (/usr/share/texlive/texmf-dist/tex/latex/epstopdf-pkg/epstopdf-base.sty
+Package: epstopdf-base 2020-01-24 v2.11 Base part for package epstopdf
+Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 485.
+ (/usr/share/texlive/texmf-dist/tex/latex/latexconfig/epstopdf-sys.cfg
+File: epstopdf-sys.cfg 2010/07/13 v1.3 Configuration of (r)epstopdf for TeX Live
+))
+Package caption Info: Begin \AtBeginDocument code.
+Package caption Info: float package is loaded.
+Package caption Info: hyperref package is loaded.
+Package caption Info: listings package is loaded.
+Package caption Info: End \AtBeginDocument code.
+
+*geometry* driver: auto-detecting
+*geometry* detected driver: pdftex
+*geometry* verbose mode - [ preamble ] result:
+* driver: pdftex
+* paper: a4paper
+* layout: <same size as paper>
+* layoutoffset:(h,v)=(0.0pt,0.0pt)
+* bindingoffset: 14.22636pt
+* modes: includehead includefoot twoside 
+* h-part:(L,W,R)=(71.13188pt, 404.02908pt, 108.12054pt)
+* v-part:(T,H,B)=(42.67912pt, 759.6886pt, 42.67912pt)
+* \paperwidth=597.50787pt
+* \paperheight=845.04684pt
+* \textwidth=404.02908pt
+* \textheight=693.49821pt
+* \oddsidemargin=13.08826pt
+* \evensidemargin=35.85056pt
+* \topmargin=-29.59087pt
+* \headheight=18.85364pt
+* \headsep=19.8738pt
+* \topskip=11.0pt
+* \footskip=27.46295pt
+* \marginparwidth=71.13188pt
+* \marginparsep=7.0pt
+* \columnsep=10.0pt
+* \skip\footins=10.0pt plus 4.0pt minus 2.0pt
+* \hoffset=0.0pt
+* \voffset=0.0pt
+* \mag=1000
+* \@twocolumnfalse
+* \@twosidetrue
+* \@mparswitchtrue
+* \@reversemarginfalse
+* (1in=72.27pt=25.4mm, 1cm=28.453pt)
+
+Package scrbase Info: activating english \abbrevname on input line 131.
+Package scrbase Info: activating english \byname on input line 131.
+Package scrbase Info: activating english \acknowledgementname on input line 131.
+Package scrbase Info: activating english \authorshipname on input line 131.
+Package scrbase Info: activating english \constantsname on input line 131.
+Package scrbase Info: activating english \symbolsname on input line 131.
+(/usr/share/texlive/texmf-dist/tex/latex/pdflscape/pdflscape.sty
+Package: pdflscape 2022-10-27 v0.13 Display of landscape pages in PDF
+ (/usr/share/texlive/texmf-dist/tex/latex/pdflscape/pdflscape-nometadata.sty
+Package: pdflscape-nometadata 2022-10-28 v0.13 Display of landscape pages in PDF (HO)
+ (/usr/share/texlive/texmf-dist/tex/latex/graphics/lscape.sty
+Package: lscape 2020/05/28 v3.02 Landscape Pages (DPC)
+)
+Package scrhack Info: loading lscape hack on input line 77.
+ (/usr/share/texlive/texmf-dist/tex/latex/koma-script/lscape.hak
+File: lscape.hak 2023/07/07 v3.41 KOMA-Script scrhack part (hacking package lscape)
+Package scrhack Info: \landscape patched to make \textheight change optional on input line 90.
+\scrh@LT@textheight=\skip88
+)
+Package pdflscape Info: Auto-detected driver: pdftex on input line 81.
+))
+\c@lstlisting=\count505
+Package biblatex Info: Trying to load language 'english'...
+Package biblatex Info: ... file 'english.lbx' found.
+ (/usr/share/texlive/texmf-dist/tex/latex/biblatex/lbx/english.lbx
+File: english.lbx 2023/03/05 v3.19 biblatex localization (PK/MW)
+)
+Package biblatex Info: Input encoding 'utf8' detected.
+Package biblatex Info: Automatic encoding selection.
+(biblatex)             Assuming data encoding 'utf8'.
+\openout4 = `main.bcf'.
+
+Package biblatex Info: Trying to load bibliographic data...
+Package biblatex Info: ... file 'main.bbl' found.
+ (build/main.bbl)
+Package biblatex Info: Reference section=0 on input line 131.
+Package biblatex Info: Reference segment=0 on input line 131.
+Package scrhack Info: undefining \float@addtolists on input line 131.
+Package hyperref Info: Link coloring ON on input line 131.
+ (build/main.out) (build/main.out)
+\@outlinefile=\write5
+\openout5 = `main.out'.
+
+ (./build/main.aux)
+1: section
+(./Front/titlepage.tex
+*geometry* verbose mode - [ newgeometry ] result:
+* driver: pdftex
+* paper: a4paper
+* layout: <same size as paper>
+* layoutoffset:(h,v)=(0.0pt,0.0pt)
+* modes: twoside 
+* h-part:(L,W,R)=(72.26999pt, 452.9679pt, 72.26999pt)
+* v-part:(T,H,B)=(72.26999pt, 700.50687pt, 72.26999pt)
+* \paperwidth=597.50787pt
+* \paperheight=845.04684pt
+* \textwidth=452.9679pt
+* \textheight=700.50687pt
+* \oddsidemargin=0.0pt
+* \evensidemargin=0.0pt
+* \topmargin=-38.72743pt
+* \headheight=18.85364pt
+* \headsep=19.8738pt
+* \topskip=11.0pt
+* \footskip=27.46295pt
+* \marginparwidth=71.13188pt
+* \marginparsep=7.0pt
+* \columnsep=10.0pt
+* \skip\footins=10.0pt plus 4.0pt minus 2.0pt
+* \hoffset=0.0pt
+* \voffset=0.0pt
+* \mag=1000
+* \@twocolumnfalse
+* \@twosidetrue
+* \@mparswitchtrue
+* \@reversemarginfalse
+* (1in=72.27pt=25.4mm, 1cm=28.453pt)
+
+<Figures/zhaw_rgb.png, id=320, 1362.08875pt x 1424.32124pt>
+File: Figures/zhaw_rgb.png Graphic file (type png)
+<use Figures/zhaw_rgb.png>
+Package pdftex.def Info: Figures/zhaw_rgb.png  used on input line 14.
+(pdftex.def)             Requested size: 67.94241pt x 71.04636pt.
+
+
+pdfTeX warning: pdflatex (file ./Figures/zhaw_font_eng_font.pdf): PDF inclusion: found PDF version <1.6>, but at most version <1.5> allowed
+<Figures/zhaw_font_eng_font.pdf, id=322, 370.99602pt x 20.99844pt>
+File: Figures/zhaw_font_eng_font.pdf Graphic file (type pdf)
+<use Figures/zhaw_font_eng_font.pdf>
+Package pdftex.def Info: Figures/zhaw_font_eng_font.pdf  used on input line 22.
+(pdftex.def)             Requested size: 316.25385pt x 17.9pt.
+[1
+
+
+
+
+{/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}{/usr/share/texlive/texmf-dist/fonts/enc/dvips/base/8r.enc} <./Figures/zhaw_rgb.png> <./Figures/zhaw_font_eng_font.pdf>]) (./Front/imprint.tex
+LaTeX Font Info:    Trying to load font information for OT1+ppl on input line 17.
+ (/usr/share/texlive/texmf-dist/tex/latex/psnfss/ot1ppl.fd
+File: ot1ppl.fd 2001/06/04 font definitions for OT1/ppl.
+)
+LaTeX Font Info:    Trying to load font information for OML+zplm on input line 17.
+ (/usr/share/texlive/texmf-dist/tex/latex/psnfss/omlzplm.fd
+File: omlzplm.fd 2002/09/08 Fontinst v1.914 font definitions for OML/zplm.
+)
+LaTeX Font Info:    Trying to load font information for OMS+zplm on input line 17.
+ (/usr/share/texlive/texmf-dist/tex/latex/psnfss/omszplm.fd
+File: omszplm.fd 2002/09/08 Fontinst v1.914 font definitions for OMS/zplm.
+)
+LaTeX Font Info:    Trying to load font information for OMX+zplm on input line 17.
+ (/usr/share/texlive/texmf-dist/tex/latex/psnfss/omxzplm.fd
+File: omxzplm.fd 2002/09/08 Fontinst v1.914 font definitions for OMX/zplm.
+)
+LaTeX Font Info:    Trying to load font information for OT1+zplm on input line 17.
+ (/usr/share/texlive/texmf-dist/tex/latex/psnfss/ot1zplm.fd
+File: ot1zplm.fd 2002/09/08 Fontinst v1.914 font definitions for OT1/zplm.
+)) (./Front/abstract.tex [2
+
+]
+Overfull \hbox (8.1781pt too wide) in paragraph at lines 10--11
+\T1/ppl/m/n/10.95 siz-ing bare-metal Ku-ber-netes en-vi-ron-ments, the study sys-tem-at-i-cally ex-plores system-
+ []
+
+)
+1: section
+[3
+
+] (build/main.toc
+1: section
+[4
+
+])
+\tf@toc=\write6
+\openout6 = `main.toc'.
+
+ [5] (build/main.lof
+LaTeX Font Info:    Trying to load font information for T1+fvm on input line 7.
+ (/usr/share/texlive/texmf-dist/tex/latex/bera/t1fvm.fd
+File: t1fvm.fd 2004/09/07 scalable font definitions for T1/fvm.
+)
+Overfull \hbox (1.94899pt too wide) in paragraph at lines 11--11
+ [][] [][][]\T1/ppl/m/n/10.95 Kepler de-ploy-ment mod-els: di-rect power mea-sure-ment on bare-metal, 
+ []
+
+)
+\tf@lof=\write7
+\openout7 = `main.lof'.
+
+
+1: section
+[6
+
+] (build/main.lot)
+\tf@lot=\write8
+\openout8 = `main.lot'.
+
+
+1: section
+[7
+
+]
+1: section
+(./Chapters/Chapter1.tex
+Chapter 1.
+
+Overfull \hbox (13.57654pt too wide) in paragraph at lines 12--13
+\T1/ppl/m/n/10.95 Containers have be-come a core ab-strac-tion in mod-ern com-put-ing, en-abling lightweight,
+ []
+
+1: section
+[1
+
+
+]
+LaTeX Font Info:    Trying to load font information for TS1+ppl on input line 25.
+ (/usr/share/texlive/texmf-dist/tex/latex/psnfss/ts1ppl.fd
+File: ts1ppl.fd 2001/06/04 font definitions for TS1/ppl.
+)
+Overfull \hbox (21.95311pt too wide) in paragraph at lines 35--36
+\T1/ppl/m/n/10.95 tel's Run-ning Av-er-age Power Limit (RAPL), these pro-vide only node-level or component-
+ []
+
+[2] [3]
+Overfull \hbox (20.40982pt too wide) in paragraph at lines 68--69
+[]\T1/ppl/b/n/10.95 Chapter [][]4[][] \T1/ppl/m/n/10.95 sur-veys ex-ist-ing tools and ap-proaches that at-tempt to es-ti-mate container-
+ []
+
+) (./Chapters/Chapter2.tex
+Overfull \hbox (0.2393pt too wide) in paragraph at lines 72--1
+[]\T1/ppl/m/n/10.95 Both this the-sis and the pre-ced-ing implementation-focused project are pub-licly avail-
+ []
+
+[4]
+Chapter 2.
+
+Overfull \hbox (9.29175pt too wide) in paragraph at lines 4--4
+[]\T1/ppl/b/n/14.4 Energy Con-sump-tion Mea-sure-ment and Ef-fi-ciency on Data
+ []
+
+1: section
+[5
+
+]
+Overfull \hbox (1.25862pt too wide) in paragraph at lines 16--17
+\T1/ppl/m/n/10.95 fig-u-ra-tions, due to spe-cial-iza-tion such as storage-, GPU-, or memory-optimized
+ []
+
+
+Overfull \hbox (3.15955pt too wide) in paragraph at lines 26--26
+[]|\T1/ppl/b/n/10 Deployment 
+ []
+
+
+Overfull \hbox (17.89436pt too wide) in paragraph at lines 24--37
+ [][] 
+ []
+
+[6] [7] [8]
+Overfull \hbox (2.70313pt too wide) in paragraph at lines 82--83
+[]\T1/ppl/m/n/10.95 Intel RAPL has been used ex-ten-sively in re-search to mea-sure en-ergy con-sump-tion[[][]25[][]]
+ []
+
+
+Overfull \hbox (18.38402pt too wide) in paragraph at lines 82--83
+\T1/ppl/m/n/10.95 de-spite some ob-jec-tions re-gard-ing its ac-cu-racy, which will be dis-cussed in sec-tions [][]2.4.2.2[][]
+ []
+
+[9]
+<Figures/rapl_domains.png, id=598, 1573.88pt x 1165.35374pt>
+File: Figures/rapl_domains.png Graphic file (type png)
+<use Figures/rapl_domains.png>
+Package pdftex.def Info: Figures/rapl_domains.png  used on input line 92.
+(pdftex.def)             Requested size: 282.81912pt x 209.39899pt.
+
+Overfull \hbox (7.98183pt too wide) in paragraph at lines 103--104
+[]\T1/ppl/m/n/10.95 The \T1/ppl/b/n/10.95 Model-Specific Reg-is-ter (MSR) \T1/ppl/m/n/10.95 in-ter-face pro-vides low-level ac-cess to RAPL
+ []
+
+[10 <./Figures/rapl_domains.png>]
+<Figures/rapl_perf_eBPF.png, id=611, 1065.9825pt x 797.98125pt>
+File: Figures/rapl_perf_eBPF.png Graphic file (type png)
+<use Figures/rapl_perf_eBPF.png>
+Package pdftex.def Info: Figures/rapl_perf_eBPF.png  used on input line 111.
+(pdftex.def)             Requested size: 193.93222pt x 145.16463pt.
+<Figures/rapl_interfaces_tradeoffs.png, id=612, 1154.3125pt x 783.92876pt>
+File: Figures/rapl_interfaces_tradeoffs.png Graphic file (type png)
+<use Figures/rapl_interfaces_tradeoffs.png>
+Package pdftex.def Info: Figures/rapl_interfaces_tradeoffs.png  used on input line 118.
+(pdftex.def)             Requested size: 193.93222pt x 131.69913pt.
+ [11]
+Overfull \hbox (3.20796pt too wide) in paragraph at lines 128--129
+\T1/ppl/m/n/10.95 high mea-sure-ment over-head caused by re-duced time spent in low-power states.
+ []
+
+[12 <./Figures/rapl_perf_eBPF.png> <./Figures/rapl_interfaces_tradeoffs.png>]
+<Figures/rapl_vs_PSU_validation.png, id=637, 1267.73625pt x 991.705pt>
+File: Figures/rapl_vs_PSU_validation.png Graphic file (type png)
+<use Figures/rapl_vs_PSU_validation.png>
+Package pdftex.def Info: Figures/rapl_vs_PSU_validation.png  used on input line 146.
+(pdftex.def)             Requested size: 282.81912pt x 221.23247pt.
+ [13 <./Figures/rapl_vs_PSU_validation.png>]
+Overfull \hbox (5.80304pt too wide) in paragraph at lines 196--197
+[]\T1/ppl/b/n/10.95 Non-atomic reg-is-ter up-dates: \T1/ppl/m/n/10.95 RAPL reg-is-ter up-dates are non-atomic[[][]32[][]], mean-
+ []
+
+[14]
+<Figures/rapl_platypus_filtering.png, id=681, 1471.4975pt x 504.88625pt>
+File: Figures/rapl_platypus_filtering.png Graphic file (type png)
+<use Figures/rapl_platypus_filtering.png>
+Package pdftex.def Info: Figures/rapl_platypus_filtering.png  used on input line 207.
+(pdftex.def)             Requested size: 242.4199pt x 83.17166pt.
+<Figures/rapl_filter_granularity_loss_time.png, id=684, 1195.46625pt x 636.3775pt>
+File: Figures/rapl_filter_granularity_loss_time.png Graphic file (type png)
+<use Figures/rapl_filter_granularity_loss_time.png>
+Package pdftex.def Info: Figures/rapl_filter_granularity_loss_time.png  used on input line 212.
+(pdftex.def)             Requested size: 193.93222pt x 103.23047pt.
+<Figures/rapl_filter_granularity_loss_energy.png, id=685, 1188.44pt x 647.41875pt>
+File: Figures/rapl_filter_granularity_loss_energy.png Graphic file (type png)
+<use Figures/rapl_filter_granularity_loss_energy.png>
+Package pdftex.def Info: Figures/rapl_filter_granularity_loss_energy.png  used on input line 218.
+(pdftex.def)             Requested size: 193.93222pt x 105.6439pt.
+ [15 <./Figures/rapl_platypus_filtering.png> <./Figures/rapl_filter_granularity_loss_time.png> <./Figures/rapl_filter_granularity_loss_energy.png>]
+Overfull \hbox (0.21736pt too wide) in paragraph at lines 237--238
+[]\T1/ppl/m/n/10.95 Despite this growth, GPU de-ploy-ments are still not as per-va-sive as CPU-based work-
+ []
+
+
+Overfull \hbox (15.74588pt too wide) in paragraph at lines 237--238
+\T1/ppl/m/n/10.95 mea-sure-ment and anal-y-sis of en-ergy con-sump-tion in more com-mon CPU- and memory-
+ []
+
+
+Overfull \hbox (1.96954pt too wide) in paragraph at lines 253--254
+ []\T1/ppl/b/n/10.95 Multi-Instance GPU (MIG)[] \T1/ppl/m/n/10.95 In-tro-duced with the NVIDIA A100 ar-chi-tec-ture, Multi-
+ []
+
+
+Overfull \hbox (0.8636pt too wide) in paragraph at lines 257--258
+\T1/ppl/m/n/10.95 signed to a sin-gle VM or con-tainer. Un-like vir-tu-al-iza-tion, where re-sources are shared,
+ []
+
+[16] [17]
+Overfull \hbox (7.35773pt too wide) in paragraph at lines 281--282
+ []\T1/ppl/b/n/10.95 AccelWattch[] \T1/ppl/m/n/10.95 In 2021, Pan et al. pro-posed \T1/ppl/m/it/10.95 Ac-cel-Wattch\T1/ppl/m/n/10.95 [[][]49[][]], a con-fig-urable GPU power
+ []
+
+<Figures/fingrav_challenges.png, id=738, 2556.55125pt x 707.64375pt>
+File: Figures/fingrav_challenges.png Graphic file (type png)
+<use Figures/fingrav_challenges.png>
+Package pdftex.def Info: Figures/fingrav_challenges.png  used on input line 296.
+(pdftex.def)             Requested size: 404.02908pt x 111.8324pt.
+<Figures/fingrav_solutions.png, id=739, 2081.7775pt x 515.9275pt>
+File: Figures/fingrav_solutions.png Graphic file (type png)
+<use Figures/fingrav_solutions.png>
+Package pdftex.def Info: Figures/fingrav_solutions.png  used on input line 302.
+(pdftex.def)             Requested size: 404.02908pt x 100.12917pt.
+[18]
+Overfull \hbox (1.24663pt too wide) in paragraph at lines 310--312
+[]\T1/ppl/m/n/10.95 To over-come these chal-lenges, Fin-GraV in-tro-duces sev-eral strate-gies (see fig-ure [][]2.5b[][]): 
+ []
+
+[19 <./Figures/fingrav_challenges.png> <./Figures/fingrav_solutions.png>]
+Overfull \hbox (9.72253pt too wide) in paragraph at lines 326--327
+\T1/ppl/m/n/10.95 2025, de-signed to pro-vide high-resolution power mea-sure-ments for GPUs, SoC boards,
+ []
+
+[20]
+Overfull \hbox (5.41907pt too wide) in paragraph at lines 342--343
+\T1/ppl/m/n/10.95 sig-nif-i-cant dif-fer-ences in power con-sump-tion be-tween standby, idle, and ac-tive power
+ []
+
+[21]
+Overfull \hbox (11.06932pt too wide) in paragraph at lines 349--350
+\T1/ppl/m/n/10.95 While these met-rics are vendor-specific, they of-ten in-clude tem-per-a-ture, through-
+ []
+
+[22]
+Overfull \hbox (6.76595pt too wide) in paragraph at lines 384--385
+\T1/ppl/m/n/10.95 spe-cific work-loads, such as CPU-intensive com-put-ing nodes, GPU-accelerated servers
+ []
+
+[23]
+Overfull \hbox (0.45918pt too wide) in paragraph at lines 403--404
+\T1/ppl/m/n/10.95 There is an ur-gent need in the stor-age in-dus-try for re-search into the area of workload-
+ []
+
+[24]
+Overfull \hbox (1.63031pt too wide) in paragraph at lines 419--430
+ [][] 
+ []
+
+
+Overfull \hbox (1.63031pt too wide) in paragraph at lines 438--449
+ [][] 
+ []
+
+
+Overfull \hbox (1.63031pt too wide) in paragraph at lines 457--468
+ [][] 
+ []
+
+
+Overfull \hbox (1.63031pt too wide) in paragraph at lines 476--487
+ [][] 
+ []
+
+[25] [26] [27] [28] [29]
+Overfull \hbox (6.42723pt too wide) in paragraph at lines 588--589
+[]\T1/ppl/m/n/10.95 Throughput per-for-mance var-ied widely, and no cor-re-la-tion be-tween power
+ []
+
+[30] [31] [32] [33]
+Overfull \hbox (0.78748pt too wide) in paragraph at lines 688--689
+[]\T1/ppl/m/n/10.95 In the-ory, ma-chine learning-based power es-ti-ma-tion mod-els hold sig-nif-i-cant promise
+ []
+
+[34] [35]
+Overfull \hbox (0.15282pt too wide) in paragraph at lines 717--718
+\T1/ppl/m/n/10.95 sump-tion and workload-level mem-ory met-rics such as us-age or mem-ory band-width.
+ []
+
+
+Overfull \hbox (14.51794pt too wide) in paragraph at lines 723--724
+\T1/ppl/m/n/10.95 Pow-erSen-sor3 achieve ex-cel-lent ac-cu-racy at high sam-pling rates but are cost-prohibitive
+ []
+
+[36]
+Overfull \hbox (6.38254pt too wide) in paragraph at lines 732--733
+\T1/ppl/m/n/10.95 ex-poses de-tailed met-rics such as sup-ported power states, cur-rent power state, idle/ac-
+ []
+
+[37] [38]) (./Chapters/Chapter3.tex [39]
+Chapter 3.
+1: section
+[40
+
+]
+Overfull \hbox (2.22182pt too wide) in paragraph at lines 22--23
+\T1/ppl/m/n/10.95 con-tainer be-hav-ior. If ap-plied con-sis-tently across all con-tain-ers and sys-tem re-sources,
+ []
+
+[41]
+Overfull \hbox (34.98576pt too wide) in paragraph at lines 56--57
+[]\T1/ppl/b/n/10.95 cgroups (mem-ory): \T1/ppl/m/n/10.95 Records mem-ory us-age for groups of pro-cesses. \T1/fvm/m/n/10.95 memory.usage_
+ []
+
+[42] [43]
+Overfull \hbox (10.16621pt too wide) in paragraph at lines 101--118
+ [][] 
+ []
+
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+[44]
+Overfull \hbox (10.58754pt too wide) in paragraph at lines 129--130
+\T1/ppl/m/n/10.95 frequency task ac-tiv-ity data with lower-frequency power mea-sure-ments, of-ten through
+ []
+
+[45]
+Overfull \hbox (1.61961pt too wide) in paragraph at lines 155--156
+\T1/ppl/m/n/10.95 intensive in-struc-tions, while oth-ers may stall wait-ing for mem-ory I/O. Mod-ern CPUs
+ []
+
+[46]
+Overfull \hbox (3.52455pt too wide) in paragraph at lines 172--173
+\T1/ppl/m/n/10.95 The avail-abil-ity of sys-tem and power met-rics varies widely be-tween plat-forms. While
+ []
+
+[47] [48] [49]
+Overfull \hbox (1.21469pt too wide) in paragraph at lines 258--259
+[]\T1/ppl/b/n/10.95 Advantages: \T1/ppl/m/n/10.95 Trans-par-ent; en-ables both container-level and infrastructure-level
+ []
+
+
+Overfull \hbox (14.13182pt too wide) in paragraph at lines 265--265
+[]\T1/ppl/b/n/12 Understanding the Dis-tinc-tion Be-tween CPU Idling and Pro-cess Idling 
+ []
+
+[50]) (./Chapters/Chapter4.tex [51]
+Chapter 4.
+
+Overfull \hbox (30.40645pt too wide) in paragraph at lines 11--12
+\T1/ppl/m/n/10.95 system-level mon-i-tor-ing so-lu-tions, telemetry-based es-ti-ma-tion frame-works, and container-
+ []
+
+1: section
+[52
+
+]
+Overfull \hbox (11.98962pt too wide) in paragraph at lines 29--30
+ []\T1/ppl/b/n/10.95 Validation and Lim-i-ta-tions[] \T1/ppl/m/n/10.95 With their watt-meter-calibrated model us-ing seg-mented
+ []
+
+[53]
+Overfull \hbox (6.50356pt too wide) in paragraph at lines 62--63
+\T1/ppl/m/n/10.95 tween in-di-vid-ual pro-cesses or work-loads. In-stead, it pro-vides coarse-grained, system-
+ []
+
+
+Package scrlayer-scrpage Warning: \headheight to low.
+(scrlayer-scrpage)                At least 27.2pt needed,
+(scrlayer-scrpage)                but only 18.85364pt found.
+(scrlayer-scrpage)                I'll enlarge \headheight, for further
+(scrlayer-scrpage)                processing, but you should do this yourself,
+(scrlayer-scrpage)                e.g., setting geometry's option
+(scrlayer-scrpage)                `head=27.2pt'.
+(scrlayer-scrpage)                I'll also decrease \topmargin on input line 63.
+
+
+Overfull \vbox (8.34636pt too high) has occurred while \output is active []
+
+ [54]
+Overfull \hbox (0.98495pt too wide) in paragraph at lines 70--71
+\T1/ppl/m/n/10.95 PowerAPI[[][]97[][]] is an open-source mid-dle-ware toolkit for as-sem-bling software-defined
+ []
+
+[55]
+Overfull \hbox (5.49571pt too wide) in paragraph at lines 82--83
+\T1/ppl/m/n/10.95 iGPU en-ergy met-rics col-lec-tion, pro-vid-ing easy ac-cess to hardware-based power
+ []
+
+[56]
+Overfull \hbox (1.73965pt too wide) in paragraph at lines 118--119
+\T1/ppl/m/n/10.95 func-tion-al-ity cen-tered around a priv-i-leged mon-i-tor-ing agent that runs on ev-ery node.
+ []
+
+<Figures/kepler_deployment_modes.jpg, id=1112, 1606.0pt x 906.38625pt>
+File: Figures/kepler_deployment_modes.jpg Graphic file (type jpg)
+<use Figures/kepler_deployment_modes.jpg>
+Package pdftex.def Info: Figures/kepler_deployment_modes.jpg  used on input line 125.
+(pdftex.def)             Requested size: 323.22449pt x 182.42195pt.
+[57]
+<Figures/kepler_architecture.png, id=1127, 325.6968pt x 141.8901pt>
+File: Figures/kepler_architecture.png Graphic file (type png)
+<use Figures/kepler_architecture.png>
+Package pdftex.def Info: Figures/kepler_architecture.png  used on input line 135.
+(pdftex.def)             Requested size: 363.6237pt x 158.41568pt.
+ [58 <./Figures/kepler_deployment_modes.jpg> <./Figures/kepler_architecture.png>]
+Overfull \hbox (9.80263pt too wide) in paragraph at lines 158--159
+\T1/ppl/m/n/10.95 pro-grams at-tached to \T1/fvm/m/n/10.95 mark_page_accessed \T1/ppl/m/n/10.95 and \T1/fvm/m/n/10.95 writeback_dirty_folio\T1/ppl/m/n/10.95 . 
+ []
+
+
+Overfull \hbox (18.6149pt too wide) in paragraph at lines 165--166
+ []\T1/ppl/b/n/10.95 Node Component-level En-ergy Con-sump-tion via RAPL[] \T1/ppl/m/n/10.95 Ke-pler sup-ports component-
+ []
+
+
+Overfull \hbox (5.11505pt too wide) in paragraph at lines 165--166
+\T1/fvm/m/n/10.95 uncore\T1/ppl/m/n/10.95 , \T1/fvm/m/n/10.95 package\T1/ppl/m/n/10.95 , and \T1/fvm/m/n/10.95 dram \T1/ppl/m/n/10.95 do-mains. The en-ergy val-ues are read via the \T1/fvm/m/n/10.95 PowerCap
+ []
+
+
+Overfull \hbox (6.71266pt too wide) in paragraph at lines 165--166
+\T1/ppl/m/n/10.95 frame-work us-ing the $\T1/fvm/m/n/10.95 /sys / class / powercap$ \T1/ppl/m/n/10.95 in-ter-face. The sysfs path tree is parsed
+ []
+
+[59]
+Overfull \hbox (1.66367pt too wide) in paragraph at lines 172--173
+ []\T1/ppl/b/n/10.95 Platform-Level En-ergy Con-sump-tion[] \T1/ppl/m/n/10.95 Ke-pler sup-ports platform-level en-ergy mon-
+ []
+
+
+Overfull \hbox (23.71909pt too wide) in paragraph at lines 184--185
+\T1/fvm/m/n/10.95 namespace="system"\T1/ppl/m/n/10.95 . This in-cludes host ser-vices such as \T1/fvm/m/n/10.95 kubelet \T1/ppl/m/n/10.95 and \T1/fvm/m/n/10.95 containerd\T1/ppl/m/n/10.95 .
+ []
+
+[60]
+Overfull \hbox (5.69151pt too wide) in paragraph at lines 200--201
+\T1/ppl/m/n/10.95 mates GPU en-ergy con-sump-tion by mul-ti-ply-ing the in-stan-ta-neous device-level power
+ []
+
+
+Overfull \hbox (0.4498pt too wide) in paragraph at lines 200--201
+\T1/ppl/m/n/10.95 draw (\T1/fvm/m/n/10.95 GetPowerUsage\T1/ppl/m/n/10.95 ) with the sam-pling in-ter-val du-ra-tion (\T1/fvm/m/n/10.95 SamplePeriodSec\T1/ppl/m/n/10.95 ).
+ []
+
+
+Overfull \hbox (7.64418pt too wide) in paragraph at lines 200--201
+\T1/ppl/m/n/10.95 That is, en-ergy per de-vice is es-ti-mated as \T1/fvm/m/n/10.95 energy=power(mW)$\OMS/zplm/m/n/10.95 ^^B$\T1/fvm/m/n/10.95 SamplePeriodSec\T1/ppl/m/n/10.95 .
+ []
+
+
+Overfull \hbox (3.63602pt too wide) in paragraph at lines 202--203
+\T1/ppl/m/n/10.95 time, Ke-pler falls back to us-ing \T1/fvm/m/n/10.95 GetComputeRunningProcesses() \T1/ppl/m/n/10.95 com-bined with
+ []
+
+[61]
+Overfull \hbox (31.90947pt too wide) in paragraph at lines 210--227
+ [][] 
+ []
+
+
+Overfull \hbox (31.90947pt too wide) in paragraph at lines 234--251
+ [][] 
+ []
+
+[62]
+Overfull \hbox (2.74783pt too wide) in paragraph at lines 269--270
+\T1/ppl/m/n/10.95 dash-boards can be built us-ing Grafana to vi-su-al-ize en-ergy con-sump-tion across nodes,
+ []
+
+[63] [64]
+Overfull \hbox (0.32977pt too wide) in paragraph at lines 329--330
+\T1/ppl/m/n/10.95 are ex-posed via Prometheus met-rics such as \T1/fvm/m/n/10.95 kepler_container_joules_total\T1/ppl/m/n/10.95 ,
+ []
+
+[65]
+Overfull \hbox (2.10075pt too wide) in paragraph at lines 339--340
+\T1/ppl/m/n/10.95 truth ref-er-ence. Con-tainer CPU met-rics and meta-data are col-lected us-ing Prometheus
+ []
+
+
+Overfull \hbox (2.12335pt too wide) in paragraph at lines 354--355
+\T1/ppl/m/n/10.95 idle and dy-namic power, in-clud-ing un-ex-plained re-duc-tions in power at-tributed
+ []
+
+[66]
+Overfull \hbox (0.27281pt too wide) in paragraph at lines 362--363
+\T1/ppl/m/n/10.95 model. These in-com-plete sec-tions may af-fect re-li-a-bil-ity or cre-ate hard-to-debug
+ []
+
+[67] [68] [69]
+Overfull \hbox (2.95457pt too wide) in paragraph at lines 442--443
+\T1/ppl/m/n/10.95 node-level ac-tive en-ergy based on their own in-de-pen-dently tracked CPU us-age statis-
+ []
+
+[70]
+Overfull \hbox (2.23361pt too wide) in paragraph at lines 469--470
+\T1/ppl/m/n/10.95 strac-tion layer, im-ple-mented in $\T1/fvm/m/n/10.95 sensors / mod . rs$\T1/ppl/m/n/10.95 , man-ages sys-tem topol-ogy (track-
+ []
+
+
+Overfull \hbox (0.63571pt too wide) in paragraph at lines 471--472
+\T1/ppl/m/n/10.95 sock-ets) by match-ing di-rec-to-ries with pat-tern \T1/fvm/m/n/10.95 intel-rapl:<socket>:<domain>\T1/ppl/m/n/10.95 ,
+ []
+
+[71]
+Overfull \hbox (2.93333pt too wide) in paragraph at lines 481--482
+ []\T1/ppl/b/it/10.95 Exporters[] \T1/ppl/m/it/10.95 Ex-porters \T1/ppl/m/n/10.95 are re-spon-si-ble for col-lect-ing met-rics from sen-sors, stor-ing them
+ []
+
+
+Overfull \hbox (2.9335pt too wide) in paragraph at lines 483--484
+\T1/ppl/m/n/10.95 porters if needed. Cur-rently, ex-porters ex-ist for \T1/ppl/m/it/10.95 Prometheus\T1/ppl/m/n/10.95 , \T1/ppl/m/it/10.95 Std-out\T1/ppl/m/n/10.95 , \T1/ppl/m/it/10.95 JSON\T1/ppl/m/n/10.95 , and \T1/ppl/m/it/10.95 QEMU\T1/ppl/m/n/10.95 ,
+ []
+
+
+Overfull \hbox (0.82118pt too wide) in paragraph at lines 489--490
+ []\T1/ppl/b/n/10.95 Measurement In-ter-val[] \T1/ppl/m/n/10.95 Scaphan-dre's mea-sure-ment in-ter-val is fixed at two sec-onds,
+ []
+
+
+Overfull \hbox (6.22932pt too wide) in paragraph at lines 489--490
+\T1/ppl/m/n/10.95 mea-sure-ment ac-cu-racy and tem-po-ral gran-u-lar-ity (es-pe-cially for short-lived pro-cesses)
+ []
+
+[72]
+Overfull \hbox (0.7354pt too wide) in paragraph at lines 501--503
+\T1/ppl/m/n/10.95 where $\OML/zplm/m/it/10.95 E[]\OT1/zplm/m/n/10.95 (\OML/zplm/m/it/10.95 t\OT1/zplm/m/n/10.95 )$ \T1/ppl/m/n/10.95 de-notes the en-ergy delta over the sam-pling in-ter-val $\OML/zplm/m/it/10.95 t$\T1/ppl/m/n/10.95 , and $[][]\OT1/zplm/m/n/10.95 (\OML/zplm/m/it/10.95 t\OT1/zplm/m/n/10.95 )$
+ []
+
+
+Overfull \hbox (0.13359pt too wide) in paragraph at lines 504--505
+\T1/ppl/m/n/10.95 These met-rics, such as \T1/fvm/m/n/10.95 scaph_process_power_consumption_microwatts\T1/ppl/m/n/10.95 , are
+ []
+
+
+Overfull \hbox (6.57233pt too wide) in paragraph at lines 506--507
+\T1/ppl/m/n/10.95 via met-rics such as \T1/fvm/m/n/10.95 scaph_host_power_microwatts \T1/ppl/m/n/10.95 and \T1/fvm/m/n/10.95 scaph_host_energy_
+ []
+
+[73] [74]
+Overfull \hbox (4.08257pt too wide) in paragraph at lines 537--538
+\T1/ppl/m/n/10.95 time and en-ergy use. This lim-its its abil-ity to re-flect dif-fer-ences in in-struc-tion through-
+ []
+
+<Figures/smartwatts_architecture.png, id=1283, 2010.51125pt x 1023.825pt>
+File: Figures/smartwatts_architecture.png Graphic file (type png)
+<use Figures/smartwatts_architecture.png>
+Package pdftex.def Info: Figures/smartwatts_architecture.png  used on input line 553.
+(pdftex.def)             Requested size: 282.81912pt x 144.0219pt.
+[75] [76 <./Figures/smartwatts_architecture.png>] [77]) (./Chapters/Chapter5.tex [78]
+Chapter 5.
+
+Overfull \hbox (11.62785pt too wide) in paragraph at lines 6--7
+\T1/ppl/m/n/10.95 ery method in-tro-duces es-ti-ma-tion er-rors due to lim-i-ta-tions in data sources and method-
+ []
+
+1: section
+[79
+
+]
+Overfull \hbox (0.79758pt too wide) in paragraph at lines 28--29
+[]\T1/ppl/m/n/10.95 A ma-jor lim-i-ta-tion of this ap-proach is the ab-sence of em-pir-i-cal val-i-da-tion. To broaden
+ []
+
+[80]
+Overfull \hbox (2.7471pt too wide) in paragraph at lines 40--41
+[]\T1/ppl/m/n/10.95 Operational sim-plic-ity fre-quently out-weighs mea-sure-ment ac-cu-racy. Tools with com-
+ []
+
+
+Overfull \hbox (14.86835pt too wide) in paragraph at lines 42--43
+[]\T1/ppl/m/n/10.95 As a re-sult, most en-ergy mon-i-tor-ing tools pri-or-i-tize us-abil-ity over ac-cu-racy. Prometheus
+ []
+
+
+Overfull \hbox (4.57597pt too wide) in paragraph at lines 50--51
+\T1/ppl/m/n/10.95 able en-ergy mon-i-tor-ing tools. When the un-der-ly-ing teleme-try mech-a-nisms are closed,
+ []
+
+[81]
+Overfull \hbox (4.83905pt too wide) in paragraph at lines 78--79
+\T1/ppl/m/n/10.95 Based on the find-ings of this the-sis, the fol-low-ing de-sign prin-ci-ples are rec-om-mended: 
+ []
+
+
+Overfull \hbox (0.40346pt too wide) in paragraph at lines 81--82
+\T1/ppl/m/n/10.95 lisec-onds (close to RAPL's prac-ti-cal res-o-lu-tion limit) would en-able sig-nif-i-cantly finer-
+ []
+
+[82]
+Overfull \hbox (12.03311pt too wide) in paragraph at lines 87--88
+ []\T1/ppl/b/n/10.95 Multi-Metric In-te-gra-tion[] \T1/ppl/m/n/10.95 Tools should sup-port com-bin-ing di-verse teleme-try sources,
+ []
+
+[83]
+Overfull \hbox (5.8905pt too wide) in paragraph at lines 131--132
+ []\T1/ppl/b/n/10.95 `Lightweight' Mode[] \T1/ppl/m/n/10.95 Con-versely, a lightweight mode should dis-able high-frequency
+ []
+
+[84]
+Overfull \hbox (1.09406pt too wide) in paragraph at lines 141--142
+\T1/ppl/m/n/10.95 Container-level en-ergy mon-i-tor-ing tools must ac-com-mo-date a di-verse range of users,
+ []
+
+
+Overfull \hbox (11.26715pt too wide) in paragraph at lines 153--155
+ []\T1/ppl/b/n/10.95 Serving All Au-di-ences[] \T1/ppl/m/n/10.95 To ac-com-mo-date these var-ied needs, mon-i-tor-ing tools should
+ []
+
+
+Overfull \hbox (2.91057pt too wide) in paragraph at lines 167--168
+\T1/ppl/m/n/10.95 Energy at-tri-bu-tion within vir-tu-al-ized en-vi-ron-ments, par-tic-u-larly for Ku-ber-netes clus-
+ []
+
+[85] [86] [87]) [88]
+1: section
+[89
+
+]
+Overfull \hbox (10.68245pt too wide) in paragraph at lines 224--224
+[]\T1/ppl/m/n/6 NVIDIA Cor-po-ra-tion. \T1/ppl/m/it/6 NVIDIA GPU Passthrough Doc-u-men-ta-tion\T1/ppl/m/n/6 . Ac-cessed: 2025-05-09. 2025. \T1/ppl/m/sc/6 url\T1/ppl/m/n/6 : [][]$\T1/fvm/m/n/6 https : / / docs . nvidia . com / datacenter /
+ []
+
+
+Overfull \hbox (5.31952pt too wide) in paragraph at lines 224--224
+[]\T1/ppl/m/n/6 TechNotes. \T1/ppl/m/it/6 De-ci-pher-ing the PCI Power States\T1/ppl/m/n/6 . Ac-cessed June 2025. Feb. 2024. \T1/ppl/m/sc/6 url\T1/ppl/m/n/6 : [][]$\T1/fvm/m/n/6 https : / / technotes . blog / 2024 / 02 / 04 / deciphering -[]
+ []
+
+[90] [91] (build/main.aux)
+ ***********
+LaTeX2e <2023-11-01> patch level 1
+L3 programming layer <2020/03/25>
+ ***********
+Package rerunfilecheck Info: File `main.out' has not changed.
+(rerunfilecheck)             Checksum: 9A190183BBCF46D8355AE9E3B2376EDD;16433.
+Package logreq Info: Writing requests to 'main.run.xml'.
+\openout1 = `main.run.xml'.
+
+ ) 
+Here is how much of TeX's memory you used:
+ 46242 strings out of 474222
+ 1008417 string characters out of 5748733
+ 1973975 words of memory out of 5000000
+ 67344 multiletter control sequences out of 15000+600000
+ 629614 words of font info for 164 fonts, out of 8000000 for 9000
+ 1141 hyphenation exceptions out of 8191
+ 105i,21n,104p,2548b,3154s stack positions out of 10000i,1000n,20000p,200000b,200000s
+</usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/mathpazo/fplmr.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/mathpazo/fplmri.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/bera/fvmb8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/bera/fvmr8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/palatino/uplb8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/palatino/uplbi8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/palatino/uplr8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/palatino/uplr8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/palatino/uplri8a.pfb>
+Output written on build/main.pdf (98 pages, 2435883 bytes).
+PDF statistics:
+ 1724 PDF objects out of 1728 (max. 8388607)
+ 1542 compressed objects within 16 object streams
+ 475 named destinations out of 1000 (max. 500000)
+ 707 words of extra memory for PDF output out of 10000 (max. 10000000)
+

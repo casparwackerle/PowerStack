@@ -93,7 +93,7 @@
 
 % Keep empty if there is no supervisor 2: \supervisorB{}
 \supervisorB{Christof Marti}              % Name of supervisor 2,               \supnameB
-\supervisorBmail{christof.marti@zhaw.ch}       % Email address of supervisor 2,      \supmailB
+\supervisorBmail{christof.marti@zhaw.ch}  % Email address of supervisor 2,      \supmailB
 \supervisorBweb{https://www.zhaw.ch/en/about-us/person/mach/}                  % \supwebB
 \supervisorBinfo{                       % Formatted info about supervisor 2:  \supinfoB
     \supnameB\\
@@ -147,8 +147,8 @@
 % DECLARATION
 %----------------------------------------------------------------------------------------
 % Comment out this section if the declaration of originality from ZHAW is used.
-%\include{Front/declaration}
-%\cleardoublepage
+\include{Front/declaration}
+\cleardoublepage
 
 
 %----------------------------------------------------------------------------------------
@@ -172,8 +172,8 @@
 \small % Change this to \Huge, \small, etc.
 \tableofcontents  % Add main table of contents
 \endgroup
-%\listoffigures    % Add list of figures
-%\listoftables     % Add list of tables
+\listoffigures    % Add list of figures
+\listoftables     % Add list of tables
 
 
 %----------------------------------------------------------------------------------------
@@ -198,11 +198,11 @@
 % Uncomment the lines as you write the chapters
 
 \include{Chapters/Chapter1}
-\include{Chapters/Chapter2}
-\include{Chapters/Chapter3}
-\include{Chapters/Chapter4} 
-\include{Chapters/Chapter5} 
-\include{Chapters/Chapter6} 
+% \include{Chapters/Chapter2}
+% \include{Chapters/Chapter3}
+% \include{Chapters/Chapter4} 
+% \include{Chapters/Chapter5} 
+% \include{Chapters/Chapter6} 
 
 \include{Chapters/WIP/development-environment}
 \include{Chapters/WIP/eBPF-implementation}
@@ -214,16 +214,50 @@
 %----------------------------------------------------------------------------------------
 % THESIS CONTENT - APPENDICES
 %----------------------------------------------------------------------------------------
-\appendix % Cue to tell LaTeX that the following "chapters" are Appendices
+%\appendix % Cue to tell LaTeX that the following "chapters" are Appendices
 
 % Include the appendices of the thesis as separate files from the Appendices folder
 % Uncomment the lines as you write the Appendices
-\include{Appendices/AppendixA}
-%\include{Appendices/AppendixB}
-% from https://www.zhaw.ch/en/lsfm/study/studiweb/master-ls/masters-thesis/
+%\include{Appendices/AppendixA}  %wrapper for VT2
+%\include{Appendices/AppendixB} %wrapper for VT1
 %\include{Appendices/AppendixB}
 %\include{Appendices/AppendixC}
 %\include{Appendices/DeclarationOfOriginalityZHAW} 
+
+% {\small
+% \part*{Appendix A:\\Container-Level Energy Consumption Estimation:\\Foundations, Challenges, and Current Approaches}
+% }
+% \addcontentsline{toc}{part}{Appendix A:\\Container-Level Energy Consumption Estimation:\\Foundations, Challenges, and Current Approaches}
+% \setcounter{chapter}{0}
+% \include{Appendices/AppendixA_VT2/main}
+
+
+\cleardoublepage
+\thispagestyle{plain} % or empty, if you prefer
+
+% Manual “part-like” heading with controlled font size
+\addcontentsline{toc}{part}{Appendix A:\\Container-Level Energy Consumption Estimation:\\Foundations, Challenges, and Current Approaches}
+
+\vspace*{3cm} % adjust vertical position as you like
+\begin{center}
+{\Large Appendix A}\\[1em] % <-- control size here
+{\Large Container-Level Energy Consumption Estimation:}\\[0.5em]
+{\Large Foundations, Challenges, and Current Approaches}
+\end{center}
+
+\cleardoublepage
+\setcounter{chapter}{0}
+\include{Appendices/AppendixA_VT2/main}
+
+
+
+
+
+% \cleardoublepage
+% \part*{Appendix B: Powerstack: Implementation of an energy monitoring environment in Kubernetes}
+% \addcontentsline{toc}{part}{Appendix B: Powerstack: Implementation of an energy monitoring environment in Kubernetes}
+% \setcounter{chapter}{0}
+% \include{Appendices/AppendixB_VT1/main}
 
 
 %----------------------------------------------------------------------------------------
