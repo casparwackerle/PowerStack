@@ -280,14 +280,22 @@ demonstrating the one-to-one mapping between fresh device updates and emitted
 \draw[timeline] (\xmin,\ygpu) -- (\xmax,\ygpu);
 \node[label,anchor=east] at (\xmin,\ygpu) {GPU publishes};
 
-% True publish events (roughly equidistant)
-\foreach \x in {2.5,5.5,8.5,11.3} {
+% True publish events (roughly equidistant), last one early at 11.3
+\foreach \x in {2.5,5.5,8.5} {
   \node[publish] at (\x,\ygpu) {};
 }
+
+% Actual early publish
+\node[publish] at (11.3,\ygpu) {};
 \node[label,anchor=south] at (11.3,\ygpu+0.05) {early publish};
 
+% Expected publish (ghost marker) at 11.5
+\node[circle,fill=gray!50,inner sep=2pt] at (11.5,\ygpu) {};
+
 % Annotate approximate period between two publishes
-\draw[<->] (2.5,\ygpu+0.4) -- node[label,above] {$\hat{T}$} (5.5,\ygpu+0.4);
+\draw[<->] (2.5,\ygpu+0.4) --
+    node[label,above] {$\hat{T}$}
+    (5.5,\ygpu+0.4);
 
 % Mark t_last and t_next for illustration
 \node[label,anchor=north] at (5.5,\ygpu-0.05) {$t_{\text{last}}$};
