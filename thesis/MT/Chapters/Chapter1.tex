@@ -1,7 +1,205 @@
-\chapter{Introduction and Context} % Main chapter title
-\label{Chapter1}
 
-\section{placeholder}
-this is a placeholder
+\chapter{Introduction}
+\label{ch:introduction}
+% This chapter introduces the motivation, problem context, research questions,
+% and contributions of this thesis. It also provides contextual information
+% about previous work, audience, methodology, and other relevant perspectives.
 
-this is a cross-document reference\appchapterref{A}{vt2_sec:BMC_devices} for an overview.
+%--------------------------------------------------------------------
+\section{Motivation}
+\label{sec:intro_motivation}
+
+\section{Motivation}
+\label{sec:intro_motivation}
+
+Global data center energy consumption is increasing rapidly, driven by the rising demand for
+compute-heavy workloads such as artificial intelligence and large-scale analytics.
+Data centers consumed roughly 1.5\% of global electricity in 2024
+(about 415~TWh) and are expected to more than double their consumption by 2030
+\parencite{iea2025energyai}.  
+At the same time, traditional sources of efficiency improvement, such as Moore's law and 
+Dennard scaling, are slowing down \parencite{tomshardware2023mooreslaw, cartesian2013dennard}, 
+while gains from infrastructure optimizations approach diminishing returns 
+\parencite{uptime2023pue, masanet2020}.
+
+Containerized workloads form an increasingly large share of this growing footprint.
+They provide lightweight and scalable deployment mechanisms \parencite{Potdar2020}, and
+Kubernetes has become the dominant platform for orchestrating such workloads at scale.
+Despite their operational benefits and generally low overhead \parencite{Morabito2015},
+containers make energy transparency difficult. Their shared-resource architecture and
+multi-layer abstraction obscure the relationship between individual workloads and the
+physical energy they consume, which complicates research on energy efficiency. As interest
+in energy-aware computing grows, accurate and fine-grained measurement becomes essential
+for research, performance engineering, and scheduling. Existing tools offer useful
+approximations but rely heavily on heuristic models and asynchronous telemetry, which
+limits their validity and reproducibility.
+
+\textit{Kepler}\parencite{kepler_current}, a CNCF-backed project under active development, has become a widely adopted energy observability tool for Kubernetes clusters. Its design prioritizes portability,
+low overhead, and safe deployment across diverse environments, which makes it highly
+suitable for operational use at scale. A detailed analysis of its methodology and
+design philosophy is provided in \hyperref[appendix_vt2]{Appendix~A}. In this context, Tycho is not intended
+to compete with Kepler or replace it. Instead, Tycho explores a complementary space:
+the upper bound of what measurement accuracy is achievable when higher-privilege
+monitoring methods, synchronized server-wide telemetry, and more fine-grained event-time 
+alignment are permitted. While such techniques are often impractical for general-purpose
+deployments, they offer substantial value for research settings and large-scale R\&D
+environments that require precise and reproducible energy measurements. Tycho is an
+attempt to fill this accuracy-focused niche by implementing methods that prioritize
+measurement fidelity over broad deployability.
+
+%--------------------------------------------------------------------
+\section{Challenges and Limitations of Existing Approaches}
+\label{sec:intro_teaser_limitations}
+
+Current approaches to workload-level energy estimation provide useful insights but remain
+limited in accuracy and reproducibility. Tools such as Kepler and Scaphandre\parencite{scaphandre_github} correlate resource utilization metrics with node-level energy telemetry, yet they operate under
+constraints that make fine-grained attribution difficult. Many systems depend on
+asynchronous and low-frequency sampling, rely on heterogeneous telemetry sources with
+differing clock domains, or employ heuristic models that introduce uncertainty. Purpose-built,
+high-accuracy measurement hardware exists, but its cost and operational overhead prevent
+widespread adoption in production environments. As a result, most available
+solutions offer high-level trends rather than precise, time-aligned measurements required
+for rigorous analysis. A more detailed discussion of these limitations is provided in
+\S~\ref{ch:background_and_related_work} and further expanded in \hyperref[appendix_vt2]{Appendix~A}.
+
+
+%--------------------------------------------------------------------
+\section{Problem Context}
+\label{sec:intro_context}
+% Describe the environment in which this problem exists.
+% Explain multi-tenant Kubernetes clusters and their dynamic nature.
+% Discuss heterogeneity of telemetry sources (RAPL, Redfish, GPU, eBPF).
+% Explain why asynchronous sampling and inconsistent timestamps make reliable attribution difficult.
+% Introduce the complexity of mapping processes to containers in Kubernetes.
+
+%--------------------------------------------------------------------
+\section{Problem Statement}
+\label{sec:intro_problem_statement}
+% Provide a concise and precise definition of the primary research problem.
+% State that existing tools cannot deliver server-wide, time-aligned, and verifiable
+% energy attribution at process level.
+% Position Tycho as an accuracy-first approach that addresses this gap.
+
+%--------------------------------------------------------------------
+\section{Goals of This Thesis}
+\label{sec:intro_goals}
+% Explain high-level goals:
+% - Develop an accuracy-first architecture for energy measurement.
+% - Unify heterogeneous telemetry sources under a common timing model.
+% - Build a reliable container-level attribution pipeline.
+% - Design a verifiable and transparent methodology.
+% - Prepare a foundation for the validation experiments in the next thesis (VT3).
+
+%--------------------------------------------------------------------
+\section{Research Questions}
+\label{sec:intro_research_questions}
+% Add the central research questions, for example:
+% - How can telemetry sources with different sampling behaviours be aligned to a shared time base?
+% - What accuracy is achievable with commodity server hardware?
+% - Which telemetry sources are essential for reliable attribution?
+% - How can short-lived utilization bursts be captured?
+% - How can attribution errors be detected and reduced?
+
+%--------------------------------------------------------------------
+\section{Contributions}
+\label{sec:intro_contributions}
+% Summarize the main contributions of this thesis:
+% - Definition of an accuracy-first design philosophy for energy measurement.
+% - Introduction of a unified timing engine with monotonic timestamps.
+% - Implementation of independent collectors (RAPL, GPU, Redfish, eBPF).
+% - Ring buffer based synchronization model.
+% - Metadata correlation engine for Kubernetes containers.
+% - Prototype implementation called Tycho.
+% - Integration of VT1 and VT2 as appendices for methodology and background.
+
+%--------------------------------------------------------------------
+\section{Positioning Within Previous Work}
+\label{sec:intro_positioning}
+% Explain how this thesis relates to VT1 and VT2.
+% - VT1: Implementation-focused feasibility study for energy measurement in Kubernetes.
+% - VT2: Theoretical deep dive into state-of-the-art methods, challenges, and attribution models.
+% - Current thesis: Consolidates theory and implementation, introduces Tycho,
+%   and prepares the groundwork for accuracy-focused validation in VT3.
+% Emphasize continuity while avoiding repetition, supported by the appendices.
+
+%--------------------------------------------------------------------
+\section{Scope and Boundaries}
+\label{sec:intro_scope}
+% Clarify what this thesis covers and what it does not:
+% INCLUDED:
+% - Server-wide energy measurement (CPU, GPU, platform).
+% - Process-level attribution using Kubernetes metadata.
+% - Development of a unified timing and synchronization model.
+% - Design and implementation of Tycho as a prototype system.
+%
+% EXCLUDED:
+% - Providing a production-ready autoscaler or scheduler.
+% - Prediction models or long-term forecasting of energy consumption.
+% - Modifying Kubernetes itself.
+% - Vendor-specific proprietary APIs beyond RAPL, NVML, and Redfish.
+% - Energy-aware orchestration policies.
+%
+% The goal is a research prototype focused on accuracy, not a turnkey product.
+
+%--------------------------------------------------------------------
+\section{Target Audience}
+\label{sec:intro_audience}
+% Explain who Tycho is intended for.
+% Tycho's accuracy-first design comes with drawbacks:
+% - It is more complex than typical observability tools.
+% - It requires specific privileges (eBPF, RAPL access, or BMC polling).
+% - It produces low-level telemetry rather than high-level abstractions.
+%
+% Therefore, Tycho is primarily aimed at:
+% - Academic researchers studying energy efficiency.
+% - Infrastructure and performance engineering teams in hyperscalers.
+% - Experimental environments where measurement accuracy is more important than ease of deployment.
+%
+% For typical operational users or standard SRE environments, Tycho may be excessive.
+
+%--------------------------------------------------------------------
+\section{Origin of the Name ``Tycho''}
+\label{sec:intro_name}
+% Provide a short explanation of the naming:
+% Kepler is the upstream project, named after Johannes Kepler.
+% Tycho Brahe was Kepler's mentor and provided the precise astronomical measurements
+% that allowed Kepler to derive his laws of planetary motion.
+%
+% The analogy:
+% - Kepler (the tool) builds models and estimates.
+% - Tycho (this project) focuses on precise and accurate raw measurement.
+%
+% The naming signals both continuity and a philosophical shift toward accuracy-first design.
+
+%--------------------------------------------------------------------
+\section{Methodological Approach}
+\label{sec:intro_methodology}
+% Provide a short overview of the research methodology.
+% Suggested structure:
+% - Start with requirements analysis and conceptual design.
+% - Develop independent metric collectors and a timing engine.
+% - Use iterative implementation with continuous integration on a real Kubernetes cluster.
+% - Validate correctness through controlled experiments (planned for VT3).
+%
+% Keep this section short and focus on the workflow, not the technical details.
+
+%--------------------------------------------------------------------
+\section{Ethical and Sustainability Considerations}
+\label{sec:intro_ethics}
+% Keep this short.
+% Mention:
+% - Energy transparency contributes to more efficient resource use in data centers.
+% - Research tools like Tycho enable more rigorous energy evaluations and can support sustainability goals.
+% - No personal or sensitive data is collected; measurements are technical and device-oriented.
+% - Ethical considerations primarily relate to promoting efficient cloud operation and reproducible research.
+
+%--------------------------------------------------------------------
+\section{Thesis Structure}
+\label{sec:intro_structure}
+% Provide a brief outline of the upcoming chapters:
+% - Chapter 2: Background and related work.
+% - Chapter 3: Requirements and design goals of Tycho.
+% - Chapter 4: Tycho architecture and system design.
+% - Later chapters: Implementation details, evaluation plan, and conclusions.
+% Keep this concise.
+

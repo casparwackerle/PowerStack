@@ -506,7 +506,7 @@ KOMA-script documentation for details.}]{fancyhdr}
     \tttypeout{Dedicatory}
     \thispagestyle{empty}
     \null\vfil
-    \begin{center}{\Large\slshape #1}\end{center}
+    \begin{center}{\small\slshape #1}\end{center}
     \vfil\null
 }
 
