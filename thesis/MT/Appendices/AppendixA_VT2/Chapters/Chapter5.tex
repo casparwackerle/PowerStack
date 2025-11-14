@@ -1,5 +1,5 @@
 \chapter{Conclusion and Future Work}
-\label{Chapter5}
+\label{vt2_Chapter5}
 
 \section{Summary of Findings}
 
@@ -23,7 +23,7 @@ In conclusion, energy attribution in containerized systems is a balancing act be
 
 This thesis adopts a purely analytical approach, centered on literature review, code analysis, and architectural evaluation of existing container-level energy attribution tools, as well as potential sources of information. This methodological choice aligns with the intended scope of the project: as a VT2-level research work, the thesis was designed to provide a theoretical foundation for subsequent practical development.
 
-While the thesis proposes concrete recommendations for future tool design (see Section~\ref{sec:future-tools}), it deliberately refrains from developing a full tool architecture or implementation. Instead, the findings are intended to inform such efforts in future research, particularly within the scope of the author’s upcoming master's thesis.
+While the thesis proposes concrete recommendations for future tool design (see Section~\ref{vt2_sec:future-tools}), it deliberately refrains from developing a full tool architecture or implementation. Instead, the findings are intended to inform such efforts in future research, particularly within the scope of the author’s upcoming master's thesis.
 
 While empirical validation through experimental benchmarking was deliberately omitted to prioritize tool coverage and architectural analysis, this remains a methodological limitation. Validation insights from existing literature were integrated where available.
 
@@ -70,10 +70,10 @@ To improve transparency and usability, future tools should:
 \end{itemize}
 
 \section{Recommendations for Future Tool Development}
-\label{sec:future-tools}
+\label{vt2_sec:future-tools}
 
 \subsection{Towards Maximum-Accuracy Measurement Tools}
-\label{sec:future-maximum-accuracy}
+\label{vt2_sec:future-maximum-accuracy}
 
 Future container-level monitoring tools should prioritize temporal resolution, metric flexibility, and modular attribution models to maximize measurement accuracy. Based on the findings of this thesis, the following design principles are recommended:
 
@@ -101,7 +101,7 @@ Wherever feasible, tools should adhere to standardized system interfaces such as
 In summary, a high-accuracy monitoring tool must prioritize both technical rigor and architectural flexibility. Drawing from design strengths observed in Kepler, KubeWatt, Scaphandre, and SmartWatts, future tools should offer high-resolution measurements, modular estimation, and transparent energy attribution as core design objectives.
 
 \subsection{Addressing Missing Domains: Disk, Network, and Others}
-\label{sec:future-missing-domains}
+\label{vt2_sec:future-missing-domains}
 
 No current container-level energy monitoring tool provides direct measurements or estimations for storage devices or network interfaces. Nevertheless, for a comprehensive understanding of node-level energy consumption, these components should not be neglected.
 
@@ -120,7 +120,7 @@ Estimation models should remain user-configurable. While default values enable e
 In summary, although disk and network power estimations are inherently imprecise, including them in a modular and configurable manner would significantly enhance the practical value of container-level energy monitoring tools.
 
 \subsection{Balancing Accuracy and Overhead}
-\label{sec:future-accuracy-overhead}
+\label{vt2_sec:future-accuracy-overhead}
 
 The pursuit of maximum measurement accuracy inevitably increases monitoring overhead. Future tools should address this trade-off by offering distinct operational modes, allowing users to select between accuracy and resource efficiency based on their specific needs.
 
@@ -136,7 +136,7 @@ Not all environments or users require maximum accuracy. By providing predefined 
 In summary, supporting both ‘precision’ and ‘lightweight’ modes allows monitoring tools to serve diverse operational contexts without compromising on flexibility or usability.
 
 \subsection{Supporting Multiple User Roles and Needs}
-\label{sec:future-user-roles}
+\label{vt2_sec:future-user-roles}
 
 Container-level energy monitoring tools must accommodate a diverse range of users, each with distinct goals and expectations. A future-proof tool should address these needs through architectural modularity, clear defaults, and extensive documentation.
 
@@ -162,7 +162,7 @@ Recognizing that many users will treat the tool as a black box, default configur
 In summary, serving developers, operators, and researchers simultaneously requires balancing simplicity, flexibility, and transparency within the tool’s design.
 
 \subsection{Energy Metrics for Virtualized Environments}
-\label{sec:future-virtualized-environments}
+\label{vt2_sec:future-virtualized-environments}
 
 Energy attribution within virtualized environments, particularly for Kubernetes clusters running inside virtual machines (VMs), remains a challenge. Existing monitoring tools primarily target bare-metal deployments, leaving a significant gap in energy observability for cloud-based and virtualized infrastructures.
 
@@ -187,7 +187,7 @@ Given the prevalence of virtualized infrastructure in modern cloud environments,
 In summary, enabling reliable host-to-VM energy metrics passthrough represents a critical development priority for future container-level energy monitoring tools.
 
 \subsection{Standardization and Hardware Vendor Transparency}
-\label{sec:future-standardization}
+\label{vt2_sec:future-standardization}
 
 Measurement accuracy in container-level energy monitoring is fundamentally limited by the availability and transparency of hardware telemetry. Addressing these constraints requires both industry-wide standardization efforts and increased openness from hardware vendors.
 
@@ -203,7 +203,7 @@ The lack of public documentation regarding Intel’s Running Average Power Limit
 In summary, improving measurement precision at the workload level depends not only on software design but also on cooperation from hardware manufacturers and industry standards bodies. Transparent and standardized telemetry interfaces represent a critical enabler for future progress in energy observability.
 
 \section{Broader Research and Industry Opportunities}
-\label{sec:future-research-industry}
+\label{vt2_sec:future-research-industry}
 
 The advancement of energy observability in containerized environments extends beyond tool development. Broader collaboration across industry stakeholders and research communities is essential to drive progress.
 
@@ -219,7 +219,7 @@ Energy observability should be recognized as a foundational component of sustain
 In summary, advancing energy observability requires coordinated efforts spanning tool developers, standards bodies, hardware vendors, and sustainability-focused initiatives.
 
 \section{Closing Remarks}
-\label{sec:future-conclusion}
+\label{vt2_sec:future-conclusion}
 
 Energy consumption measurement at the container or workload level remains a complex and evolving challenge. This thesis has identified key architectural and methodological features that future monitoring tools should incorporate to enhance measurement accuracy, architectural flexibility, and practical usability.
 

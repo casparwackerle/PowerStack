@@ -1,8 +1,8 @@
 \chapter{Approaches and Tools for Container Energy Measurement}
-\label{Chapter4}
+\label{vt2_Chapter4}
 
 \section{Introduction}
-\label{sec:tool-intro}
+\label{vt2_sec:tool-intro}
 
 Accurately measuring and attributing energy consumption in containerized environments has become a central challenge in sustainable cloud computing. As container orchestration platforms like Kubernetes grow in adoption, the need for energy observability at finer granularities (down to the container or even process level) becomes increasingly critical. This requirement stems from a range of applications, including cost optimization, carbon accounting, energy-aware scheduling, and performance tuning.
 
@@ -11,13 +11,13 @@ A number of tools and frameworks have emerged in recent years to address this pr
 This chapter surveys the landscape of existing tools, organized into three categories: system-level monitoring solutions, telemetry-based estimation frameworks, and container-focused energy attribution tools. Particular attention is given to tools that support Kubernetes environments, as these are directly relevant to the goals of this thesis. Each tool is analyzed based on its architecture, metric sources, modeling approach, and practical limitations. Later sections discuss the emerging tool KubeWatt and present a comparative synthesis of strengths and weaknesses across the reviewed solutions.
 
 \section{Non-container-focused Energy Monitoring Tools}
-\label{sec:non-k8s-tools}
+\label{vt2_sec:non-k8s-tools}
 \subsection{Server-Level Energy Monitoring}
-\label{sec:server-tools}
+\label{vt2_sec:server-tools}
 While not directly translatable to container-level energy monitoring, server-level energy consumption remains an important aspect. Scientific works and tools in this domain generally do not provide the temporal resolution required for container-level energy monitoring.
 
 \subsubsection{Kavanagh and Djemame: Energy Modeling via IPMI and RAPL Calibration}
-\label{sec:kavanagh}
+\label{vt2_sec:kavanagh}
 
 \paragraph{Overview and Architecture}
 Kavanagh and Djemame\parencite{kavanagh2019rapid} present their findings on combining IPMI and RAPL (interface unspecified) data to estimate server energy consumption, achieving improved accuracy through calibration with an external server-level watt meter. For calibration, they induce artificial CPU workloads and rely on CPU utilization metrics with 1-minute averaging windows, necessitating extended calibration intervals to obtain stable readings. While the resulting model is tailored to their specific hardware and not generally portable, their work provides valuable insights into the complementary use of IPMI and RAPL. The authors recognize that the respective limitations of these tools (RAPL’s partial scope and IPMI’s low resolution) can be mitigated when used in combination.
@@ -62,12 +62,12 @@ However, the tool highlights several interesting secondary considerations. The i
 Unlike more advanced attribution tools, AI Power Meter does not distinguish between individual processes or workloads. Instead, it provides coarse-grained, system-level energy consumption measurements over time. In this respect, its scope is similar to \textit{CodeCarbon}, focusing on ease of use and integration into ML pipelines rather than precise, per-process energy attribution. As such, while not directly applicable to container-level measurement or power attribution, AI Power Meter demonstrates the growing interest in accessible energy monitoring tools within the machine learning community.
 
 \subsection{Telemetry-Based Estimation Frameworks}
-\label{sec:telemetry-tools}
+\label{vt2_sec:telemetry-tools}
 
 \subsubsection{PowerAPI Ecosystem\parencite{powerapi2024github} (PowerAPI, HWPC, SmartWatts)}
-\label{sec:powerApiFramework}
+\label{vt2_sec:powerApiFramework}
 
-PowerAPI\parencite{fieni2024powerapi} is an open-source middleware toolkit for assembling software-defined power meters that estimate real-time power consumption of software workloads. Developed as a generalized and modular framework, PowerAPI evolved alongside specific implementations such as \textit{SmartWatts}, detailed in section~\ref{sec:smartwatts}. It allows power attribution at multiple granularity levels, including processes, threads, containers, and virtual machines. A distinctive strength of PowerAPI is the continuous self-calibration of its power models, enabling accurate real-time energy estimation under varying workloads and execution conditions. This makes PowerAPI particularly suited to heterogeneous computing infrastructures.
+PowerAPI\parencite{fieni2024powerapi} is an open-source middleware toolkit for assembling software-defined power meters that estimate real-time power consumption of software workloads. Developed as a generalized and modular framework, PowerAPI evolved alongside specific implementations such as \textit{SmartWatts}, detailed in section~\ref{vt2_sec:smartwatts}. It allows power attribution at multiple granularity levels, including processes, threads, containers, and virtual machines. A distinctive strength of PowerAPI is the continuous self-calibration of its power models, enabling accurate real-time energy estimation under varying workloads and execution conditions. This makes PowerAPI particularly suited to heterogeneous computing infrastructures.
 
 \paragraph{Overview and Architecture}
 
@@ -77,7 +77,7 @@ PowerAPI uses an actor-based model for modularity, enabling easy customization o
 \begin{itemize}
     \item \textbf{powerapi-core}: Middleware orchestrating real-time/post-mortem interactions between sensors and formulas. It defines the essential interfaces for sensor data ingestion and output channels (e.g. MongoDB, InfluxDB, CSV, socket, Prometheus), and includes built-in capabilities for data preprocessing, postprocessing, and reporting.
     \item \textbf{hwpc-sensor}: A telemetry probe designed to gather low-level hardware performance counters (HWPCs), including instructions, cycles, and RAPL energy metrics. This sensor leverages \textit{perf} and \textit{cgroups-v2}, critical for fine-grained telemetry in containerized environments. It also provides detailed CPU performance state metrics via MSR events (\code{TSC}, \code{APERF}, \code{MPERF}).
-    \item \textbf{SmartWatts-formula}\parencite{fieni2020smartwatts}: A power model implementation (in Python) using HWPC data to estimate power consumption dynamically. It employs online linear regression provided by the Python \textit{scikit-learn}\parencite{scikit-learn} library, enabling accurate runtime learning of workload-specific power signatures. SmartWatts is further detailed in section~\ref{sec:smartwatts}.
+    \item \textbf{SmartWatts-formula}\parencite{fieni2020smartwatts}: A power model implementation (in Python) using HWPC data to estimate power consumption dynamically. It employs online linear regression provided by the Python \textit{scikit-learn}\parencite{scikit-learn} library, enabling accurate runtime learning of workload-specific power signatures. SmartWatts is further detailed in section~\ref{vt2_sec:smartwatts}.
     \item \textbf{SelfWatts-controller}: Dynamically selects hardware performance counters for software-defined power models, facilitating automatic configuration and unsupervised deployment in heterogeneous infrastructures. Currently, its development has stalled for several years, limiting its practical applicability.
     \item \textbf{pyRAPL}: A convenient Python wrapper around RAPL for CPU, DRAM, and iGPU energy metrics collection, providing easy access to hardware-based power data.
 \end{itemize}
@@ -92,7 +92,7 @@ The \textit{Green Metrics Tool} (GMT)\parencite{greencodingdocs} is an open-sour
 While GMT provides reproducible, lifecycle-aware measurements in controlled environments, it does \textit{not} perform container-level or process-level energy attribution. The developers explicitly avoid splitting energy consumption across containers, citing the lack of reliable attribution models.
 
 \section{Container-Focused Energy Attribution Tools}
-\label{sec:container-tools}
+\label{vt2_sec:container-tools}
 
 While system-level monitoring and telemetry-based estimation provide valuable insights into overall server energy consumption, they fall short when it comes to attributing energy use to individual containers. In multi-tenant or microservice-based environments, such granularity is essential for accurate accountability, optimization, and scheduling decisions.
 
@@ -101,40 +101,40 @@ This section focuses on tools specifically designed to address this challenge by
 The following subsections analyze three prominent tools (Kepler, Scaphandre, and SmartWatts), each with a distinct architectural approach. A fourth tool, KubeWatt, is discussed separately as a derivative implementation developed in response to identified limitations in Kepler.
 
 \subsection{Kepler}
-\label{sec:kepler}
+\label{vt2_sec:kepler}
 
 \subsubsection{Overview and Goals}
-\label{sec:kepler-overview}
+\label{vt2_sec:kepler-overview}
 
 Kepler (\textit{Kubernetes-based Efficient Power Level Exporter})\parencite{kepler_energy} is a modular, Kubernetes-native framework for monitoring, modeling, and estimating energy consumption in containerized environments. As the most prominent tool for container-level power estimation in Kubernetes, Kepler enables detailed observability of energy usage at the level of individual processes, containers, pods, and nodes\parencite{amaralKeplerFrameworkCalculate2023}.
 
 Kepler integrates seamlessly with Kubernetes and Prometheus-based observability stacks. It supports both real-time energy metrics (e.g. RAPL, ACPI, NVML) and model-based estimation through trained regression models, making it applicable across a wide range of deployment environments, from bare-metal servers to virtual machines. Developed as an open-source CNCF project, Kepler’s architecture is designed to be extensible, allowing researchers and practitioners to contribute new power models and adapt it to diverse system architectures.
 
-\textbf{It should be noted that shortly before the completion of this thesis, version 0.10.0 of Kepler was released.} This version constitutes a major architectural rewrite of the project, intended to address structural limitations of earlier versions. However, the analysis in this chapter focuses on Kepler versions 0.9.x and earlier, which remain the most widely deployed at the time of writing. Section~\ref{sec:kepler-0.10} briefly summarizes the key changes introduced in the new release.
+\textbf{It should be noted that shortly before the completion of this thesis, version 0.10.0 of Kepler was released.} This version constitutes a major architectural rewrite of the project, intended to address structural limitations of earlier versions. However, the analysis in this chapter focuses on Kepler versions 0.9.x and earlier, which remain the most widely deployed at the time of writing. Section~\ref{vt2_sec:kepler-0.10} briefly summarizes the key changes introduced in the new release.
 
 \subsubsection{Architecture and Metric Sources}
-\label{sec:kepler-architecture}
+\label{vt2_sec:kepler-architecture}
 
 Kepler's architecture consists of several interconnected components, with the core functionality centered around a privileged monitoring agent that runs on every node. While the framework supports model-based estimation for environments without hardware telemetry, this thesis focuses on the direct collection of real-time power and utilization metrics available in bare-metal deployments.
 
 \paragraph{Deployment Models}
-Kepler supports multiple deployment scenarios depending on the availability of energy sensors on the host system. In bare-metal environments, Kepler can directly collect power metrics using RAPL, ACPI, or Redfish/IPMI interfaces. This is the most accurate and relevant mode for the purpose of this thesis. In contrast, on virtual machines (VMs), where access to hardware counters or power interfaces is restricted, Kepler relies on trained regression models to estimate node-level energy consumption. A third, currently unimplemented deployment model proposes a passthrough mechanism where a host-level Kepler instance would expose power metrics to a nested Kepler instance inside the VM. These deployment models are visualized in figure~\ref{fig:kepler-deployment-modes}.
+Kepler supports multiple deployment scenarios depending on the availability of energy sensors on the host system. In bare-metal environments, Kepler can directly collect power metrics using RAPL, ACPI, or Redfish/IPMI interfaces. This is the most accurate and relevant mode for the purpose of this thesis. In contrast, on virtual machines (VMs), where access to hardware counters or power interfaces is restricted, Kepler relies on trained regression models to estimate node-level energy consumption. A third, currently unimplemented deployment model proposes a passthrough mechanism where a host-level Kepler instance would expose power metrics to a nested Kepler instance inside the VM. These deployment models are visualized in figure~\ref{vt2_fig:kepler-deployment-modes}.
 
 \begin{figure}[ht]
   \centering
   \includegraphics[width=0.8\textwidth]{Appendices/AppendixA_VT2/Figures/kepler_deployment_modes.jpg}
     \caption[Kepler deployment models]{Kepler deployment models: direct power measurement on bare-metal, estimation on VMs, and the proposed passthrough model (currently not implemented)\parencite{kepler_docs}}
-  \label{fig:kepler-deployment-modes}
+  \label{vt2_fig:kepler-deployment-modes}
 \end{figure}
 
 \paragraph{Kepler Agent and Exporter}
-The core monitoring functionality is handled by the Kepler Agent, which is deployed as a privileged DaemonSet pod on each Kubernetes node. It collects energy and resource utilization metrics using a combination of eBPF instrumentation and hardware performance counters exposed via \code{perf\_event\_open}. A kprobe attached to the \code{finish\_task\_switch} kernel function enables accurate tracking of per-process context-switch activity. Container and pod attribution is performed after parsing the cgroup path from \path{/proc/<pid>/cgroup} and querying the Kubelet API for container metadata. The generated metrics are exported via a Prometheus-compatible endpoint for downstream processing and visualization. A generalized information flow is shown in figure~\ref{fig:kepler-architecture}.
+The core monitoring functionality is handled by the Kepler Agent, which is deployed as a privileged DaemonSet pod on each Kubernetes node. It collects energy and resource utilization metrics using a combination of eBPF instrumentation and hardware performance counters exposed via \code{perf\_event\_open}. A kprobe attached to the \code{finish\_task\_switch} kernel function enables accurate tracking of per-process context-switch activity. Container and pod attribution is performed after parsing the cgroup path from \path{/proc/<pid>/cgroup} and querying the Kubelet API for container metadata. The generated metrics are exported via a Prometheus-compatible endpoint for downstream processing and visualization. A generalized information flow is shown in figure~\ref{vt2_fig:kepler-architecture}.
 
 \begin{figure}[ht]
   \centering
   \includegraphics[width=0.9\textwidth]{Appendices/AppendixA_VT2/Figures/kepler_architecture.png}
   \caption[Simplified architecture of the Kepler monitoring agent and exporter components]{Simplified architecture of the Kepler monitoring agent and exporter components\parencite{kepler_docs}}
-  \label{fig:kepler-architecture}
+  \label{vt2_fig:kepler-architecture}
 \end{figure}
 
 \paragraph{Resource Utilization via eBPF-based Hardware/Software Counters}
@@ -202,7 +202,7 @@ Because NVML does not provide high-resolution energy counters, Kepler approximat
 If \code{GetProcessUtilization()} is not supported by the hardware or fails at runtime, Kepler falls back to using \code{GetComputeRunningProcesses()} combined with per-process memory usage to estimate GPU utilization. In this mode, energy is attributed proportionally to memory usage rather than compute activity. Alternative backends such as Habana or DCGM are supported but do not offer per-process utilization data and are thus not used for fine-grained attribution in Kepler’s default configuration.
 
 \paragraph{Summary of Inputs}
-Tables~\ref{tab:kepler-metric-inputs} and~\ref{tab:kepler-metadata-inputs} summarize the distinct types of input Kepler collects. Metric inputs provide raw resource and energy data, while metadata inputs allow this data to be mapped to containers, VMs, or system processes.
+Tables~\ref{vt2_tab:kepler-metric-inputs} and~\ref{vt2_tab:kepler-metadata-inputs} summarize the distinct types of input Kepler collects. Metric inputs provide raw resource and energy data, while metadata inputs allow this data to be mapped to containers, VMs, or system processes.
 
 \begin{table}[h]
     \small
@@ -225,7 +225,7 @@ Tables~\ref{tab:kepler-metric-inputs} and~\ref{tab:kepler-metadata-inputs} summa
         \hline
     \end{tabular}
     \caption[Metric inputs used by Kepler]{Metric inputs used by Kepler for energy and resource monitoring}
-    \label{tab:kepler-metric-inputs}
+    \label{vt2_tab:kepler-metric-inputs}
 \end{table}
 
 \begin{table}[h]
@@ -249,7 +249,7 @@ Tables~\ref{tab:kepler-metric-inputs} and~\ref{tab:kepler-metadata-inputs} summa
         \hline
     \end{tabular}
     \caption[Metadata inputs used by Kepler]{Metadata inputs used by Kepler to organize and label monitored workloads}
-    \label{tab:kepler-metadata-inputs}
+    \label{vt2_tab:kepler-metadata-inputs}
 \end{table}
 
 \paragraph{Export Interface and Metric Exposure}
@@ -269,10 +269,10 @@ For environments where energy measurement is available (e.g. via RAPL or Redfish
 Kepler is designed to integrate seamlessly with existing observability tools. Prometheus is used to scrape metrics from the Kepler agent, and dashboards can be built using Grafana to visualize energy consumption across nodes, containers, or applications. While not required for core functionality, this integration facilitates operational awareness and debugging.
 
 \subsubsection{Attribution Model and Output}
-\label{sec:kepler-attribution}
+\label{vt2_sec:kepler-attribution}
 
 \paragraph{Kepler Configurability and Measurement Interval}
-Kepler updates its input metrics at a configurable interval (default: \code{SamplePeriodSec} = 3 seconds), with the exception of Redfish-based measurements, which have a separate, user-defined interval (default: 15 seconds). Although utilization and RAPL energy metrics theoretically support more fine-grained sampling, Kepler performs attribution solely based on aggregated values within each configured sampling window. While this reduces system overhead, it may miss short-lived energy fluctuations. Kepler's attribution framework is modular by design, allowing easy integration of new power sources through standardized interfaces. Depending on the availability of input metrics, Kepler uses either direct power readings or model-based estimation. In the absence of hardware telemetry (i.e., RAPL), Kepler can apply regression models trained on a reference system where accurate power readings are available. For this thesis, only scenarios where all relevant metrics are available (as discussed in section~\ref{sec:kepler-architecture}) are considered.
+Kepler updates its input metrics at a configurable interval (default: \code{SamplePeriodSec} = 3 seconds), with the exception of Redfish-based measurements, which have a separate, user-defined interval (default: 15 seconds). Although utilization and RAPL energy metrics theoretically support more fine-grained sampling, Kepler performs attribution solely based on aggregated values within each configured sampling window. While this reduces system overhead, it may miss short-lived energy fluctuations. Kepler's attribution framework is modular by design, allowing easy integration of new power sources through standardized interfaces. Depending on the availability of input metrics, Kepler uses either direct power readings or model-based estimation. In the absence of hardware telemetry (i.e., RAPL), Kepler can apply regression models trained on a reference system where accurate power readings are available. For this thesis, only scenarios where all relevant metrics are available (as discussed in section~\ref{vt2_sec:kepler-architecture}) are considered.
 
 \paragraph{Division of Power into Idle and Dynamic Components}
 Kepler conceptually divides total power consumption into \emph{idle power} and \emph{dynamic power}. Their sum constitutes the total (often named \emph{absolute}) measured energy on both process and node levels. Dynamic power is correlated with resource utilization, while idle power represents the static baseline consumption that persists regardless of system activity. This distinction is critical, as Kepler distributes these two components differently among processes~\parencite{amaral2023exploring}. Idle power attribution follows the Greenhouse Gas Protocol guidelines~\parencite{gesi2024ictguidance}, which recommend splitting idle power across containers based on their size (i.e., resource requests relative to the total). Dynamic power, by contrast, is attributed proportionally to observed resource usage.
@@ -298,10 +298,10 @@ where $U_{\text{process}}$ is the process's resource usage, and $U_{\text{node}}
 \end{itemize}
 However, the default usage metric for \code{Uncore} and \code{Platform} domains is not set in the configuration, defaulting to an empty string. As a result, these metrics are not attributed based on usage and fall back to equal distribution. It is unclear whether this is a conscious design decision or an oversight.
 
-The following formula~\ref{for:kepler_process_all} summarizes the complete energy attribution model used by Kepler at the process level. It combines all relevant energy domains: dynamic and idle energy across measured components (e.g. package, core, DRAM, uncore, GPU), as well as residual platform energy not accounted for by specific components. Each part of the equation reflects a distinct step in the attribution logic previously discussed, merging them into a single expression for total per-process energy consumption.
+The following formula~\ref{vt2_for:kepler_process_all} summarizes the complete energy attribution model used by Kepler at the process level. It combines all relevant energy domains: dynamic and idle energy across measured components (e.g. package, core, DRAM, uncore, GPU), as well as residual platform energy not accounted for by specific components. Each part of the equation reflects a distinct step in the attribution logic previously discussed, merging them into a single expression for total per-process energy consumption.
 
 \begin{align}
-    \label{for:kepler_process_all}
+    \label{vt2_for:kepler_process_all}
     E_{\text{process}} = \; &
     \sum_{\text{comp} \in \{\text{core}, \text{dram}, \text{uncore}, \text{gpu}\}} 
     \left(
@@ -324,7 +324,7 @@ The following formula~\ref{for:kepler_process_all} summarizes the complete energ
 \end{align}
 
 \subsubsection{Attribution Timing and Export Granularity}
-\label{sec:kepler-attribution-timing}
+\label{vt2_sec:kepler-attribution-timing}
 
 Kepler attributes energy at fixed internal intervals (default: 3 seconds). These deltas are exposed via Prometheus metrics such as \code{kepler\_container\_joules\_total}, but the Prometheus scrape interval is user-defined and may not align with Kepler's update loop. If the export interval is not a multiple of the internal interval (e.g. 5s vs. 3s), metric misalignment can occur, leading to visible fluctuations even for stable workloads. Since Kepler does not smooth or interpolate values, this behavior is expected and intentional. For more stable time series, it is recommended to configure the export interval as a multiple of Kepler’s internal interval.
 
@@ -356,7 +356,7 @@ The results of the evaluation by Pijnacker et al.\ reveal several systemic issue
 \end{itemize}
 
 \paragraph{Additional issues identified in this work}
-While the attribution issues demonstrated by Pijnacker et al.\ are the most critical and empirically validated shortcomings of Kepler, a detailed inspection of the source code conducted as part of this thesis (see Section~\ref{sec:kepler-attribution}) confirms these problems and reveals several additional implementation and documentation-related concerns. Although these issues are less severe in their impact, they further highlight the current limitations of Kepler as a mature and reliable observability tool.
+While the attribution issues demonstrated by Pijnacker et al.\ are the most critical and empirically validated shortcomings of Kepler, a detailed inspection of the source code conducted as part of this thesis (see Section~\ref{vt2_sec:kepler-attribution}) confirms these problems and reveals several additional implementation and documentation-related concerns. Although these issues are less severe in their impact, they further highlight the current limitations of Kepler as a mature and reliable observability tool.
 
 \begin{itemize}
     \item \textbf{Incomplete codebase:} Kepler’s source code contains over 1000 unresolved \code{TODO} markers, some located in critical modules such as the ratio-based power model. These incomplete sections may affect reliability or create hard-to-debug behavior in real deployments.
@@ -368,7 +368,7 @@ While the attribution issues demonstrated by Pijnacker et al.\ are the most crit
 Despite these limitations, it is important to emphasize that \textbf{Kepler remains the most advanced and integrated open-source implementation for process-level energy monitoring in Kubernetes environments to date}. Its combination of kernel-level instrumentation, Prometheus integration, and extensible modeling capabilities makes it a uniquely valuable reference point and starting foundation for future research and tool development.
 
 \subsubsection{KubeWatt (Derived from Kepler)}
-\label{sec:kubewatt}
+\label{vt2_sec:kubewatt}
 
 As a direct response to the shortcomings identified in Kepler's attribution model, Pijnacker developed \textit{KubeWatt}, a proof-of-concept alternative designed for improved container-level energy observability in Kubernetes. While Kepler's modular design and eBPF-based telemetry collection provide flexibility, it suffers from attribution artifacts, particularly related to static power division, temporal misalignments, and system process handling. KubeWatt explicitly addresses these issues by adopting a simpler, more transparent approach centered around external power readings and CPU-based attribution.
 
@@ -393,7 +393,7 @@ Empirical evaluation confirms that KubeWatt reduces RMSE in total node power est
 Overall, KubeWatt represents a targeted refinement of Kepler's architectural and attribution approach, favoring interpretability and correctness over feature completeness. While limited in scope (e.g. no support for GPU or memory attribution), it successfully mitigates several of the critical limitations identified in Kepler.
 
 \subsubsection{Re-Release of Kepler Version 0.10.0}
-\label{sec:kepler-0.10}
+\label{vt2_sec:kepler-0.10}
 
 During the final stages of this work, Kepler version 0.10.0 was released as a significant architectural rewrite. While maintaining its fundamental role as a Prometheus exporter for container-level energy metrics, the new release introduces considerable changes to both its internal implementation and energy attribution methodology. This section provides an overview of the revised architecture and critically analyzes the implications of these changes in the context of container-level energy observability.
 
@@ -452,17 +452,17 @@ rom a research perspective, the simplification represents a methodological compr
 \textit{In the author's view, Kepler's redesign trades attribution accuracy for simplicity and usability. While this architectural shift benefits practical deployment, it diminishes the tool's value for research-focused energy observability. Finer-grained temporal attribution and more diverse utilization metrics would have been desirable developments.}
 
 \subsection{Scaphandre}
-\label{sec:scaphandre}
+\label{vt2_sec:scaphandre}
 
 \subsubsection{Overview and Goals}
-\label{sec:scaphandre-overview}
+\label{vt2_sec:scaphandre-overview}
 
 Scaphandre\parencite{scaphandre_github} is an energy monitoring agent designed to expose power consumption metrics at fine granularity, particularly in containerized and virtualized environments. Its name, derived from the French word for "diving suit", reflects its goal of providing deep insights into system-level energy consumption.
 
 Scaphandre aims to attribute energy usage to individual processes, containers, or pods. It supports multiple deployment models: it can be installed directly on a physical host (where it can also monitor qemu/KVM-based virtual machines) or deployed in a container, measuring the energy usage of the host system, provided that the \path{/sys/class/powercap} and \code{/proc} directories are mounted as volumes. Most relevant to this thesis, Scaphandre can also be deployed on a Kubernetes cluster via a Helm chart, optionally alongside \textit{Prometheus} and \textit{Grafana}, allowing for convenient monitoring of Kubernetes nodes and containers.
 
 \subsubsection{Architecture and Metric Sources}
-\label{sec:scaphandre-architecture}
+\label{vt2_sec:scaphandre-architecture}
 
 Scaphandre is written in Rust and features a modular, extensible architecture built around two core components: \textit{sensors} and \textit{exporters}. Sensors gather energy-related data from the host system, while exporters format and expose this data to external systems. This design allows seamless integration into cloud-native observability stacks and automation pipelines.
 
@@ -476,7 +476,7 @@ In addition to the Powercap-based sensor, a Windows-only sensor is available tha
 
 System utilization metrics are collected by helper functions implemented in \path{utils.rs}, which rely on Rust’s \code{sysinfo} and \code{procfs} crates. These libraries extract data from virtual filesystems such as \path{/proc}, \path{/sys}, and \path{/dev}. When container support is enabled, cgroups are also read, but solely to map processes to containers. The collected metrics are stored in a custom data structure along with timestamps, while cgroup information is attached to each process as additional metadata labels. Apart from metrics of processes, CPU and memory, disk read/write operations are also collected.
 
-The \textit{sensors} abstraction layer also applies key data preprocessing steps, which are discussed in section~\ref{sec:scaphandre-attribution}.
+The \textit{sensors} abstraction layer also applies key data preprocessing steps, which are discussed in section~\ref{vt2_sec:scaphandre-attribution}.
 
 \paragraph{\textit{Exporters}}
 
@@ -491,7 +491,7 @@ The \textit{QEMU} exporter is particularly notable. It is designed for use on QE
 Scaphandre's measurement interval is fixed at two seconds, as defined in the \code{show\_metrics} function of the file \path{/exporters/prometheus.rs}. This hardcoded interval determines how frequently the agent performs a new measurement by reading cumulative energy values from the RAPL interface. While RAPL counters are updated approximately every millisecond, Scaphandre does not take advantage of this high-resolution data. Reducing the interval could improve measurement accuracy and temporal granularity (especially for short-lived processes) but would also increase system overhead. As of now, modifying the interval would require changes to the source code.
 
 \subsubsection{Attribution Model}
-\label{sec:scaphandre-attribution}
+\label{vt2_sec:scaphandre-attribution}
 
 Scaphandre attributes power consumption to processes and containers using a proportional model based on CPU usage over time. At each sampling interval, it reads the system's total energy consumption from Intel RAPL counters and distributes this energy among all active processes according to their normalized CPU utilization.
 
@@ -505,7 +505,7 @@ where \( E_{\text{RAPL}}(t) \) denotes the energy delta over the sampling interv
 
 Container-level attribution is achieved by inspecting the cgroup path of each process and mapping it to a container or Kubernetes pod using runtime-specific metadata. When container context is available, Scaphandre enriches its per-process metrics with labels such as \code{container\_id}, \code{kubernetes\_pod\_name}, and \code{namespace}. These metrics, such as \code{scaph\_process\_power\_consumption\_microwatts}, are then exposed via Prometheus and can be aggregated at container or pod level.
 
-In addition to process- and container-level metrics, Scaphandre also reports host-level power consumption using the \textit{PSYS} RAPL domains. These host metrics include total platform or package energy consumption, as available, and are exposed via metrics such as \code{scaph\_host\_power\_microwatts} and \code{scaph\_host\_energy\_microjoules}. Notably (as pointed out in section~\ref{sec:RAPL}), the \textit{PSYS} domain typically does not exist on server-grade systems, in which case Scaphandre adds the \textit{PKG} and \textit{DRAM}-packages to calculate host consumption. Unlike per-process energy values, these host-level metrics reflect total system energy use and are not adjusted to exclude idle CPU time.
+In addition to process- and container-level metrics, Scaphandre also reports host-level power consumption using the \textit{PSYS} RAPL domains. These host metrics include total platform or package energy consumption, as available, and are exposed via metrics such as \code{scaph\_host\_power\_microwatts} and \code{scaph\_host\_energy\_microjoules}. Notably (as pointed out in section~\ref{vt2_sec:RAPL}), the \textit{PSYS} domain typically does not exist on server-grade systems, in which case Scaphandre adds the \textit{PKG} and \textit{DRAM}-packages to calculate host consumption. Unlike per-process energy values, these host-level metrics reflect total system energy use and are not adjusted to exclude idle CPU time.
 
 \paragraph{Idle power consumption}
 Scaphandre does not compute idle power directly, but it is possible to infer a residual estimate by comparing the total reported host power to the sum of per-process power:
@@ -517,14 +517,14 @@ This difference may include contributions from idle power, system activity outsi
 This attribution methodology is used consistently across the Scaphandre exporters, including the Prometheus exporter. It forms the basis for container-aware energy attribution without requiring additional instrumentation or hardware performance counter support. Further discussion of this methodology’s strengths, assumptions, and limitations follows in the next section.
 
 \subsubsection{Validation and Research Context}
-\label{sec:scaphandre-validation}
+\label{vt2_sec:scaphandre-validation}
 
 To date, no formal validation of Scaphandre’s attribution methodology has been published. While the underlying RAPL interface used for energy measurement is widely accepted and validated in prior research, the specific proportional attribution model employed by Scaphandre has not been systematically evaluated against ground-truth data or instruction-based models. Despite this, Scaphandre has been used in academic and applied contexts for estimating the energy consumption of software systems. In most cases, it is treated as a black-box exporter of container-level energy metrics, with limited investigation into its internal measurement and attribution logic.
 
 A more detailed assessment is presented by Tarara\parencite{Tarara2023CpuUtilization}, who compares Scaphandre’s reported per-process power consumption against both CPU utilization and instruction-based measurements. His case study reveals that Scaphandre tends to overestimate power consumption for lightweight processes under low-load conditions, due to its policy of distributing all observed energy among the small set of active processes. While the model excludes idle time from CPU usage calculations, it does not exclude idle power from total energy, leading to attribution artifacts. Tarara concludes that Scaphandre improves upon naïve utilization-based models but cannot match the precision of instruction-level approaches using tools such as \code{perf}.
 
 \subsubsection{Limitations and Open Issues}
-\label{sec:scaphandre-limitations}
+\label{vt2_sec:scaphandre-limitations}
 
 While Scaphandre offers a lightweight and transparent approach to energy attribution, several limitations emerge from its current implementation.
 
@@ -539,14 +539,14 @@ In a comparison experiment between Scaphandre and other tools, Raffin\parencite{
 Finally, Scaphandre does not incorporate instruction-level or performance counter-based metrics. It cannot distinguish between processes with different execution intensities or memory behavior and assumes a uniform relationship between CPU time and energy use. This limits its ability to reflect differences in instruction throughput, stalling, or architectural efficiency across workloads.
 
 \subsection{SmartWatts}
-\label{sec:smartwatts}
+\label{vt2_sec:smartwatts}
 \subsubsection{Overview and Goals}
-\label{sec:smartwatts-overview}
+\label{vt2_sec:smartwatts-overview}
 The PowerAPI implementation \textit{SmartWatts}\parencite{fieni2020smartwatts} is a software-defined, self-calibrating power 'formula' designed for estimating power consumption of containers, processes, and VMs. It aims to address the shortcomings of static power models by using online model adaptation (sequential learning) and runtime performance counters. Unlike many academic models that require manual calibration or architecture-specific training, SmartWatts adapts automatically to the host system and workload.
 
 \subsubsection{Architecture and Metric Sources}
-\label{sec:smartwatts-architecture}
-SmartWatts is written in Python. Understanding the architecture of SmartWatts and its differences from other energy monitoring tools is crucial. Using HWPC, RAPL, and CPU process metrics, SmartWatts collects performance data. At runtime, it uses power models based on cgroups and perf events alone to estimate, for each resource $\text{res} \in \{\text{CPU}, \text{DRAM}\}$, the host power consumption $\hat{p}_{\text{res}}$ and the power consumption $\hat{p}_{\text{res}}(c)$ for all containers. SmartWatts uses $\hat{p}_{\text{res}}$ to continuously assess the accuracy of the managed power models $M_{\text{res}, f}$ to ensure that estimated power consumption does not diverge from the RAPL baseline measurement $p_{\text{res}}^{\text{rapl}}$. When the estimation diverges beyond a configurable threshold $\epsilon_{\text{res}}$, SmartWatts triggers a new online calibration process for the model. When the machine is at rest (e.g. after a reboot), this method is also used to isolate the static energy consumption. A simple architecture can be seen in Figure~\ref{fig:smartwatts_architecture}.
+\label{vt2_sec:smartwatts-architecture}
+SmartWatts is written in Python. Understanding the architecture of SmartWatts and its differences from other energy monitoring tools is crucial. Using HWPC, RAPL, and CPU process metrics, SmartWatts collects performance data. At runtime, it uses power models based on cgroups and perf events alone to estimate, for each resource $\text{res} \in \{\text{CPU}, \text{DRAM}\}$, the host power consumption $\hat{p}_{\text{res}}$ and the power consumption $\hat{p}_{\text{res}}(c)$ for all containers. SmartWatts uses $\hat{p}_{\text{res}}$ to continuously assess the accuracy of the managed power models $M_{\text{res}, f}$ to ensure that estimated power consumption does not diverge from the RAPL baseline measurement $p_{\text{res}}^{\text{rapl}}$. When the estimation diverges beyond a configurable threshold $\epsilon_{\text{res}}$, SmartWatts triggers a new online calibration process for the model. When the machine is at rest (e.g. after a reboot), this method is also used to isolate the static energy consumption. A simple architecture can be seen in Figure~\ref{vt2_fig:smartwatts_architecture}.
 
 In practical terms, SmartWatts implements a server-side powermeter (referred to as \textit{power meter}) that consumes input samples and produces power estimations accordingly. The power meter is responsible for power modelling, power estimation, and model calibration. In addition, a client-side sensor (referred to as \textit{sensor}) is deployed as a lightweight daemon on all cluster nodes. The sensor is responsible for static power isolation, event selection, cgroups, and event monitoring. This separation allows for heterogeneous cluster nodes.
 
@@ -554,11 +554,11 @@ In practical terms, SmartWatts implements a server-side powermeter (referred to 
     \centering
     \includegraphics[width=0.7\textwidth]{Appendices/AppendixA_VT2/Figures/smartwatts_architecture.png}
     \caption[SmartWatts architecture]{SmartWatts Architecture}
-    \label{fig:smartwatts_architecture}
+    \label{vt2_fig:smartwatts_architecture}
 \end{figure}
 
 \subsubsection{Attribution Model}
-\label{sec:smartwatts-attribution}
+\label{vt2_sec:smartwatts-attribution}
 As discussed in the previous subsection, the SmartWatts attribution model does not use RAPL metrics, opting only for process metrics. SmartWatts separates host energy consumption into static and dynamic power consumption:
 \begin{equation}
     p_{res}^{rapl} = p_{res}^{static} + p_{res}^{dynamic}
@@ -578,13 +578,13 @@ where $E_{res}^{f}$ denotes all \textit{events}. The model $M_{res}^{f}$ is buil
 
 \textbf{HWPC metrics} are dynamically chosen based on the list of available events exposed by the host's \textit{Performance Monitoring Units} (PMU), essentially creating a custom model based on available metrics. Not all available metrics are used, and statistical analysis (Pearson coefficient) is applied to determine worthy candidates.
 
-\textbf{Container power consumption} is estimated by applying the inferred power model $M_{res}^{f}$ at the scale of the container's events $E_{res}^{f}(c)$, as seen in formula~\ref{for:smartwatts_container_events}. In formula~\ref{for:smartwatts_container_intercept}, the intercept $i$ is distributed proportionally to the dynamic part of the consumption of $c$.
+\textbf{Container power consumption} is estimated by applying the inferred power model $M_{res}^{f}$ at the scale of the container's events $E_{res}^{f}(c)$, as seen in formula~\ref{vt2_for:smartwatts_container_events}. In formula~\ref{vt2_for:smartwatts_container_intercept}, the intercept $i$ is distributed proportionally to the dynamic part of the consumption of $c$.
 \begin{equation}
-\label{for:smartwatts_container_events}
+\label{vt2_for:smartwatts_container_events}
     \exists f \in F, \forall c \in C, \hat{p}_{res}^{dyn}(c) = M_{res}^{f} \cdot E_{res}^{f}(c)
 \end{equation}
 \begin{equation}
-\label{for:smartwatts_container_intercept}
+\label{vt2_for:smartwatts_container_intercept}
     \forall c \in C, \tilde{p}_{res}^{dyn}(c) = \hat{p}_{res}^{dyn}(c) - i \cdot \left(1 - \frac{\hat{p}_{res}^{dyn}(c) - i}{\hat{p}_{res}^{dyn} - i}\right)
 \end{equation}
 
@@ -609,14 +609,14 @@ In order to improve estimation accuracy, the following configurable parameters a
 \end{itemize}
 
 \subsubsection{Validation and Research Context}
-\label{sec:smartwatts-validation}
+\label{vt2_sec:smartwatts-validation}
 
 With RAPL being used as ground truth for dynamic power estimation model recalibration, it is important to note that the SmartWatts validation focuses on model accuracy when compared to RAPL values, rather than values obtained from an external source of power data. The SmartWatts validation evaluated the quality of power estimation under sequential and parallel workloads, the accuracy and stability of power models, and the overhead of the \textit{sensor} component. Standard benchmarks like Stress-NG and NAS Parallel Benchmarks were used.
 
 While no advanced statistical analysis was conducted, the validation shows that, for an error threshold of 5 Watts for CPU and 1 Watt for DRAM, power consumption can be reliably estimated with errors below 3 Watts and 0.5 Watts, respectively. The only case where the error exceeds the threshold is at the CPU idle frequency. Model stability is shown to improve significantly when lower recalibration frequencies are used. SmartWatts successfully reuses a given power model for up to 594 estimations, depending on frequency. Monitoring overhead is observed to be 0.333 Watts for the PKG domain and 0.030 Watts for the DRAM domain on average, at a measurement frequency of 2 Hz. The authors consider this overhead negligible.
 
 \subsubsection{Limitations and Open Issues}
-\label{sec:smartwatts-limitations}
+\label{vt2_sec:smartwatts-limitations}
 
 SmartWatts offers a compelling solution for dynamic, container-level power estimation through self-calibrating models based on performance counters. However, its applicability remains domain-specific. The central assumption is that RAPL, while accurate, is too coarse-grained for attributing power to individual containers or processes. This premise is debatable: RAPL offers low-overhead, high-frequency measurements and may be sufficient for many use cases, particularly in homogeneous or single-tenant systems. Whether SmartWatts' added complexity is justified depends on how fine-grained the attribution needs to be.
 

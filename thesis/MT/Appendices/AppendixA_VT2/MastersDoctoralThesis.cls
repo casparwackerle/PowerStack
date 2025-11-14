@@ -219,7 +219,7 @@
 %   DEFINE CUSTOM THESIS INFORMATION COMMANDS
 %----------------------------------------------------------------------------------------
 
-\NewDocumentCommand{\VT2thesistitle} { o m }{%
+\NewDocumentCommand{\thesistitle} { o m }{%
  \IfValueTF{#1}{\def\shorttitle{#1}}{\def\shorttitle{#2}}%
  \def\@title{#2}%
  \def\ttitle{#2}%

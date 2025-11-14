@@ -1,19 +1,19 @@
 % Indicate the main file. Must go at the beginning of the file.
 % !TEX root = ../main.tex
 
-\section{Architecture and Design} % Main chapter title
-\label{Chapter2}
+\chapter{Architecture and Design} % Main chapter title
+\label{vt1_Chapter2}
 
 \section{Overview of Test Environment}
 
-The test environment consists of a Kubernetes cluster deployed on three bare-metal servers housed in a university datacenter. The three servers are identical in hardware specifications and connected through both a private network and the university network. The setup allows complete remote management and ensures direct communication between the servers for Kubernetes workloads. Below is a detailed description of the hardware and network topology. A diagram illustrating the architecture and network setup is provided in figure~\ref{fig:physical_and_network_infra}.
+The test environment consists of a Kubernetes cluster deployed on three bare-metal servers housed in a university datacenter. The three servers are identical in hardware specifications and connected through both a private network and the university network. The setup allows complete remote management and ensures direct communication between the servers for Kubernetes workloads. Below is a detailed description of the hardware and network topology. A diagram illustrating the architecture and network setup is provided in figure~\ref{vt1_fig:physical_and_network_infra}.
 
 \begin{figure}[ht]
     \centering
     \includegraphics[width=1\textwidth]{Appendices/AppendixB_VT1/Figures/physical_and_network_infra.png}
     \decoRule
     \caption[Physical Infrastructure Diagram]{Physical Infrastructure Diagram}
-    \label{fig:physical_and_network_infra}
+    \label{vt1_fig:physical_and_network_infra}
 \end{figure}
 
 \subsection{Hardware and Network}
@@ -108,7 +108,7 @@ While KEPLER may not be perfect, it is currently the most promising approach to 
 
 \subsection{Kubernetes Cluster Design}
 
-The Kubernetes cluster is deployed on three bare-metal servers running Ubuntu. One server is designated as the control plane, while the other two serve as worker nodes. This setup avoids high availability (HA) for simplicity, given the scope of this project. The servers are connected via their internal IP addresses, enabling direct communication without routing through external networks. All Kubernetes components, including the API server, controller manager, and scheduler, run exclusively on the control plane node, while workloads are distributed across all nodes by Kubernetes. Figure~\ref{fig:physical_and_network_infra} provides an overview of the system architecture, including components and data flow.
+The Kubernetes cluster is deployed on three bare-metal servers running Ubuntu. One server is designated as the control plane, while the other two serve as worker nodes. This setup avoids high availability (HA) for simplicity, given the scope of this project. The servers are connected via their internal IP addresses, enabling direct communication without routing through external networks. All Kubernetes components, including the API server, controller manager, and scheduler, run exclusively on the control plane node, while workloads are distributed across all nodes by Kubernetes. Figure~\ref{vt1_fig:physical_and_network_infra} provides an overview of the system architecture, including components and data flow.
 
 \subsection{Persistent Storage}
 
@@ -129,14 +129,14 @@ KEPLER generates metrics by collecting data from various sources:
 \item \textbf{Container-level metrics:} Retrieved from the Kubernetes kubelet API, which provides cgroup resource usage data for running containers and pods.
 \end{itemize}
 
-KEPLER aggregates this data, calculates power consumption metrics, and exposes them in a Prometheus-friendly format. Prometheus scrapes these metrics at a configurable interval, storing them as time series data on the persistent volume. The time series format allows Prometheus to track changes over time, enabling detailed analysis of resource usage patterns. In chapter ~\ref{KEPLER_architecture_chapter}, the KEPLER architecture is briefly explained with a focus on metrics collection and generation. The information flow is pictured in diagram ~\ref{fig:stack_data_flow}.
+KEPLER aggregates this data, calculates power consumption metrics, and exposes them in a Prometheus-friendly format. Prometheus scrapes these metrics at a configurable interval, storing them as time series data on the persistent volume. The time series format allows Prometheus to track changes over time, enabling detailed analysis of resource usage patterns. In chapter ~\ref{vt1_KEPLER_architecture_chapter}, the KEPLER architecture is briefly explained with a focus on metrics collection and generation. The information flow is pictured in diagram ~\ref{vt1_fig:stack_data_flow}.
 
 \begin{figure}[ht]
     \centering
     \includegraphics[width=1\textwidth]{Appendices/AppendixB_VT1/Figures/data_flow_diagram.png}
     \decoRule
     \caption[Monitoring data flow diagram of the entire stack]{Monitoring data flow diagram of the entire stack}
-    \label{fig:stack_data_flow}
+    \label{vt1_fig:stack_data_flow}
 \end{figure}
 
 Since the KEPLER project has already done a significant amount of research, as well as practical implementation, the decision was made to utilize KEPLER as a core component in this project. 
@@ -182,7 +182,7 @@ All configuration values, such as IP addresses, storage paths, and deployment op
 \subsubsection{Security}
 Sensitive information, such as passwords and API keys, was encrypted using an Ansible Vault. This ensured that confidential data could be securely managed within the repository without compromising security during deployment.
 
-\section{KEPLER Architecture and Metrics Collection} \label{KEPLER_architecture_chapter}
+\section{KEPLER Architecture and Metrics Collection} \label{vt1_KEPLER_architecture_chapter}
 
 Since KEPLER plays a central role in this project, it is important to understand its architecture and how it collects metrics. This section provides a brief overview of KEPLER’s components and its data collection methods. For more detailed information, the official KEPLER documentation\parencite{KEPLERDocumentation} should be consulted.
 
@@ -210,12 +210,12 @@ KEPLER employs eBPF to collect detailed CPU event data. eBPF programs run in a p
 \item \texttt{PERF\textunderscore COUNT\textunderscore HW\textunderscore CACHE\textunderscore MISSES}
 \end{itemize}
 
-By maintaining a BPF hash of process IDs, CPU IDs, and context switch timestamps, KEPLER correlates resource usage to individual processes and containers. This data is essential for deriving energy consumption estimates. The hash is shown in table ~\ref{tab:ePBF_hash_table}.
+By maintaining a BPF hash of process IDs, CPU IDs, and context switch timestamps, KEPLER correlates resource usage to individual processes and containers. This data is essential for deriving energy consumption estimates. The hash is shown in table ~\ref{vt1_tab:ePBF_hash_table}.
 
 \begin{table}[h]
     \small
     \caption{Hardware CPU events monitored by KEPLER}
-    \label{tab:ePBF_hash_table}
+    \label{vt1_tab:ePBF_hash_table}
     \begin{tabular}{p{1cm} p{3.2cm}  p{8.7cm} }
         \toprule
         \textbf{Key} & \textbf{Value} & \textbf{Description} \\\midrule
@@ -265,7 +265,7 @@ In previous experiments conducted by the author, KEPLER was deployed on a Kubern
 
 \subsection{Metrics produced by KEPLER}
 
-KEPLER collects and exports a wide range of metrics related to energy consumption and resource utilization. The full list and description of metrics is provided in Appendix \ref{AppendixA}, but they are summarized here.
+KEPLER collects and exports a wide range of metrics related to energy consumption and resource utilization. The full list and description of metrics is provided in Appendix \ref{vt1_AppendixA}, but they are summarized here.
 
 \subsubsection{Container-level metrics}
 

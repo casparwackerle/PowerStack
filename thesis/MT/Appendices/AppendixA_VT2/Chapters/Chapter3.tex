@@ -1,5 +1,5 @@
 \chapter{Attributing Power Consumption to Containerized Workloads} % Main chapter title
-\label{Chapter3}
+\label{vt2_Chapter3}
 
 \section{Introduction and Context}
 
@@ -7,7 +7,7 @@ While the previous chapter focused on system-level and component-level power mea
 
 Attributing energy consumption in this context is inherently difficult due to multi-tenant, multi-layered workloads across multiple CPU cores and devices, as well as temporal granularity mismatch issues. Consequently, direct one-to-one mapping of energy consumption to workloads is generally not possible.
 
-Nonetheless, various techniques have emerged to approach this problem. The goal is to create an accurate and fair approximation of how much energy a given container or process is responsible for at any point in time. This chapter provides a conceptual foundation for these techniques. The subsequent Chapter~\ref{Chapter4} will examine how selected tools implement these ideas in practice. While some implementation aspects will be referenced for illustration, this chapter focuses on general methodologies, not tool-specific behavior.
+Nonetheless, various techniques have emerged to approach this problem. The goal is to create an accurate and fair approximation of how much energy a given container or process is responsible for at any point in time. This chapter provides a conceptual foundation for these techniques. The subsequent Chapter~\ref{vt2_Chapter4} will examine how selected tools implement these ideas in practice. While some implementation aspects will be referenced for illustration, this chapter focuses on general methodologies, not tool-specific behavior.
 
 \section{Power Attribution Methodology}
 
@@ -15,14 +15,14 @@ Nonetheless, various techniques have emerged to approach this problem. The goal 
 
 At its core, the concept of power attribution is simple: a task should be held accountable for the energy consumed by the resources it actively uses. If a task occupies the CPU for a given period, it is attributed the energy consumed by the CPU during that time. By summing the energy usage of all tasks belonging to a container, one can estimate the total energy consumption of that container. Since energy is the integral of power over time, the average power consumption of a container can be calculated by dividing its attributed energy by the total duration of interest. Depending on the use case, either energy (in joules) or power (in watts) may provide more meaningful insight. Energy is often used to quantify cost or carbon footprint, while power helps identify peak loads and inefficiencies.
 
-While this model appears intuitive, its implementation in real systems is far from trivial. One major complication stems from the intricacies of multitasking on modern systems, which is discussed in subsection~\ref{sec:linux-multitasking}. Subsection~\ref{sec:utilization_tracking} examines and compares different utilization tracking mechanisms in Linux and Kubernetes. As a result of the fine-grained temporal control of multitasking, another major challenge is temporal granularity. Power consumption is typically sampled at much coarser intervals than kernel resource usage statistics. These mismatched update rates and resolutions must be reconciled to build meaningful correlations. This issue is elaborated in subsection~\ref{sec:granularity}.
+While this model appears intuitive, its implementation in real systems is far from trivial. One major complication stems from the intricacies of multitasking on modern systems, which is discussed in subsection~\ref{vt2_sec:linux-multitasking}. Subsection~\ref{vt2_sec:utilization_tracking} examines and compares different utilization tracking mechanisms in Linux and Kubernetes. As a result of the fine-grained temporal control of multitasking, another major challenge is temporal granularity. Power consumption is typically sampled at much coarser intervals than kernel resource usage statistics. These mismatched update rates and resolutions must be reconciled to build meaningful correlations. This issue is elaborated in subsection~\ref{vt2_sec:granularity}.
 
-Consequently, power attribution becomes a complex algorithmic process, involving summation, weighting, and interpolation across multiple metrics. It must strike a balance between data availability and estimation accuracy. A perfectly accurate system is not feasible, especially in heterogeneous or production-grade environments. Limitations and accuracy trade-offs are further discussed in subsection~\ref{ch:limitations}. Finally, section~\ref{sec:attribution-philosophies} discusses the different philosophies of various attribution models to account for different key demographics.
+Consequently, power attribution becomes a complex algorithmic process, involving summation, weighting, and interpolation across multiple metrics. It must strike a balance between data availability and estimation accuracy. A perfectly accurate system is not feasible, especially in heterogeneous or production-grade environments. Limitations and accuracy trade-offs are further discussed in subsection~\ref{vt2_ch:limitations}. Finally, section~\ref{vt2_sec:attribution-philosophies} discusses the different philosophies of various attribution models to account for different key demographics.
 
 Despite these difficulties, power attribution serves a critical role in understanding container behavior. If applied consistently across all containers and system resources, it can uncover the dynamic patterns of energy usage within a server. This insight forms a foundational building block for cluster-level energy optimization. Administrators or automated systems can use this data to analyze the effect of configuration changes, improve workload scheduling, or optimize performance-per-watt, whether during runtime or post-execution.
 
 \subsection{A Short Recap of Linux Multitasking and Execution Units}
-\label{sec:linux-multitasking}
+\label{vt2_sec:linux-multitasking}
 Linux is a multitasking operating system that enables multiple programs to run concurrently by managing how processor time is divided among tasks. This capability is central to container-based computing and directly impacts how workload activity is linked to energy consumption.
 
 Multitasking in Linux operates on two levels: time-sharing on a single core and true parallel execution across multiple cores. On a single-core system, the kernel scheduler rapidly switches between tasks by allocating short time slices, creating the illusion of parallelism. On multi-core systems, tasks can run simultaneously on different cores, increasing throughput but also complicating the task of correlating resource usage with measured power consumption.
@@ -34,7 +34,7 @@ A \emph{process} is typically a task with its own address space. Threads, by con
 In containerized environments, tasks belonging to the same container are grouped using Linux control groups (cgroups) and namespaces. These mechanisms allow the kernel to apply limits and collect resource usage statistics at the container level, making them central to energy attribution in Kubernetes-based systems.
 
 \subsection{Resource Utilization Tracking in Linux and Kubernetes}
-\label{sec:utilization_tracking}
+\label{vt2_sec:utilization_tracking}
 
 In modern Linux-based systems, particularly within Kubernetes environments, multiple methods exist to track resource utilization \parencite{kernelprocfs, kernelcgroupv1, kernelcgroupv2, ciliumbpf, cadvisorgithub, metricsservergithub}. These methods vary significantly in terms of temporal granularity, scope, and origin. While they often expose overlapping information, their internal mechanisms differ, leading to trade-offs in precision, resolution, and suitability for certain use cases such as energy attribution.
 
@@ -74,7 +74,7 @@ In modern Linux-based systems, particularly within Kubernetes environments, mult
 \end{itemize}
 
 \subsubsection{eBPF-based Collection of Utilization Metrics}
-\label{sec:ebpf_metrics}
+\label{vt2_sec:ebpf_metrics}
 
 The extended Berkeley Packet Filter (eBPF) is a Linux kernel subsystem that allows the safe execution of user-defined programs within the kernel without modifying kernel source code or loading custom modules. Originally developed for low-level network packet filtering, eBPF has evolved into a general-purpose observability framework that can trace and monitor system events with high precision and minimal overhead. eBPF can be used to dynamically attach probes to kernel events such as context switches, system calls, I/O events, and tracepoints. In the context of system monitoring, this enables the collection of fine-grained utilization metrics, including CPU usage per process, memory allocations, and I/O activity, without modifying the monitored application. These probes run within the kernel and populate BPF maps, which can then be accessed by user-space tools to aggregate or export metrics.
 
@@ -83,7 +83,7 @@ Compared to traditional monitoring approaches such as reading from \path{/proc},
 As demonstrated by Cassagnes et al.~\parencite{cassagnesRiseEBPFNonintrusive2020}, eBPF currently represents the best practice for non-intrusive, low-overhead, and high-resolution utilization monitoring on Linux systems. Its ability to gather container- or process-level metrics in production environments makes it uniquely well-suited for accurate correlation with system-wide power measurements.
 
 \subsubsection{Performance Counters and \code{perf}-based Monitoring}
-\label{sec:perf_metrics}
+\label{vt2_sec:perf_metrics}
 
 Modern processors expose hardware-level performance counters (PMCs) that can be used to obtain precise measurements of internal execution characteristics. These counters are accessible via tools such as \code{perf}, and include metrics such as retired instructions, CPU cycles, cache misses, branch mispredictions, and stalled cycles. Unlike traditional utilization metrics, which measure time spent in various CPU states, PMCs offer insight into how effectively the processor is executing instructions.
 
@@ -116,11 +116,11 @@ However, access to PMCs is not always guaranteed. In virtualized environments an
         \hline
     \end{tabular}
     \caption{Comparison of resource usage tracking mechanisms}
-    \label{tab:resource-tracking-comparison}
+    \label{vt2_tab:resource-tracking-comparison}
 \end{table}
 
 \subsection{Temporal Granularity and Measurement Resolution}
-\label{sec:granularity}
+\label{vt2_sec:granularity}
 
 To correlate CPU usage with power consumption, time must be considered at an appropriate granularity. The Linux kernel tracks CPU usage at the level of scheduler ticks, which are driven by a system-wide timer interrupt configured via \code{CONFIG\_HZ}. Typical values range from 250 to 1000 Hz, meaning time slices of 4 to 1 milliseconds, respectively. These ticks, or \emph{jiffies}, represent the smallest scheduling time unit and are used to increment counters such as \code{utime} and \code{stime} for each task.
 
@@ -131,7 +131,7 @@ In contrast, power measurement tools generally operate at coarser time resolutio
 A clear understanding of these execution and timing units is essential for building reliable power attribution models. These concepts underpin all subsequent steps, including metric fusion, resource accounting, and workload-level aggregation.
 
 \subsection{Challenges}
-\label{ch:limitations}
+\label{vt2_ch:limitations}
 
 System monitoring and the attribution of power metrics based on system (and component) utilization metrics introduce several challenges that need to be addressed by a power attribution methodology. Some of these represent natural trade-offs that an architect needs to be aware of, while others pose issues that simply cannot be circumvented without major drawbacks that cannot be solved with a suitable architecture.
 
@@ -146,7 +146,7 @@ Another complication is temporal skew. Even metrics with similar frequencies are
 Effective attribution therefore requires more than just aligning timestamps. It demands awareness of each metric’s origin, behavior, and limitations, and careful coordination to avoid erroneous correlations and preserve meaningful detail.
 
 \subsubsection{Challenges in CPU Metric Interpretation}
-\label{sec:cpu-metric-challenges}
+\label{vt2_sec:cpu-metric-challenges}
 
 CPU utilization is one of the most accessible and commonly used metrics to quantify processing activity on modern systems. It is widely reported by system monitoring tools such as \code{top}, \code{htop}, and cloud APIs, and is frequently used in both performance diagnostics and energy attribution models. However, despite its ubiquity, the interpretation of CPU utilization is far from straightforward, and in many contexts, it is misleading.
 
@@ -174,29 +174,29 @@ The availability of system and power metrics varies widely between platforms. Wh
 Ideally, such a system would also communicate the trade-offs involved, indicating how metric availability affects accuracy and granularity. This transparency ensures that attribution results are interpreted with appropriate context and helps guide improvements in monitoring fidelity.
 
 \subsection*{Attribution in Multi-Tenant and Shared Environments}
-\label{sec:shared_envs}
+\label{vt2_sec:shared_envs}
 
-In multi-tenant systems, not all resources can be cleanly partitioned or measured with sufficient precision for container-level attribution. Some components are inherently shared, and their energy use cannot be isolated to individual workloads. Additionally, system-wide energy consumers like power supplies, cooling fans, and idle background services contribute to total power draw but are not tied to any specific container. Attribution models must account for these shared and unaccountable energy domains. Addressing these concerns requires careful modeling and philosophical choices about how to treat unassigned energy, which are further discussed in section~\ref{sec:attribution-philosophies}.
+In multi-tenant systems, not all resources can be cleanly partitioned or measured with sufficient precision for container-level attribution. Some components are inherently shared, and their energy use cannot be isolated to individual workloads. Additionally, system-wide energy consumers like power supplies, cooling fans, and idle background services contribute to total power draw but are not tied to any specific container. Attribution models must account for these shared and unaccountable energy domains. Addressing these concerns requires careful modeling and philosophical choices about how to treat unassigned energy, which are further discussed in section~\ref{vt2_sec:attribution-philosophies}.
 
 \subsection*{Measurement Overhead}
-\label{sec:measurement_overhead}
+\label{vt2_sec:measurement_overhead}
 
 All monitoring systems inherently introduce some degree of overhead. While modern tools such as eBPF are designed to minimize this impact, they still consume CPU cycles and memory bandwidth. Lightweight tools can reduce overhead without sacrificing data quality, but complete elimination is not possible.
 
 Notably, the cost of monitoring increases with temporal resolution. Fine-grained metrics require higher sampling rates, more frequent data transfers, and additional processing effort. Since container-level power metrics typically do not require sub-second resolution, it is essential that high-resolution analysis and correlation occur as early as possible in the data pipeline. By aggregating and attributing power consumption close to the source, downstream systems can operate on compact, coarse-grained results, reducing both computational and storage overhead while preserving attribution accuracy.
 
 \subsection*{Support for Evolving Models}
-\label{sec:evolving_models}
+\label{vt2_sec:evolving_models}
 
 As hardware platforms and research in power estimation continue to evolve, new measurement interfaces and modeling approaches are regularly introduced. These may offer improved accuracy, reduced overhead, or better coverage of previously unobservable components. To remain relevant and effective, container-level power attribution systems must be designed with adaptability in mind. A modular architecture enables the integration of new data sources or estimation models without reengineering the entire system. This flexibility ensures long-term maintainability and allows the system to benefit from ongoing advancements in energy modeling and monitoring infrastructure.
 
 \section{Attribution Philosophies}
-\label{sec:attribution-philosophies}
+\label{vt2_sec:attribution-philosophies}
 
 Attributing server power consumption to individual containers requires decisions that go beyond data collection. Some components are inherently shared, some workloads contribute system-level overhead, and some energy is consumed by idle hardware. The way these factors are treated reflects the underlying attribution philosophy. This section outlines three main approaches, each suitable for different goals and users.
 
 \subsection{Container-Centric Attribution}
-\label{sec:container-centric}
+\label{vt2_sec:container-centric}
 
 This model attributes energy solely based on the direct activity of containers, ignoring system services and shared infrastructure. Remaining resources are pooled and can be declared as system resources. This means that a container is not accountable for its own orchestration or energy wasted through system idling.
 
@@ -209,7 +209,7 @@ This model attributes energy solely based on the direct activity of containers, 
 Notably, container-centric attribution places a strong emphasis on individual containers and their respective energy consumption, striving to maintain relative consistency irrespective of overall cluster activity. While such granular insights can be valuable to developers, container-centric attribution typically does not represent the primary practical use case of an energy monitoring system for Kubernetes containers. This is largely due to the container isolation principle, which usually restricts detailed visibility into broader system dynamics. Additionally, container-level optimization is often more effectively achieved through simpler CPU and memory metrics readily accessible via the container’s own \path{/proc} filesystem. Hence, although technically feasible, container-centric energy attribution often remains primarily a theoretical or research-oriented concept rather than a widely implemented practical approach.
 
 \subsection{Shared-Cost Attribution}
-\label{sec:shared-cost}
+\label{vt2_sec:shared-cost}
 
 Here, all power consumption is distributed across active containers, either equally or proportionally to usage. As a consequence, a container is accountable for its own orchestration, its share of OS resources, and even energy wasted through system idling.
 
@@ -220,7 +220,7 @@ Here, all power consumption is distributed across active containers, either equa
 \end{itemize}
 
 \subsection{Explicit Residual Modeling}
-\label{sec:residual-model}
+\label{vt2_sec:residual-model}
 
 Beyond the container-centric and shared-cost attribution models lies a more nuanced approach that explicitly incorporates the efficiency characteristics of server hardware. In this model, total power consumption is divided not only among containers and system services but also includes separate terms for idle power and high-utilization overhead. Idle power represents the baseline energy required to keep the system operational, even when no meaningful work is being performed. However, this value is difficult to isolate, as it often overlaps with low-level system activity such as kernel threads, background daemons, or monitoring agents.
 

@@ -1,5 +1,5 @@
 \chapter{State of the Art and Related Research} % Main chapter title
-\label{Chapter2}
+\label{vt2_Chapter2}
 
 \section{Energy Consumption Measurement and Efficiency on Data Center Level}
 
@@ -35,10 +35,10 @@ In a systematic review of cloud server power models, Lin et al.\parencite{lin202
         \hline
     \end{tabular}
     \caption[Comparison of power collection methods for cloud servers]{Comparison of power collection methods for cloud servers}
-    \label{tab:power_collection_methods}
+    \label{vt2_tab:power_collection_methods}
 \end{table}
 
-The following sections of this chapter aim to present the current state-of-the-art in the various fields of research related to the problem domains listed above, focusing on different measurement approaches: direct hardware measurements, in-band measurement techniques, and model-based estimation. The sections are organized by measurement approach, foregoing organization by server component. For this reason, section~\ref{sec:component_specific_summaries} provides a brief summary of component-specific energy consumption measurement techniques.
+The following sections of this chapter aim to present the current state-of-the-art in the various fields of research related to the problem domains listed above, focusing on different measurement approaches: direct hardware measurements, in-band measurement techniques, and model-based estimation. The sections are organized by measurement approach, foregoing organization by server component. For this reason, section~\ref{vt2_sec:component_specific_summaries} provides a brief summary of component-specific energy consumption measurement techniques.
 
 \section{Direct Hardware Measurement}
 
@@ -51,7 +51,7 @@ This highlights a fundamental truth of instrument-based data collection: while i
 \subsection{Dedicated Acquisition Systems}
 
 \subsubsection{BMC Devices, IPMI and Redfish}
-\label{sec:BMC_devices}
+\label{vt2_sec:BMC_devices}
 
 Some manufacturers have developed specialized power data acquisition systems for their own server products. The baseboard management controller (BMC) is a typical dedicated acquisition system usually integrated with the motherboard, typically as part of the Intelligent Platform Management Interface (IPMI)\parencite{lin2020taxonomy}. It can be connected to the system bus, sensors, and a number of components to provide power and temperature information about the CPU, memory, LAN port, fan, and the BMC itself. Some comprehensive management systems, such as Dell iDRAC or Lenovo xClarity, have been further developed to provide high-quality, fine-grained power data due to their close integration between system software and underlying hardware. BMC devices on modern servers often offer IPMI or Redfish interfaces. While these interfaces use the same physical sensors, their implementations differ significantly, with Redfish generally offering higher accuracy (e.g. through the use of higher-bit formats, whereas IPMI often uses 8-bit raw numbers).
 
@@ -76,51 +76,51 @@ In theory, one could attempt to use ACPI's \code{\_PSS} (Performance Supported S
 Consequently, ACPI is rarely used in contemporary power estimation contexts. Its primary role remains in system configuration and power state control rather than accurate energy quantification. In modern Intel processors, the Running Average Power Limit (RAPL) interface provides a more appropriate solution for in-band power measurement. This makes RAPL the preferred tool for energy-aware computing research and production environments alike.
 
 \subsection{Intel RAPL}
-\label{sec:RAPL}
+\label{vt2_sec:RAPL}
 Intel Running Average Power Level (RAPL) is a Power Monitoring Counter (PMC)-based feature introduced by Intel that provides a way to monitor and control the energy consumption of various components within their processor package\parencite{projectexigence_rapl}. An adaptation of RAPL for AMD processors uses largely the same mechanisms and the same interface\parencite{amd_energy}, although it provides less information than Intel's RAPL, offering no DRAM energy consumption\parencite{schone2021energy}. Unfortunately, RAPL lacks detailed low-level implementation documentation, and the exact methodology of the RAPL calculations remains unknown\parencite{jay2023experimental}.
 
-Intel RAPL has been used extensively in research to measure energy consumption\parencite{kennes2023measuring} despite some objections regarding its accuracy, which will be discussed in sections~\ref{sec:raplvalidation} and~\ref{sec:rapllimitations}. The general consensus is that RAPL is \textit{good enough} for most scientific work in the field of server energy consumption and efficiency. As Raffin et al.\parencite{raffin2024dissecting} point out, it is mostly used \textit{like a black box without deep knowledge of its behavior}, resulting in implementation mistakes. For this reason, section~\ref{sec:raplmethodology} presents an overview of the RAPL fundamentals.
+Intel RAPL has been used extensively in research to measure energy consumption\parencite{kennes2023measuring} despite some objections regarding its accuracy, which will be discussed in sections~\ref{vt2_sec:raplvalidation} and~\ref{vt2_sec:rapllimitations}. The general consensus is that RAPL is \textit{good enough} for most scientific work in the field of server energy consumption and efficiency. As Raffin et al.\parencite{raffin2024dissecting} point out, it is mostly used \textit{like a black box without deep knowledge of its behavior}, resulting in implementation mistakes. For this reason, section~\ref{vt2_sec:raplmethodology} presents an overview of the RAPL fundamentals.
 
 \subsubsection{RAPL Measurement Methods}
-\label{sec:raplmethodology}
+\label{vt2_sec:raplmethodology}
 This subsection provides an overview of how RAPL works and is used. It is based on the Intel Architectures Software Developer’s Manual\parencite[Section 16.10]{intel-sdm} and the works of Raffin et al.\ \parencite{raffin2024dissecting} (2024) and Schöne et al.\ \parencite{schone2024energy} (2024).
 
-Running Average Power Limit (RAPL) is a power management interface in Intel CPUs. Apart from power limiting and thermal management, it also allows measuring the energy consumed by various components (or \textit{domains}). These domains include individual CPU cores, integrated graphics (in non-server CPUs), and DRAM, as well as the \textit{package}, referring to the whole CPU die. While it initially used models to estimate energy use\parencite{hackenberg2015energy}, it now uses physical measurements. The processor is divided into different power domains or "planes", representing specific components, as seen in figure~\ref{fig:rapl_domains}. Notably, not all domains are present in all systems: both client-grade systems feature the \textit{Package} and \textit{PP0 core} domains, server-grade processors typically do not show the \textit{PP1 uncore} domain (typically used for integrated GPUs), and client-grade processors do not show the \textit{DRAM} domain. The \textit{PSYS} domain for the "whole machine" is ill-defined and only exists on client-grade systems. In an experiment with recent Lenovo and Alienware laptops, Raffin et al.\ found that the \textit{PSYS} domain reported the total consumption of the laptop, including display, dedicated GPU, and other domains. Regardless, this thesis focuses on the RAPL power domains available to server-grade processors.
+Running Average Power Limit (RAPL) is a power management interface in Intel CPUs. Apart from power limiting and thermal management, it also allows measuring the energy consumed by various components (or \textit{domains}). These domains include individual CPU cores, integrated graphics (in non-server CPUs), and DRAM, as well as the \textit{package}, referring to the whole CPU die. While it initially used models to estimate energy use\parencite{hackenberg2015energy}, it now uses physical measurements. The processor is divided into different power domains or "planes", representing specific components, as seen in figure~\ref{vt2_fig:rapl_domains}. Notably, not all domains are present in all systems: both client-grade systems feature the \textit{Package} and \textit{PP0 core} domains, server-grade processors typically do not show the \textit{PP1 uncore} domain (typically used for integrated GPUs), and client-grade processors do not show the \textit{DRAM} domain. The \textit{PSYS} domain for the "whole machine" is ill-defined and only exists on client-grade systems. In an experiment with recent Lenovo and Alienware laptops, Raffin et al.\ found that the \textit{PSYS} domain reported the total consumption of the laptop, including display, dedicated GPU, and other domains. Regardless, this thesis focuses on the RAPL power domains available to server-grade processors.
 
 \begin{figure}[ht]
     \centering
     \includegraphics[width=0.7\textwidth]{Appendices/AppendixA_VT2/Figures/rapl_domains.png}
     %\decoRule
     \caption[Rapl domains]{Hierarchy of possible RAPL domains and their corresponding hardware components. Domain names are in italic, and grayed items do not form a domain on their own. Items with an asterisk are not present on servers\parencite{raffin2024dissecting}.}
-    \label{fig:rapl_domains}
+    \label{vt2_fig:rapl_domains}
 \end{figure}
 
 RAPL provides hardware counters to read the energy consumption (and set power limits) for each domain. The energy consumption is measured in terms of processor-specific "energy units" (e.g. 61$\mu$J for Haswell and Skylake processors). The counters are exposed to the operating system through model-specific registers (MSRs) and are updated approximately every millisecond. The main advantages of RAPL are that no external power meters are required, nor privileged access to the BMC (which could be used to power off the server). RAPL is more accurate than any untuned statistical estimation model.
 
-Various measurement methods can be used to extract RAPL measurements. In a detailed comparison, Raffin et al.\parencite{raffin2024dissecting} outline their individual features and tradeoffs, summarized in figure~\ref{fig:rapl_interfaces_tradeoffs}:
+Various measurement methods can be used to extract RAPL measurements. In a detailed comparison, Raffin et al.\parencite{raffin2024dissecting} outline their individual features and tradeoffs, summarized in figure~\ref{vt2_fig:rapl_interfaces_tradeoffs}:
 \begin{itemize}
     \item \textbf{Lacking documentation:} Since there is no publicly available documentation of the low-level RAPL implementation, implementations are bound to suffer inaccuracies and inconsistencies due to a lack of understanding.
     \item The \textbf{Model-Specific Register (MSR)} interface provides low-level access to RAPL energy counters but is complex and hardware-dependent. Developers must manually determine register offsets and unit conversions based on processor model and vendor documentation. This method lacks safeguards, requires deep processor knowledge, and is error-prone, with incorrect readings difficult to detect. Although read-only access poses no risk to system stability, MSRs expose sensitive data and are thus restricted to privileged users (e.g. \code{root} or \code{CAP\_SYS\_RAWIO}). Fine-grained access control is not supported natively, though the \code{msr-safe} module offers limited mitigation.
     \item The \textbf{Power Capping (powercap)} framework is a high-level Linux kernel interface that exposes RAPL energy data through the sysfs filesystem, making it accessible from userspace. It simplifies energy measurements by automatically handling unit conversions and domain discovery, requiring minimal hardware knowledge. Though domain hierarchy can be confusing (especially with DRAM domains appearing nested under the package domain), powercap remains user-friendly and scriptable. It supports fine-grained access control via file permissions and offers good adaptability to hardware changes, provided the measurement tool doesn't rely on hard-coded domain structures.
     \item The \textbf{perf-events} subsystem provides a higher-level Linux interface for accessing RAPL energy counters as counting events. It supports overflow correction and requires less hardware-specific knowledge than MSR. Each RAPL domain must be opened per CPU socket using \code{perf\_event\_open}, and values are polled from userspace. While it lacks a hierarchical structure like powercap and may be harder to use in certain languages or scripts, it remains adaptable and robust across different architectures. Fine-grained access control is possible via kernel capabilities or \code{perf\_event\_paranoid} settings. 
-    \item \textbf{eBPF} enables running custom programs in the Linux kernel, and in this context, it is used to directly read RAPL energy counters from within kernel space, potentially reducing measurement overhead by avoiding user-kernel context switches. The implementation attaches an eBPF program to a CPU clock event, using \code{perf\_event\_open} to access energy counters and buffering results for userspace polling (as visualized in figure~\ref{fig:rapl_perf_eBPF}). While offering the same overflow protection as regular \code{perf-events}, this approach is significantly more complex, prone to low-level errors (especially in C), and requires elevated privileges (\code{CAP\_BPF} or \code{root}). It also lacks portability, as it demands manual adaptation to kernel features and domain counts, limiting its maintainability across systems.
+    \item \textbf{eBPF} enables running custom programs in the Linux kernel, and in this context, it is used to directly read RAPL energy counters from within kernel space, potentially reducing measurement overhead by avoiding user-kernel context switches. The implementation attaches an eBPF program to a CPU clock event, using \code{perf\_event\_open} to access energy counters and buffering results for userspace polling (as visualized in figure~\ref{vt2_fig:rapl_perf_eBPF}). While offering the same overflow protection as regular \code{perf-events}, this approach is significantly more complex, prone to low-level errors (especially in C), and requires elevated privileges (\code{CAP\_BPF} or \code{root}). It also lacks portability, as it demands manual adaptation to kernel features and domain counts, limiting its maintainability across systems.
 \end{itemize}
 \begin{figure}[H]
     \centering
     \begin{subfigure}{0.48\textwidth}
         \includegraphics[width=\textwidth]{Appendices/AppendixA_VT2/Figures/rapl_perf_eBPF.png}
         \caption[RAPL perf-event eBPF mechanism]{RAPL perf-event eBPF mechanism}
-        \label{fig:rapl_perf_eBPF}
+        \label{vt2_fig:rapl_perf_eBPF}
     \end{subfigure}
     \hfill
     \begin{subfigure}{0.48\textwidth}
         \vspace{1.5em}
         \includegraphics[width=\textwidth]{Appendices/AppendixA_VT2/Figures/rapl_interfaces_tradeoffs.png}
         \caption[RAPL measurement mechanisms comparison]{RAPL measurement mechanisms comparison}
-        \label{fig:rapl_interfaces_tradeoffs}
+        \label{vt2_fig:rapl_interfaces_tradeoffs}
     \end{subfigure}
     \caption[RAPL measurements: eBPF and comparison]{RAPL measurements: eBPF and comparison\parencite{raffin2024dissecting}}
-    \label{tab:measurement_mechanisms}
+    \label{vt2_tab:measurement_mechanisms}
 \end{figure}
 
 In their research, Raffin et al.\ conclude that all four mechanisms have small or negligible impact on the running time of their benchmarks. They formulate the following recommendations for future energy monitoring implementations:
@@ -133,24 +133,24 @@ In their research, Raffin et al.\ conclude that all four mechanisms have small o
 RAPL MSRs can be read on some cloud computing resources (e.g. some Amazon EC2 instances), although the hypervisor traps the MSR reads, which can add to the polling delay. In EC2, the performance overhead also significantly increases to <2.5\% (compared to <1\% on standalone systems)\parencite{jay2023experimental}.
 
 \subsubsection{RAPL Validation}
-\label{sec:raplvalidation}
+\label{vt2_sec:raplvalidation}
 
 Since its inception, RAPL has been the subject of various validation studies, with the general consensus that its accuracy could be considered "good enough"\parencite{raffin2024dissecting}. Notable works include Hackenberg et al., who in 2013 found RAPL accurate but missing timestamps\parencite{hackenberg2013power}, and in 2015 noted a major improvement to RAPL accuracy after Intel switched from a modeling approach to actual measurements for their Haswell architecture\parencite{hackenberg2015energy}. Desrochers et al.\ concluded in a 2016 RAPL DRAM validation study\parencite{desrochers2016validation} that DRAM power measurement was reasonably accurate, especially on server-grade CPUs. They also found measurement quality to drop when measuring an idling system. Later, Alt et al.\parencite{alt2024experimental} tested DRAM accuracy of heterogeneous memory systems of the more recent Ice Lake-SP architecture and concluded that DRAM estimates behaved differently than on older architectures. They noted that RAPL overestimates DRAM energy consumption by a constant offset, which they attribute to the off-DIMM voltage regulators of the memory system.
 
 A critical point in RAPL validation was the introduction of the Alder Lake architecture, marking Intel's first heterogeneous processor, combining two different core architectures from the Core and Atom families (commonly referred to as P-Cores and E-Cores) to improve performance and energy efficiency. While this heterogeneity can improve performance and energy efficiency, it also increases the complexity of scheduling decisions and power-saving mechanisms, adding to the already complex architecture, which features per-core Dynamic Voltage and Frequency Scaling (DVFS), idle states, and power limiting/thermal protection.
 
-Schöne et al.\parencite{schone2024energy} found RAPL in the Alder Lake architecture to be generally consistent with external measurements but exhibiting lower accuracy in low-power scenarios. The following figure~\ref{fig:rapl_vs_PSU_validation} shows these inaccuracies, albeit tested on a consumer-grade Intel Core i9-12900K processor measured at the base frequency of 0.8GHz.
+Schöne et al.\parencite{schone2024energy} found RAPL in the Alder Lake architecture to be generally consistent with external measurements but exhibiting lower accuracy in low-power scenarios. The following figure~\ref{vt2_fig:rapl_vs_PSU_validation} shows these inaccuracies, albeit tested on a consumer-grade Intel Core i9-12900K processor measured at the base frequency of 0.8GHz.
 
 \begin{figure}[ht]
     \centering
     \includegraphics[width=0.7\textwidth]{Appendices/AppendixA_VT2/Figures/rapl_vs_PSU_validation.png}
     %\decoRule
     \caption[RAPL validation: CPU vs. PSU]{RAPL and reference power consumption sampled at 100 ms / 50 ms intervals, respectively. Double precision matrix multiplication kernel at 0.8GHz running for 60s each at increasing number of active threads\parencite{schone2024energy}.}
-    \label{fig:rapl_vs_PSU_validation}
+    \label{vt2_fig:rapl_vs_PSU_validation}
 \end{figure}
 
 \subsubsection{RAPL Limitations and Issues}
-\label{sec:rapllimitations}
+\label{vt2_sec:rapllimitations}
 Several limitations of RAPL have been identified in various research works. Since RAPL is continually improved by Intel as new processors are released, some of these issues have since been improved or entirely solved.
 
 \begin{itemize}
@@ -186,7 +186,7 @@ Several limitations of RAPL have been identified in various research works. Sinc
             \hline
         \end{tabular}
         \caption[RAPL overflow correction constant]{RAPL overflow correction constant}
-        \label{tab:RAPL_overflow_correction_constant}
+        \label{vt2_tab:RAPL_overflow_correction_constant}
     \end{table}
 
     \item \textbf{DRAM accuracy:} DRAM accuracy can only reliably be used for the Haswell architecture\parencite{desrochers2016validation, khan2018rapl, alt2024experimental} and may still exhibit a constant power offset (attributed to the voltage regulator power loss of the memory system).
@@ -199,28 +199,28 @@ Several limitations of RAPL have been identified in various research works. Sinc
     
     \item \textbf{Side-channel attacks:} While the update rate of RAPL is usually 1ms, it can get as low as 50$\mu$s for the PP0 domain (processor cores) on desktop processors\parencite{schone2024energy}. This can be exploited to retrieve processed data in a side-channel attack (coined "Platypus")\parencite{lipp2021platypus, schone2024energy}.
     
-    To mitigate this issue while retaining RAPL functionality, Intel implements a filtering technique via the \code{ENERGY\_FILTERING\_ENABLE}\parencite[Table 2-2]{intel2023} entry or when \textit{Software Guard Extension (SGX)} is activated in the BIOS. This filter adds random noise to the reported values (visualized in figure~\ref{fig:rapl_platypus_filtering}). For the PP0 domain, this raises the temporal granularity to about 8ms. While this does not affect the average power consumption, point measurement power consumption can be affected. Figure~\ref{fig:rapl_filter_granularity_loss} shows the effect of the filter, clearly indicating the loss of granularity resulting from its activation. In a 2022 article, Tamara\parencite{greencoding_rapl_sgx} found a surprisingly higher mean with the filter activated and deemed filtered RAPL energy data unusable. In a more elaborate experiment in 2024, Schöne et al.\ did not encounter these inaccuracies anymore.
+    To mitigate this issue while retaining RAPL functionality, Intel implements a filtering technique via the \code{ENERGY\_FILTERING\_ENABLE}\parencite[Table 2-2]{intel2023} entry or when \textit{Software Guard Extension (SGX)} is activated in the BIOS. This filter adds random noise to the reported values (visualized in figure~\ref{vt2_fig:rapl_platypus_filtering}). For the PP0 domain, this raises the temporal granularity to about 8ms. While this does not affect the average power consumption, point measurement power consumption can be affected. Figure~\ref{vt2_fig:rapl_filter_granularity_loss} shows the effect of the filter, clearly indicating the loss of granularity resulting from its activation. In a 2022 article, Tamara\parencite{greencoding_rapl_sgx} found a surprisingly higher mean with the filter activated and deemed filtered RAPL energy data unusable. In a more elaborate experiment in 2024, Schöne et al.\ did not encounter these inaccuracies anymore.
 
     \begin{figure}[H]
         \centering
         \begin{subfigure}[t]{0.6\textwidth}
             \includegraphics[width=\textwidth]{Appendices/AppendixA_VT2/Figures/rapl_platypus_filtering.png}
             \caption{RAPL energy filtering\parencite{intel_rapl_guidance}}
-            \label{fig:rapl_platypus_filtering}
+            \label{vt2_fig:rapl_platypus_filtering}
         \end{subfigure}
         \begin{subfigure}[t]{0.48\textwidth}
             \includegraphics[width=\textwidth]{Appendices/AppendixA_VT2/Figures/rapl_filter_granularity_loss_time.png}
             \caption{Distribution of time between updates: With an enabled filter, the PP0 domain only provides updates every 8 ms; otherwise, RAPL values are updated every 1 ms. If the load is too low, some updates might be skipped, e.g. the next update for PP0 with an enabled filter is at 16 ms.}
-            \label{fig:rapl_filter_granularity_loss_time}
+            \label{vt2_fig:rapl_filter_granularity_loss_time}
         \end{subfigure}
         \hfill
         \begin{subfigure}[t]{0.48\textwidth}
             \includegraphics[width=\textwidth]{Appendices/AppendixA_VT2/Figures/rapl_filter_granularity_loss_energy.png}
             \caption{The minimal increase of a measurement is 1 energy unit of 61.035~$\mu$J. Enabling the filter significantly influences measurements for the PP0 domain and measurably affects PCKG measurements.}
-            \label{fig:rapl_filter_granularity_loss_energy}
+            \label{vt2_fig:rapl_filter_granularity_loss_energy}
         \end{subfigure}
         \caption[RAPL \code{ENERGY\_FILTERING\_ENABLE Granularity loss}]{Observable loss of granularity caused by the activation of \code{ENERGY\_FILTERING\_ENABLE}\parencite{schone2024energy}}
-        \label{fig:rapl_filter_granularity_loss}
+        \label{vt2_fig:rapl_filter_granularity_loss}
     \end{figure}
 \end{itemize}
 
@@ -282,7 +282,7 @@ In 2021, Pan et al.\ proposed \textit{AccelWattch}\parencite{kandiah2021accelwat
 
 \paragraph{FinGraV}
 
-In 2024, Singhania et al.\ proposed \textit{FinGraV}\parencite{singhania2024methodology} (abbreviated from \textbf{Fin}e-\textbf{Gra}in \textbf{V}isibility), a fine-grained power measurement tool capable of sub-millisecond power profiling for GPU executions on an AMD MI300X GPU. They identified the following main challenges of high-resolution GPU power analysis (see figure~\ref{fig:fingrav_challenges}):
+In 2024, Singhania et al.\ proposed \textit{FinGraV}\parencite{singhania2024methodology} (abbreviated from \textbf{Fin}e-\textbf{Gra}in \textbf{V}isibility), a fine-grained power measurement tool capable of sub-millisecond power profiling for GPU executions on an AMD MI300X GPU. They identified the following main challenges of high-resolution GPU power analysis (see figure~\ref{vt2_fig:fingrav_challenges}):
 \begin{itemize}
     \item \textbf{Low Sampling Frequency:} Standard GPU power loggers operate at intervals too coarse (tens of milliseconds) to capture the sub-millisecond executions of modern kernels.
     \item \textbf{CPU-GPU Time Synchronization:} Synchronizing power measurements with kernel start and end times is problematic due to the asynchronous nature of CPU-GPU communication.
@@ -295,19 +295,19 @@ In 2024, Singhania et al.\ proposed \textit{FinGraV}\parencite{singhania2024meth
     \begin{subfigure}{1\textwidth}
         \includegraphics[width=1\textwidth]{Appendices/AppendixA_VT2/Figures/fingrav_challenges.png}
         \caption[Challenges in fine-grain GPU power analysis]{Challenges in fine-grain GPU power analysis}
-        \label{fig:fingrav_challenges}
+        \label{vt2_fig:fingrav_challenges}
     \end{subfigure}
     \hfill
     \begin{subfigure}{1\textwidth}
         \includegraphics[width=1\textwidth]{Appendices/AppendixA_VT2/Figures/fingrav_solutions.png}
         \caption[FinGraV strategies to address challenges]{FinGraV strategies to address challenges}
-        \label{fig:fingrav_solutions}
+        \label{vt2_fig:fingrav_solutions}
     \end{subfigure}
     \caption[FinGraV GPU power measurement challenges and strategies]{FinGraV GPU power measurement challenges and strategies\parencite{singhania2024methodology}}
-    \label{fig:fingrav_challenges_solutions}
+    \label{vt2_fig:fingrav_challenges_solutions}
 \end{figure}
 
-To overcome these challenges, FinGraV introduces several strategies (see figure~\ref{fig:fingrav_solutions}):
+To overcome these challenges, FinGraV introduces several strategies (see figure~\ref{vt2_fig:fingrav_solutions}):
 \begin{itemize}
     \item \textbf{On-GPU Power Logger:} FinGraV leverages a high-resolution (1 ms) power logger, capturing the average of multiple instantaneous power readings.
     \item \textbf{High-Resolution Time Synchronization:} GPU timestamps are read from the CPU side before kernel execution, and synchronization is maintained throughout execution to correlate power samples with kernel events.
@@ -339,9 +339,9 @@ In the context of this thesis, GPU energy consumption is acknowledged as an impo
 
 \subsection{Storage Devices}
 
-Various studies have investigated the power consumption of storage devices. In 2008, Hylick et al.\parencite{hylickAnalysisHardDrive2008a} investigated real-time HDD energy consumption and found significant differences in power consumption between standby, idle, and active power states. Cho et al.\parencite{choDesignTradeoffsSSDs2015} proposed various energy estimation models for SSDs after measuring and comparing the energy consumption of different models. The most notable model-based energy consumption estimation mechanisms are presented in section~\ref{sec:model-based_storage_power}.
+Various studies have investigated the power consumption of storage devices. In 2008, Hylick et al.\parencite{hylickAnalysisHardDrive2008a} investigated real-time HDD energy consumption and found significant differences in power consumption between standby, idle, and active power states. Cho et al.\parencite{choDesignTradeoffsSSDs2015} proposed various energy estimation models for SSDs after measuring and comparing the energy consumption of different models. The most notable model-based energy consumption estimation mechanisms are presented in section~\ref{vt2_sec:model-based_storage_power}.
 
-In contrast to CPU or GPU components, storage devices (HDD, SSD, or NVMe drives) cannot make use of physical power sensors. While a BMC-measurement-based solution would technically be feasible, real-world implementation is impractical: while a BMC might be able to measure the power supply to a storage device, it typically is not exposed through IPMI or Redfish. Such measurements would further be complicated by the use of backplane devices, making measurements for individual devices impossible. For these reasons, storage device energy consumption is typically modelled, not measured (see section~\ref{sec:model-based_storage_power}).
+In contrast to CPU or GPU components, storage devices (HDD, SSD, or NVMe drives) cannot make use of physical power sensors. While a BMC-measurement-based solution would technically be feasible, real-world implementation is impractical: while a BMC might be able to measure the power supply to a storage device, it typically is not exposed through IPMI or Redfish. Such measurements would further be complicated by the use of backplane devices, making measurements for individual devices impossible. For these reasons, storage device energy consumption is typically modelled, not measured (see section~\ref{vt2_sec:model-based_storage_power}).
 
 While storage devices don't expose any energy-consumption-specific metrics, many other related metrics are available (and can be used for modeling approaches):
 \begin{itemize}
@@ -358,7 +358,7 @@ Peripherals like the Network Interface Card (NIC) are almost always connected vi
     \item D1 and D2 states (Intermediate power states)
     \item D3 state (Off state), with the distinction between D3hot and D3cold
 \end{itemize}
-Unfortunately, device power states are not in any way related to physical power specifications: while a specific power state might be useful for simple deductions (e.g. if a device is idling or active), no power figures can be deduced. In the event that a device's idle or maximum power is known, power states might potentially be used for a first estimation (i.e., an idling device is unlikely to consume its specified maximum power, and vice versa), but since a device's power characteristics cannot be reliably estimated (especially beyond just NICs), device power states cannot be used to reliably estimate device power consumption. An attempt at the estimation of NIC power consumption is covered in section~\ref{sec:NIC_modeling}.
+Unfortunately, device power states are not in any way related to physical power specifications: while a specific power state might be useful for simple deductions (e.g. if a device is idling or active), no power figures can be deduced. In the event that a device's idle or maximum power is known, power states might potentially be used for a first estimation (i.e., an idling device is unlikely to consume its specified maximum power, and vice versa), but since a device's power characteristics cannot be reliably estimated (especially beyond just NICs), device power states cannot be used to reliably estimate device power consumption. An attempt at the estimation of NIC power consumption is covered in section~\ref{vt2_sec:NIC_modeling}.
 
 \section{Model-Based Estimation Techniques}
 
@@ -396,7 +396,7 @@ While these models may be helpful to examine the dynamics of CPU power consumpti
 Many memory power models have been proposed in the literature, many of them with an idle and a dynamic component of memory power consumption. While the idle power consumption is generally assumed to be known, dynamic memory power consumption has been modeled to depend on memory usage\parencite{lin2018cloud} or memory accesses\parencite{arroba2014server}, the number of cache misses\parencite{kansal2010virtual}, memory state\parencite{basmadjianMethodologyPredictPower2011}, or other factors. Similar to the CPU models presented in the previous section, these models do not propose generalizable models able to predict memory consumption in situations where idle or maximum memory consumption is not previously known, instead focusing on examining power consumption dynamics. The same objections preventing generalizable CPU models apply to memory models as well, namely great variety, specialization, and technological progress. As a result, no model-based approaches exist that are capable of accurately estimating memory power consumption based solely on performance metrics.
 
 \subsection{Storage Devices}
-\label{sec:model-based_storage_power}
+\label{vt2_sec:model-based_storage_power}
 
 \subsubsection{Generalization-Based Estimation}
 
@@ -408,7 +408,7 @@ Storage controllers further complicate the energy consumption estimation of stor
 
 In this thesis, only storage devices physically installed in the server are considered for power estimation. This includes devices such as HDDs, SSDs, and NVMe drives directly attached to the server. Dedicated external storage systems such as Storage Area Networks (SAN) or Network-Attached Storage (NAS) are not within the scope of this analysis. While such systems are important in data center environments, their energy consumption is not attributable at the granularity required for the workload-level estimation pursued in this thesis.
 
-As a result, research into storage device energy consumption measurement that is generally applicable to all devices has been limited. For practical applications, generalizations are often used, such as the following tables~\ref{tab:Storage_power_HDD} to~\ref{tab:Storage_power_NVMe}. While these approximations cannot be used in the context of this thesis, they may serve as an initial guideline.
+As a result, research into storage device energy consumption measurement that is generally applicable to all devices has been limited. For practical applications, generalizations are often used, such as the following tables~\ref{vt2_tab:Storage_power_HDD} to~\ref{vt2_tab:Storage_power_NVMe}. While these approximations cannot be used in the context of this thesis, they may serve as an initial guideline.
 
 \begin{table}[H]
     \small
@@ -428,7 +428,7 @@ As a result, research into storage device energy consumption measurement that is
             \hline
         \end{tabular}
         \caption[Typical HDD power consumption]{Typical HDD power consumption\parencite{storedbits_hdd}}
-        \label{tab:Storage_power_HDD}
+        \label{vt2_tab:Storage_power_HDD}
     \end{subtable}
 
     \vspace{1em}
@@ -447,7 +447,7 @@ As a result, research into storage device energy consumption measurement that is
             \hline
         \end{tabular}
         \caption[Common HDD RPM power consumption]{Common HDD RPM power consumption\parencite{storedbits_hdd}}
-        \label{tab:Storage_power_HDD_RPM}
+        \label{vt2_tab:Storage_power_HDD_RPM}
     \end{subtable}
 
     \vspace{1em}
@@ -466,7 +466,7 @@ As a result, research into storage device energy consumption measurement that is
             \hline
         \end{tabular}
         \caption[Typical SATA SSD power consumption]{Typical SATA SSD power consumption\parencite{storedbits_ssd}}
-        \label{tab:Storage_power_SSD}
+        \label{vt2_tab:Storage_power_SSD}
     \end{subtable}
 
     \vspace{1em}
@@ -485,14 +485,14 @@ As a result, research into storage device energy consumption measurement that is
             \hline
         \end{tabular}
         \caption[Typical NVMe SSD power consumption]{Typical NVMe SSD power consumption\parencite{storedbits_ssd}}
-        \label{tab:Storage_power_NVMe}
+        \label{vt2_tab:Storage_power_NVMe}
     \end{subtable}
 
     \caption[Power consumption for storage types]{Power consumption for various storage device types.}
-    \label{tab:Storage_power_grouped}
+    \label{vt2_tab:Storage_power_grouped}
 \end{table}
 
-Apart from simple estimations like those shown in tables~\ref{tab:Storage_power_HDD} to~\ref{tab:Storage_power_NVMe}, a few works have focused on the energy consumption of individual storage devices. In 2015, Cho et al.\ developed Energysim\parencite{choDesignTradeoffsSSDs2015}, an SSD energy modeling framework advancing the understanding of component-level (i.e., the subcomponents of a storage device) energy consumption in storage devices. Its validation against real-world SSD measurements using an Intel X25-M yielded a less than 8\% error. The work underscores the difficulty of modeling storage energy accurately due to high variability across architectures and workloads. Unfortunately, Energysim uses many model parameters such as NAND organization, idle and active current consumption, and as a result cannot be generalized to other storage devices where these are unknown.
+Apart from simple estimations like those shown in tables~\ref{vt2_tab:Storage_power_HDD} to~\ref{vt2_tab:Storage_power_NVMe}, a few works have focused on the energy consumption of individual storage devices. In 2015, Cho et al.\ developed Energysim\parencite{choDesignTradeoffsSSDs2015}, an SSD energy modeling framework advancing the understanding of component-level (i.e., the subcomponents of a storage device) energy consumption in storage devices. Its validation against real-world SSD measurements using an Intel X25-M yielded a less than 8\% error. The work underscores the difficulty of modeling storage energy accurately due to high variability across architectures and workloads. Unfortunately, Energysim uses many model parameters such as NAND organization, idle and active current consumption, and as a result cannot be generalized to other storage devices where these are unknown.
 
 In 2014, Li and Long\parencite{liWhichStorageDevice2014} presented a workload-aware modeling framework to estimate the energy consumption of storage systems, challenging the assumption that SSDs are inherently more energy-efficient than HDDs. By classifying I/O workloads into capability workloads (performance-driven) and capacity workloads (storage size-driven), they developed mathematical models that account for the number of devices needed, workload execution time, and device power states (active, idle, standby). Their validation, based on empirical measurements using Seagate HDDs and a Samsung SSD, shows that SSDs are generally more efficient for high-performance workloads, while HDDs can outperform SSDs in archival or low-access scenarios, particularly when effective power management (e.g. spin-down) is employed. Unfortunately, similar to the research by Cho et al., the presented models make use of various non-generalizable variables, most notably a device's idle, standby, and busy power consumption. In the context of this thesis, these are unknown, and the presented model consequently cannot be applied.
 
@@ -565,7 +565,7 @@ In a running server system, this approach could be adapted to create an accurate
 \end{itemize}
 
 \subsection{Network devices}
-\label{sec:NIC_modeling}
+\label{vt2_sec:NIC_modeling}
 Estimating the total power consumption of a network infrastructure requires a clear definition of system boundaries. Since most server clusters operate within larger, interconnected systems, a full assessment of network energy consumption (such as for CO\textsubscript{2} footprint calculations) is generally infeasible. This thesis limits the system boundary to the server itself, considering only internal network components, primarily the Network Interface Card (NIC). While this allows detailed modeling of NIC power usage, it excludes broader network activity, such as inter-node communication in multi-node clusters.
 
 Although the overall energy consumption of a data center network could be estimated by including access, aggregation, and core switches, attributing this consumption to specific workloads remains highly challenging. This chapter therefore focuses on model-based methods for estimating NIC-level power as a proxy for server-side network energy usage.
@@ -623,7 +623,7 @@ While much of the research on server energy consumption focuses on primary compo
 
 Despite their importance, these secondary components have received limited attention in energy modeling literature. In most cases, they are either omitted or treated as part of the residual power not attributable to the main computational subsystems.
 
-The motherboard, for instance, includes voltage regulators, chipset logic, and peripheral interfaces. While these components may not be individually monitored, the Baseboard Management Controller (BMC) (see section~\ref{sec:BMC_devices}) may expose aggregated power telemetry via vendor-specific sensors or interfaces like IPMI or Redfish. However, this level of detail varies greatly across hardware platforms and is seldom fine-grained enough for component-level attribution.
+The motherboard, for instance, includes voltage regulators, chipset logic, and peripheral interfaces. While these components may not be individually monitored, the Baseboard Management Controller (BMC) (see section~\ref{vt2_sec:BMC_devices}) may expose aggregated power telemetry via vendor-specific sensors or interfaces like IPMI or Redfish. However, this level of detail varies greatly across hardware platforms and is seldom fine-grained enough for component-level attribution.
 
 \subsubsection{PSU}
 The power supply unit (PSU) is another often-overlooked consumer. When modeling the power usage of a PSU itself (distinct from the power it delivers to other components), the key factor is its conversion efficiency. PSUs consume more power than they deliver due to losses during AC–DC transformation and voltage regulation. According to Basmadjian et al.\parencite{basmadjianCloudComputingIts2012}, the power consumed by the PSU can be approximated for various scenarios:
@@ -647,12 +647,12 @@ If the monitoring system does not provide PSU power consumption, it can be deduc
 \subsubsection{Fans}
 Cooling systems, particularly fans, also represent a meaningful share of the total energy budget. Most servers employ multiple fans controlled via Pulse-Width Modulation (PWM). While the BMC or operating system tools (e.g. \code{lm-sensors}) often report fan RPM or PWM duty cycle, actual fan power consumption is rarely exposed directly. Furthermore, RPM alone is insufficient to estimate power accurately, as fan power depends on physical factors such as the fan diameter, pressure increase, or air flow delivered\parencite{basmadjianCloudComputingIts2012}:
 \begin{equation}
-\label{for:fanpower}
+\label{vt2_for:fanpower}
     P_{Fan} = d_p \cdot q = \frac{F}{A} \cdot \frac{V}{t} = \frac{F \cdot d}{t}
 \end{equation}
 where $p_d$ denotes total pressure increase of the fan (Pa or N/m\textsuperscript{2}), $q$ denotes the air volume flow (m\textsuperscript{3}/s), $F$ denotes force (N), $A$ denotes fan area (m\textsuperscript{2}), $V$ denotes volume (m\textsuperscript{3}), and $t$ denotes time (seconds).
 
-Based on observations, $F$ is proportional to the square of $RPM$. This can be combined with formula~\ref{for:fanpower}:
+Based on observations, $F$ is proportional to the square of $RPM$. This can be combined with formula~\ref{vt2_for:fanpower}:
 \begin{equation}
     P_{Fan} = \frac{c \cdot RPM\textsuperscript{2} \cdot d}{3600}
 \end{equation}
@@ -688,7 +688,7 @@ In the context of this thesis, machine learning-based approaches are not conside
 In theory, machine learning-based power estimation models hold significant promise and may one day be realized. Such models could leverage complex, nonlinear relationships between hardware components and workloads, relationships that are inherently difficult or even impossible to capture through traditional analytical models. The predictive and adaptive capabilities of machine learning offer the potential for highly accurate, fine-grained estimations across a broad range of configurations. However, as of today, the development of such a comprehensive and generalizable model remains out of reach. Realizing this vision would require extensive collaboration between original equipment manufacturers, cloud providers, data center operators, and research institutions to generate, standardize, and share high-quality telemetry data across diverse hardware and workload scenarios. Given the role of cloud computing in the current economic landscape, where proprietary knowledge and performance optimization constitute a competitive advantage at the corporate, national, and geopolitical levels, such broad cooperation appears unlikely. Consequently, machine learning remains a promising but currently impractical direction for universal server power modeling.
 
 \section{Component-specific summaries}
-\label{sec:component_specific_summaries}
+\label{vt2_sec:component_specific_summaries}
 
 This section offers practical guidelines for measuring or estimating the energy consumption of individual hardware components. While earlier chapters focused on theory and research, the focus here is on implementation: what works best, what challenges to expect, and how to improve accuracy with minimal effort. For each component, the most accurate method is highlighted, along with alternatives and fallback options. Simple improvements like entering datasheet values or running calibration workloads are discussed where relevant.
 
