@@ -9,9 +9,6 @@
 \section{Motivation}
 \label{sec:intro_motivation}
 
-\section{Motivation}
-\label{sec:intro_motivation}
-
 Global data center energy consumption is increasing rapidly, driven by the rising demand for
 compute-heavy workloads such as artificial intelligence and large-scale analytics.
 Data centers consumed roughly 1.5\% of global electricity in 2024
@@ -62,15 +59,29 @@ solutions offer high-level trends rather than precise, time-aligned measurements
 for rigorous analysis. A more detailed discussion of these limitations is provided in
 \S~\ref{ch:background_and_related_work} and further expanded in \hyperref[appendix_vt2]{Appendix~A}.
 
-
 %--------------------------------------------------------------------
 \section{Problem Context}
 \label{sec:intro_context}
-% Describe the environment in which this problem exists.
-% Explain multi-tenant Kubernetes clusters and their dynamic nature.
-% Discuss heterogeneity of telemetry sources (RAPL, Redfish, GPU, eBPF).
-% Explain why asynchronous sampling and inconsistent timestamps make reliable attribution difficult.
-% Introduce the complexity of mapping processes to containers in Kubernetes.
+
+Modern container platforms such as Kubernetes run large numbers of heterogeneous,
+short-lived workloads on shared physical infrastructure. In multi-tenant clusters,
+containers continuously start, stop, migrate, and compete for CPU, memory, storage,
+and I/O resources. This dynamism complicates any attempt to determine how much energy
+a specific workload is responsible for.
+
+At the hardware level, telemetry relevant to energy measurement is fragmented across
+multiple subsystems. Interfaces such as Intel RAPL, Redfish power sensors, GPU
+telemetry, and eBPF-based utilization metrics differ in sampling frequency, latency,
+and clock domain. Their values may arrive asynchronously and with inconsistent timing,
+making direct alignment difficult. Reliable attribution requires correlating these
+subsystems to a common time base, which existing platforms do not provide.
+
+Kubernetes adds another layer of complexity. Processes are encapsulated inside
+containers, which in turn map to pods, cgroups, and namespaces that evolve over time.
+Accurate attribution therefore depends on robust tracking of process-to-container
+relationships and on resolving the timing mismatch between telemetry sources and the
+rapid state changes within the cluster. These combined factors make precise,
+container-level energy attribution a challenging problem.
 
 %--------------------------------------------------------------------
 \section{Problem Statement}
@@ -115,12 +126,32 @@ for rigorous analysis. A more detailed discussion of these limitations is provid
 %--------------------------------------------------------------------
 \section{Positioning Within Previous Work}
 \label{sec:intro_positioning}
-% Explain how this thesis relates to VT1 and VT2.
-% - VT1: Implementation-focused feasibility study for energy measurement in Kubernetes.
-% - VT2: Theoretical deep dive into state-of-the-art methods, challenges, and attribution models.
-% - Current thesis: Consolidates theory and implementation, introduces Tycho,
-%   and prepares the groundwork for accuracy-focused validation in VT3.
-% Emphasize continuity while avoiding repetition, supported by the appendices.
+
+This thesis builds directly on two earlier specialization projects completed as part of the 
+Master's program. The first project (VT1) focused on the practical deployment of a 
+bare-metal Kubernetes environment for energy efficiency research. It provided a fully 
+automated setup procedure for cluster installation, persistent storage, monitoring 
+infrastructure, and stress-test workloads, including all required configuration and 
+connectivity. VT1 initially deployed Kepler as its energy monitoring component but has 
+since been adapted to install Tycho instead, enabling rapid provisioning of complete 
+measurement and evaluation environments. The resulting \textit{PowerStack} repository 
+\parencite{Powerstack} works in conjunction with this thesis by providing the operational 
+foundation on which Tycho can be deployed and evaluated, and is documented in 
+\hyperref[appendix_vt1]{Appendix~B}.
+
+The second project (VT2) examined the theoretical foundations of energy measurement in 
+modern servers and containerized environments. It analyzed hardware-level telemetry 
+interfaces, attribution challenges, and the strengths and limitations of existing tools, 
+providing a structured overview of the state of the art. VT2 identified the methodological 
+gaps that hinder precise workload-level energy attribution, many of which motivate the 
+design choices in Tycho. A detailed version of this analysis is included in 
+\hyperref[appendix_vt2]{Appendix~A}.
+
+The present thesis consolidates these two lines of work. It integrates the practical insights 
+from VT1 with the theoretical findings of VT2 and develops Tycho as an accuracy-first system 
+for server-wide energy measurement and workload attribution. In this role, the thesis serves 
+as the point where the implementation, methodological foundations, and design philosophy 
+come together into a coherent system.
 
 %--------------------------------------------------------------------
 \section{Scope and Boundaries}
