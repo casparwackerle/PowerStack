@@ -1,68 +1,69 @@
 % Indicate the main file. Must go at the beginning of the file.
 % !TEX root = ../main.tex
 
-\chapter{Introduction and Context} % Main chapter title
+\chapter{Introduction and Context}
 \label{vt1_Chapter1}
 
 \section{Significance of Energy Efficiency in Cloud Computing}
 
-Cloud computing has revolutionized how computing resources are shared and utilized, offering increased operational efficiency through resource sharing. While economic benefits such as reduced costs and improved scalability are often highlighted, energy efficiency and environmental impact are equally important. By maximizing shared resource utilization, cloud computing inherently reduces energy waste, supporting global sustainability goals.
+Cloud computing has reshaped how computing resources are provisioned and consumed, offering efficiency gains through large-scale resource sharing. While economic benefits (such as reduced operational costs and improved scalability) are widely recognized, energy efficiency and environmental impact are equally important considerations. By enabling higher utilization of shared infrastructure, cloud computing can reduce energy waste and support global sustainability objectives.
 
-The rapid adoption of cloud computing has transformed it into a dominant segment of global IT infrastructure. Hyperscalers like Amazon Web Services, Google Cloud, and Microsoft Azure contribute significantly to global energy consumption, attracting attention from policymakers. While cloud providers have incorporated renewable energy sources into their operations, this alone does not address the efficiency of energy utilization for workloads.
+The rapid growth of cloud adoption has transformed it into a central component of global IT infrastructure. Hyperscalers such as Amazon Web Services, Google Cloud, and Microsoft Azure are now major consumers of electrical power, drawing increasing attention from policymakers and environmental organizations. Although cloud providers have made significant investments in renewable energy procurement, the use of green power alone does not guarantee efficient energy utilization at workload level.
 
-Technological advancements have improved the energy efficiency of data centers, with modern facilities achieving Power Usage Effectiveness (PUE) values near 1. However, PUE measures facility-level efficiency, not workload-level efficiency. Even with a perfect PUE of 1, significant energy waste can occur if computational resources are underutilized. This highlights the need to focus on workload-level energy efficiency.
+Technological advancements have continuously improved the energy efficiency of data centers, with modern facilities achieving Power Usage Effectiveness (PUE) values close to 1. However, PUE reflects facility-level efficiency and does not capture how effectively energy is used by individual workloads. Even at a theoretical PUE of 1, substantial waste may occur if computational resources are underutilized. This underscores the need to examine workload-level energy efficiency.
 
-Containers, as lightweight virtualization technology, improve resource density and energy efficiency compared to traditional virtual machines (VMs). Despite these advantages, containers introduce additional complexity, especially in measuring energy consumption. Accurate container-level energy consumption requires granular monitoring tools, a challenge compounded by Kubernetes’ dynamic resource allocation and scaling mechanisms.
+Containers, as a lightweight virtualization technology, improve resource density and often deliver better energy efficiency than traditional virtual machines (VMs). However, they also introduce new challenges for accurate energy measurement. Granular monitoring becomes more complex in containerized environments (especially in Kubernetes) due to dynamic resource allocation, scheduling, and autoscaling mechanisms.
 
-Despite the importance of energy efficiency in cloud computing, research on this topic remains limited. While data center operations have been optimized and green coding practices promoted, Kubernetes’ energy efficiency is underexplored. Addressing this gap is crucial for balancing economic and environmental goals.
+Despite the importance of this topic, research on energy efficiency in cloud-native systems remains limited. While data center operations have been extensively optimized and green-coding practices are increasingly emphasized, the energy efficiency of Kubernetes clusters is comparatively underexplored. Addressing this gap is essential for aligning economic and environmental goals.
 
 \section{The Need for Energy-Efficient Kubernetes Clusters}
 
-Kubernetes has become the standard for container orchestration, managing containerized workloads at scale. However, its success brings new challenges, particularly in energy efficiency. Kubernetes environments are complex, featuring dynamic scaling, resource allocation, and workload distribution across multiple nodes. These features, while essential for performance, complicate energy measurement and optimization.
+Kubernetes has become the de facto standard for container orchestration, managing large-scale, distributed workloads. Its sophisticated features (dynamic scheduling, autoscaling, and distributed resource management) enable high performance and operational flexibility. However, these same features complicate energy measurement and optimization.
 
-Commonly, Kubernetes clusters are hosted on VMs to simplify infrastructure management, adding another abstraction layer and further complicating energy measurement. To improve energy efficiency, robust methods for measuring energy consumption in Kubernetes environments are necessary. These methods must translate measurements into valuable insights to that will lay the foundation for optimization efforts.
+In many deployments, Kubernetes clusters run on virtual machines to simplify infrastructure management, adding an additional abstraction layer and making energy attribution more difficult. Achieving energy-efficient Kubernetes clusters therefore requires robust measurement techniques that can translate raw energy data into actionable insights. Such measurements form the basis for systematic optimization efforts.
 
-Given the growing energy footprint of cloud computing and the limited research focus on this area, energy-efficient Kubernetes clusters represent a pressing research topic. By addressing this gap, this work contributes to the broader goal of sustainable cloud computing.
+Given the growing energy footprint of cloud infrastructures and the limited research on energy efficiency in Kubernetes, this remains a pressing and timely research area. By addressing this gap, the present work contributes to the broader objective of sustainable cloud computing.
 
 \section{Objectives and Scope of this Thesis}
 
 \subsection{Context}
 
-This thesis is part of the Master's program in Computer Science at the Zurich University of Applied Sciences (ZHAW) and represents the first of two specialization projects. The current project (VT1) focuses on the practical implementation of a test environment for energy efficiency research in Kubernetes clusters. The second project (VT2) will explore theoretical aspects and methodologies for measuring and improving energy efficiency.
+This thesis is part of the Master’s program in Computer Science at the Zurich University of Applied Sciences (ZHAW) and represents the first of two specialization projects. The current project (VT1) focuses on the practical implementation of a test environment for energy-efficiency research in Kubernetes clusters. The subsequent project (VT2) will examine theoretical foundations and methodological approaches to measuring and improving energy efficiency in such environments.
 
-This thesis builds upon prior works focused on performance optimization and energy measurement. EVA1 covered topics such as operating system tools, statistics, and eBPF, while EVA2 explored energy measurement in computer systems, covering hardware, firmware, and software aspects. These foundational topics provide the basis for the current thesis but will not be revisited in detail.
+The work builds upon previous projects on performance optimization and energy measurement. EVA1 addressed topics such as operating-system tooling, statistical foundations, and \code{eBPF}, while EVA2 explored energy measurement across hardware, firmware, and software layers. These foundations inform the present thesis but will not be revisited in detail.
+
 
 \subsection{Scope}
 
-This thesis focuses on the practical implementation of a test environment, excluding detailed theoretical analysis and literature reviews. The primary goal is to document the creation of a reliable and reproducible test environment that supports future research on energy efficiency in Kubernetes clusters.
+This thesis focuses on the practical implementation of a test environment, excluding detailed theoretical analysis and extensive literature review. The primary goal is to document the creation of a reliable and reproducible environment that supports future research on energy efficiency in Kubernetes clusters.
 
-This thesis builds upon prior work conducted in EVA1 and EVA2, leveraging existing knowledge while extending the research focus. As a result, fundamental concepts from these works are assumed as background knowledge and are not reintroduced in detail.
+The work builds upon prior activities carried out in EVA1 and EVA2, leveraging existing knowledge while extending the research focus. Fundamental concepts from these earlier projects are assumed as background knowledge and are therefore not revisited in detail.
 
-The EVA1 presentations contribute essential principles related to Linux performance monitoring, system optimization, and a conceptual understanding of eBPF. While these concepts play a role in this research, they are not re-explained, as the focus of this thesis lies in their practical application within an energy-efficient Kubernetes cluster.
+The EVA1 presentations introduced essential principles related to Linux performance monitoring, system optimization, and a conceptual understanding of \code{eBPF}. While these concepts play an important role in this research, they are not re-explained here, as the emphasis of this thesis lies on their practical application within an energy-efficient Kubernetes cluster.
 
-Similarly, the EVA2 presentations provide the foundation for understanding energy consumption measurement at multiple levels, including hardware, firmware, and software. Key topics such as CPU states (ACPI, C-states, P-states), Intel CPU Performance Scaling Drivers, and Intel RAPL for power monitoring and control are considered essential but are not explicitly covered again in this thesis.
+Similarly, the EVA2 presentations established foundational knowledge for understanding energy-consumption measurement across hardware, firmware, and software layers. Topics such as CPU power states (ACPI, C-states, P-states), Intel CPU performance-scaling drivers, and Intel RAPL for power monitoring and control are considered essential prerequisites but are not explicitly covered again in this thesis.
 
-By building on these existing foundations, this thesis narrows its scope to investigate energy efficiency at the Kubernetes cluster level, incorporating relevant techniques from prior research where necessary.
+By building on these existing foundations, this thesis narrows its scope to the investigation of energy efficiency at the Kubernetes cluster level, incorporating relevant techniques from prior research where appropriate.
 
 \subsection{Objectives}
 
-The main objective is to design and implement a test environment that facilitates:
+The main objective is to design and implement a test environment that enables:
 \begin{itemize}
 \item Analysis of key parameters affecting energy efficiency in Kubernetes clusters.
 \item Reliable and consistent experimentation.
 \item Reproducibility and automation in deployment and configuration.
 \end{itemize}
-The outcomes will provide the necessary infrastructure for subsequent research projects.
+The resulting environment will form the basis for subsequent research projects.
 
 \subsubsection{Parameters for Analysis}
 
-This project aims to reuse established tools and components where feasible. The parameters to be analyzed include:
+The project aims to reuse established tools and components where feasible. The parameters to be analyzed include:
 \begin{itemize}
 \item CPU utilization and energy consumption.
 \item Memory usage and its impact on power draw.
 \item Disk I/O and storage-related power consumption.
 \end{itemize}
-Additional parameters may be incorporated based on further evaluation.
+Additional parameters may be incorporated following further evaluation.
 
 \subsubsection{Data Integrity and Persistence}
 
@@ -76,7 +77,7 @@ Ensuring data integrity and persistence is critical for reliable analysis. Key r
 
 \subsubsection{Reproducibility and Automation}
 
-Reproducibility and automation are bonus goals aimed at enhancing research efficiency. Benefits include:
+Reproducibility and automation are additional goals aimed at improving research efficiency. Benefits include:
 \begin{itemize}
 \item Simplified recovery from misconfiguration through rapid redeployment.
 \item Reduced troubleshooting time.
@@ -85,22 +86,24 @@ Reproducibility and automation are bonus goals aimed at enhancing research effic
 
 \subsubsection{Security}
 
-Security, while not a primary focus, will be addressed by implementing basic best practices. Key security measures include:
+Security, while not a primary focus, will be addressed by implementing basic best practices. Key measures include:
 \begin{itemize}
 \item Use of encrypted passwords.
-\item Adherence to basic Kubernetes security best practices.
+\item Adherence to standard Kubernetes security best practices.
 \item Minimization of potential vulnerabilities through careful configuration.
 \end{itemize}
 
 \subsection{Use of AI Tools}
-During the writing of this thesis, \textit{ChatGPT}\parencite{OpenAI_ChatGPT_2025} (Version 4, OpenAI, 2024) was used as an auxiliary tool to enhance efficiency in documentation and technical writing. Specifically, it assisted in:
+
+During the writing of this thesis, \textit{ChatGPT}\parencite{OpenAI_ChatGPT_2025} (Version 4, OpenAI, 2024) was used as an auxiliary tool to improve efficiency in documentation and technical writing. Specifically, it assisted in:
 \begin{itemize}
 \item Structuring and improving documentation clarity.
 \item Refining descriptions of code and technical implementations.
 \item Beautifying and formatting smaller code snippets.
-\item Assisting in LaTeX syntax corrections and debugging.
+\item Assisting in \LaTeX{} syntax corrections and debugging.
 \end{itemize}
-All AI-generated content was critically reviewed, edited, and adapted to fit the specific context of this thesis. \textbf{ChatGPT was not used for literature research, conceptual development, methodology design, or analytical reasoning.} The core ideas, analysis, and implementation details were developed independently.
+All AI-generated text was critically reviewed, edited, and adapted to the specific context of this thesis. \textbf{ChatGPT was not used for literature research, conceptual development, methodology design, or analytical reasoning.} The core ideas, analysis, and implementation details were developed independently.
 
-\subsection {Project Repository}
-All code, configurations, and automation scripts developed for this thesis are publicly available in the PowerStack\parencite{PowerStack} repository on GitHub. The repository contains Ansible playbooks for automated deployment, Kubernetes configurations, monitoring stack setups, and benchmarking scripts. This allows for full reproducibility of the test environment and facilitates further research or adaptation for similar projects.
+\subsection{Project Repository}
+
+All code, configurations, and automation scripts developed for this thesis are publicly available in the PowerStack\parencite{PowerStack} repository on GitHub. The repository includes Ansible playbooks for automated deployment, Kubernetes configurations, monitoring-stack setups, and benchmarking scripts. This ensures full reproducibility of the test environment and facilitates further research or adaptation for similar projects.
