@@ -6,7 +6,7 @@
 
 Tycho adopts a simple, centralized configuration layer that is initialized during exporter startup and made globally accessible through typed structures.
 This layer defines all runtime parameters controlling timing, collection, and analysis behaviour.
-It serves as the interface between user-defined settings and the internal scheduling and buffering logic described in \S~\ref{sec:tycho_timing}.
+It serves as the interface between user-defined settings and the internal scheduling and buffering logic described in \S~\ref{sec:tycho_timing_engine}.
 
 The configuration is loaded once at startup, combining defaults, environment variables, and optional overrides passed through Helm or local flags.
 Its purpose is not to support dynamic reconfiguration, but to provide deterministic, reproducible operation across (experimental) runs.

@@ -1,60 +1,28 @@
-% main.tex (VT1 as appendix content module for the Master Thesis)
-% NOTE:
-% - No \documentclass / \begin{document} / \end{document}
-% - No \frontmatter / \mainmatter / \appendix / \printbibliography
-% - All paths are relative to MT/main.tex (root of the Master Thesis)
 
-% If you want VT1 images to be found automatically, you can optionally set:
-% \graphicspath{{Appendices/AppendixB_VT1/Figures/}}
-
-%----------------------------------------------------------------------------------------
-% VT1 FRONT MATTER AS APPENDIX CONTENT
-%----------------------------------------------------------------------------------------
-
-% Title page and imprint of VT1, now appearing inside Appendix B
-
+\clearpage
+\thispagestyle{empty}
 \include{Appendices/AppendixB_VT1/Front/titlepage}
-%\let\cleardoublepage\clearpage
+
+% Imprint – no printed number
+\clearpage
+\thispagestyle{empty}
 \include{Appendices/AppendixB_VT1/Front/imprint}
 
-% Abstract of VT1
+% Abstract – lowercase roman i, ii, ...
+\clearpage
+\pagenumbering{roman}   % resets page counter to 1, \thepage -> roman
 \include{Appendices/AppendixB_VT1/Front/abstract}
 
-
-
-% If you want acknowledgements/symbols from VT1 as well, uncomment:
-% \include{Appendices/AppendixB_VT1/Front/acknowledgements}
-% \include{Appendices/AppendixB_VT1/Front/symbols}
-
-%----------------------------------------------------------------------------------------
-% VT1 MAIN CONTENT – CHAPTERS
-%----------------------------------------------------------------------------------------
-
-% IMPORTANT:
-% In the copied chapter files under Appendices/AppendixB_VT1/Chapters/,
-% you should eventually replace top-level \chapter{...} with \section{...}
-% so they fit structurally under "Appendix B" in the main thesis.
-% For now, we keep the include structure identical.
+% Now start the main document of the appendix:
+% Chapter 1 should be A-1, A-2, ...
+\cleardoublepage
+\pagenumbering{arabic}          % back to arabic digits
+\setcounter{page}{1}            % start at 1
+\renewcommand{\thepage}{B-\arabic{page}}  % format: A-1, A-2, ...
 
 \include{Appendices/AppendixB_VT1/Chapters/Chapter1}
-% \include{Appendices/AppendixB_VT1/Chapters/Chapter2}
-% \include{Appendices/AppendixB_VT1/Chapters/Chapter3}
-% \include{Appendices/AppendixB_VT1/Chapters/Chapter4}
-% \include{Appendices/AppendixB_VT1/Chapters/Chapter5}
-% \include{Appendices/AppendixB_VT1/Chapters/Chapter6}
-
-
-%----------------------------------------------------------------------------------------
-% VT1 APPENDICES INSIDE MASTER THESIS APPENDIX (OPTIONAL)
-%----------------------------------------------------------------------------------------
-
-% If VT1 has its own appendices you want to show, include them here.
-% DO NOT call \appendix here – the Master Thesis is already in appendix mode.
-% Just treat these as further sections/subsections of Appendix B.
-
-% \include{Appendices/AppendixB_VT1/Appendices/AppendixA}
-% \include{Appendices/AppendixB_VT1/Appendices/AppendixB}
-
-%----------------------------------------------------------------------------------------
-% NOTE: Bibliography of VT1 is handled by the global Master Thesis bibliography.
-%----------------------------------------------------------------------------------------
+\include{Appendices/AppendixB_VT1/Chapters/Chapter2}
+\include{Appendices/AppendixB_VT1/Chapters/Chapter3}
+\include{Appendices/AppendixB_VT1/Chapters/Chapter4}
+\include{Appendices/AppendixB_VT1/Chapters/Chapter5}
+\include{Appendices/AppendixB_VT1/Chapters/Chapter6}

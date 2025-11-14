@@ -53,7 +53,7 @@ Headless remote debugging introduces some constraints. Interactive sessions depe
 
 \subsubsection{Configuration and local orchestration}
 \label{subsec:tycho_sysenv_util_config}
-A lightweight configuration file \path{config.yaml} consolidates development toggles that influence local runs and selective deployment. Repository scripts read this file and translate high level options into concrete command line flags and environment variables for the exporter and for auxiliary processes. This keeps day to day operations consistent without editing manifests or code, and aligns with the two workflows in \S~\ref{subsec:tycho_sysenv_build}. Repository scripts map configuration keys to explicit flags for local runs, debug sessions, and ad hoc deploys.
+A lightweight configuration file \path{config.yaml} consolidates development toggles that influence local runs and selective deployment. Repository scripts read this file and translate high level options into concrete command line flags and environment variables for the exporter and for auxiliary processes. This keeps day to day operations consistent without editing manifests or code, and aligns with the two workflows in \S~\ref{sec:tycho_sysenv_build}. Repository scripts map configuration keys to explicit flags for local runs, debug sessions, and ad hoc deploys.
 
 \subsubsection{Container, cluster, and monitoring utilities}
 \label{subsec:tycho_sysenv_util}

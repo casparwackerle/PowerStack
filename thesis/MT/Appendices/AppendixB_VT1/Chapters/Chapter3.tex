@@ -4,8 +4,7 @@
 \chapter{Implementation} % Main chapter title
 \label{vt1_Chapter3}
 
-This chapter describes the implementation and configuration of the various components used in this project. All automation scripts are designed to be idempotent. All scripts can be executed with shell scripts in the \texttt{Powerstack/scripts}-directory. Generally, all configuration is to be done in the central configuration file (\texttt{/Powerstack/configs/inventory.yml}) unless otherwise stated. Sensitive information is to be defined in the ansible-vault file\\(\texttt{/Powerstack/configs/vault.yml}). To keep this chapter brief, instructions for verification are written in Appendix \ref{vt1_AppendixB}
-
+This chapter describes the implementation and configuration of the various components used in this project. All automation scripts are designed to be idempotent. All scripts can be executed with shell scripts in the \texttt{Powerstack/scripts}-directory. Generally, all configuration is to be done in the central configuration file (\texttt{/Powerstack/configs/inventory.yml}) unless otherwise stated. Sensitive information is to be defined in the ansible-vault file\\(\texttt{/Powerstack/configs/vault.yml}).
 \section{K3s Installation}
 
 This section describes the steps involved in setting up a Kubernetes cluster using K3s on bare-metal servers. The installation was automated using an Ansible playbook forked from the official k3s-io/k3s-ansible \parencite{k3s-ansible} repository, with necessary customizations for internal IP-based communication.

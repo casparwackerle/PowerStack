@@ -1,64 +1,25 @@
-% main.tex (VT2 as appendix content module for the Master Thesis)
-% NOTE:
-% - No \documentclass / \begin{document} / \end{document}
-% - No \frontmatter / \mainmatter / \appendix / \printbibliography
-% - All paths are relative to MT/main.tex (root of the Master Thesis)
-
-% If you want VT2 images to be found automatically, you can optionally set:
-% If you want VT2 images to be found automatically, you can optionally set:
-% \graphicspath{{Appendices/AppendixA_VT2/Figures/}}
-
-\thesistitle{Container-Level Energy Consumption Estimation: Foundations, Challenges, and Current Approaches}
-
-fix this
-
-%----------------------------------------------------------------------------------------
-% VT2 FRONT MATTER AS APPENDIX CONTENT
-%----------------------------------------------------------------------------------------
-% Title page and imprint of VT2, now appearing inside Appendix B
-\graphicspath{{Appendices/AppendixA_VT2/Figures/}}
-
+\thispagestyle{empty}
 \include{Appendices/AppendixA_VT2/Front/titlepage}
-%\let\cleardoublepage\clearpage
+
+% Imprint – no printed number
+\clearpage
+\thispagestyle{empty}
 \include{Appendices/AppendixA_VT2/Front/imprint}
 
-% Abstract of VT2
+% Abstract – lowercase roman i, ii, ...
+\clearpage
+\pagenumbering{roman}   % resets page counter to 1, \thepage -> roman
 \include{Appendices/AppendixA_VT2/Front/abstract}
 
-
-
-% If you want acknowledgements/symbols from VT2 as well, uncomment:
-% \include{Appendices/AppendixA_VT2/Front/acknowledgements}
-% \include{Appendices/AppendixA_VT2/Front/symbols}
-
-%----------------------------------------------------------------------------------------
-% VT2 MAIN CONTENT – CHAPTERS
-%----------------------------------------------------------------------------------------
-
-% IMPORTANT:
-% In the copied chapter files under Appendices/AppendixA_VT2/Chapters/,
-% you should eventually replace top-level \chapter{...} with \section{...}
-% so they fit structurally under "Appendix B" in the main thesis.
-% For now, we keep the include structure identical.
+% Now start the main document of the appendix:
+% Chapter 1 should be A-1, A-2, ...
+\cleardoublepage
+\pagenumbering{arabic}          % back to arabic digits
+\setcounter{page}{1}            % start at 1
+\renewcommand{\thepage}{A-\arabic{page}}  % format: A-1, A-2, ...
 
 \include{Appendices/AppendixA_VT2/Chapters/Chapter1}
 \include{Appendices/AppendixA_VT2/Chapters/Chapter2}
 \include{Appendices/AppendixA_VT2/Chapters/Chapter3}
 \include{Appendices/AppendixA_VT2/Chapters/Chapter4}
 \include{Appendices/AppendixA_VT2/Chapters/Chapter5}
-
-
-%----------------------------------------------------------------------------------------
-% VT2 APPENDICES INSIDE MASTER THESIS APPENDIX (OPTIONAL)
-%----------------------------------------------------------------------------------------
-
-% If VT2 has its own appendices you want to show, include them here.
-% DO NOT call \appendix here – the Master Thesis is already in appendix mode.
-% Just treat these as further sections/subsections of Appendix B.
-
-% \include{Appendices/AppendixA_VT2/Appendices/AppendixA}
-% \include{Appendices/AppendixA_VT2/Appendices/AppendixA}
-
-%----------------------------------------------------------------------------------------
-% NOTE: Bibliography of VT2 is handled by the global Master Thesis bibliography.
-%----------------------------------------------------------------------------------------
