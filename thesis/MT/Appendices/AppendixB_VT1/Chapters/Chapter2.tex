@@ -22,23 +22,24 @@ The test environment consists of a Kubernetes cluster deployed on three bare-met
 The cluster is built using three identical Lenovo ThinkSystem SR530 servers, each equipped with the following hardware:
 
 \begin{itemize}
-\item CPU: 1× Intel(R) Xeon(R) Bronze 3104 @ 1.70 GHz, 6~cores.
-\item Memory: 4× 16 GB DDR4 DIMMs (total 64 GB RAM).
+\item CPU: 1~\texttimes~Intel(R) Xeon(R) Bronze 3104 @ 1.70~GHz, 6~cores.
+\item Memory: 4~\texttimes~16~GB DDR4 DIMMs (total 64~GB RAM).
 \item Storage:
-\begin{itemize}
-\item 2× 32 GB M.2 SATA SSD (operating-system boot drive).
-\item 1× 240 GB 6 Gbps SATA 2.5″ SSD (persistent storage).
-\item 3× 10 TB 7200 RPM 12 Gbps SAS 3.5″ HDD (bulk storage).
-\end{itemize}
+    \begin{itemize}
+    \item 2~\texttimes~32~GB M.2 SATA SSD (operating-system boot drive).
+    \item 1~\texttimes~240~GB 6~Gbps SATA 2.5'' SSD (persistent storage).
+    \item 3~\texttimes~10~TB 7200~RPM 12~Gbps SAS 3.5'' HDD (bulk storage).
+    \end{itemize}
 \item Power: Dual redundant power supplies.
 \item Cooling: 4 of 6 possible fans installed.
 \item Firmware:
-\begin{itemize}
-\item BMC Version: 8.88 (Build ID: CDI3A4A)
-\item UEFI Version: 3.42 (Build ID: TEE180J)
-\item LXPM Version: 2.08 (Build ID: PDL142H)
+    \begin{itemize}
+    \item BMC Version: 8.88 (Build ID: CDI3A4A)
+    \item UEFI Version: 3.42 (Build ID: TEE180J)
+    \item LXPM Version: 2.08 (Build ID: PDL142H)
+    \end{itemize}
 \end{itemize}
-\end{itemize}
+
 
 Each server includes a Lenovo XClarity Controller (BMC) for remote management. Access via the BMC IP provides out-of-band management and monitoring capabilities.
 
