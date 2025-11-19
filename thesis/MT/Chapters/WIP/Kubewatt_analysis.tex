@@ -1,0 +1,616 @@
+\chapter{temporary notes on Pijnacker's KUBEWATT}
+
+\section*{Summary of Useful Insights from Related Work}
+
+\subsection*{Granularity of Energy Measurement}
+Most prior work in cloud energy efficiency focuses on cluster-wide or system-wide metrics. 
+Container-level or workload-level energy measurement is largely unexplored. 
+This underscores the need for a fine-grained measurement tool that captures power usage per Kubernetes container.
+
+\subsection*{Energy-Aware Scheduling}
+Research on energy-aware schedulers (for example WOA, KIEDS, and Smart-Kube) demonstrates that energy savings 
+between ten and fifteen percent are achievable. 
+All such schedulers rely on node-level energy metrics and cannot address energy waste that originates from individual workloads. 
+They are constrained by the resource requests and limits enforced by Kubernetes. 
+This supports the need for accurate per-container energy measurement as a precursor to optimization.
+
+\subsection*{Existing Energy Measurement Approaches}
+Several approaches measure energy in virtualized or containerized systems. 
+Examples include:
+\begin{itemize}
+    \item Pod-level energy derived from global node power multiplied by the time a pod is active (coarse approximation).
+    \item SmartWatts, which uses RAPL exclusively but is not applicable in virtualized environments.
+    \item A multi-level power mapping model (bare-metal, virtual machines, Kubernetes) which is promising but not implemented as a usable tool.
+\end{itemize}
+Existing tools either lack sufficient validation or lack support for modern production environments. 
+This motivates the creation of a validated Kubernetes-specific measurement system.
+
+\subsection*{Overprovisioning and Resource Waste}
+Large-scale studies of cloud resource use show extreme underutilization, with average CPU utilization around ten percent for virtual machines. 
+Techniques for reducing waste (core reduction, shutdown policies) exist but operate at the VM level and conflict with common SLA requirements. 
+These approaches do not address Kubernetes workload-level inefficiencies. 
+This further motivates the need to measure energy use at container level.
+
+\subsection*{Metrics and Observability}
+Surveys indicate a lack of consensus on which sustainability metrics should be used. 
+Metrics often combine performance, energy, and emissions components. 
+Tools must be adapted as cloud technologies evolve because some counters are not available on modern systems. 
+Prometheus is identified as the dominant observability stack. 
+Therefore a Kubernetes energy measurement tool should expose metrics in Prometheus format and define a clear and consistent metric set.
+
+\subsection*{Implications for Tycho and KubeWatt}
+The related work reinforces several design choices:
+\begin{itemize}
+    \item The need to focus on accurate container-level power attribution.
+    \item The use of multiple measurement sources rather than RAPL alone.
+    \item The importance of a structured metric model and Prometheus compatibility.
+\end{itemize}
+It also identifies gaps which Tycho and KubeWatt both aim to fill, especially the absence of validated and production-ready tools that target Kubernetes specifically.
+
+
+\section*{Summary of Useful Insights from Kepler Validation Results}
+
+\subsection*{Single-Stressor CPU Tests}
+
+\paragraph{Inconsistent results between Kepler deployments}
+The four Kepler deployments (redfish, rapl, default, custom) produce significantly different node power values.
+The root mean squared error between deployments is very large, with differences of more than 160 W in several cases.
+Only kepler-default and kepler-custom agree with each other.
+
+\paragraph{Alignment with external power sources}
+The kepler-redfish deployment tracks iDRAC total power closely.
+The kepler-rapl deployment tracks RAPL closely.
+This indicates that Kepler simply reproduces the external source but does not provide an integrated or corrected view.
+
+\paragraph{Redfish latency causes attribution artefacts}
+As iDRAC updates power only once per minute, rapid drops in CPU usage lead to temporary over-attribution of power in Kepler.
+Kepler distributes the stale node power among running containers, causing artificial power spikes in all namespaces following workload quiescence.
+
+\paragraph{Incorrect idle-mode power attribution}
+Kepler attributes idle-mode power to pods that have already completed.
+In kepler-redfish, idle-mode power per terminated pod is around six watts.
+In kepler-rapl this is around two and a half watts.
+In kepler-default and kepler-custom these pods report zero power as expected.
+This indicates incorrect idle-mode attribution in the non-estimator deployments.
+
+\subsection*{Container-Level Power Attribution Problems}
+
+\paragraph{Power attributed to non-running containers}
+Kepler attributes power to completed containers in the idle namespace.
+This is incorrect and indicates an attribution failure.
+
+\paragraph{Misattribution to system processes}
+When many idle pods are deleted simultaneously, power previously attributed to these pods is redistributed as expected.
+However, dynamic-mode power assigned to the active stressor container decreases, while dynamic-mode power for the system namespace increases.
+This implies that Kepler misattributes a portion of the stress workload to system-level processes.
+
+\paragraph{Cause traced to cAdvisor slices}
+cAdvisor exports CPU usage for real containers as well as for aggregated cgroups and slices (for example kubepods.slice).
+Kepler does not filter these consistently.
+This leads to apparent CPU usage that belongs to no namespace and results in misattributed dynamic-mode power.
+Filtering cAdvisor metrics to actual containers resolves the discrepancy.
+
+\subsection*{Node Component Tests}
+
+\paragraph{Component-level accuracy depends on RAPL availability}
+For deployments with RAPL (kepler-rapl and kepler-redfish), the package and DRAM power correspond closely to RAPL component counters.
+For deployments using estimator models (kepler-default and kepler-custom), component power does not follow the expected patterns and diverges significantly from RAPL.
+The errors are large: approximately 172 W for package (around 64 percent of max value) and 7 W for DRAM (around 55 percent).
+
+\paragraph{Estimator models ineffective}
+Both estimator-based deployments fail to reproduce component power trends.
+Custom training attempts did not yield usable models.
+Documentation for training Kepler models is incomplete and inaccurate, making model training impractical.
+
+\subsection*{Answering the Research Questions}
+
+\paragraph{kpRQ1: Accuracy of node-level measurements}
+Kepler can closely reproduce its external power sources.
+However:
+\begin{itemize}
+    \item redfish inherits a one-minute update delay which causes significant attribution artefacts,
+    \item RAPL reproduces its own counter values but these counters do not match ground truth server power without calibration,
+    \item estimator models are unusable for accurate node power and deviate by more than 99 percent from ground truth.
+\end{itemize}
+
+\paragraph{kpRQ2: Accuracy of container-level attribution}
+Kepler consistently misattributes container energy.
+Major problems include:
+\begin{itemize}
+    \item power assigned to completed pods,
+    \item misattribution to system processes,
+    \item incorrect ratio of idle to dynamic power,
+    \item misalignment caused by redfish latency.
+\end{itemize}
+The core attribution model is identical across deployments and therefore all configurations show identical behaviour.
+
+\paragraph{kpRQ3: Influence of different configurations}
+Different Kepler configurations drastically change node-level results but do not change container-level attribution behaviour.
+All deployments share the same attribution model, therefore all share the same attribution errors.
+Differences in attribution results stem from differences in the underlying node metrics (RAPL, redfish, or estimator).
+
+\subsection*{Key Insights Relevant for Tycho and KubeWatt}
+
+\begin{itemize}
+    \item Node-level accuracy depends entirely on the external power source.
+    \item RAPL cannot be used uncalibrated and diverges from ground truth by a linear relation.
+    \item Redfish latency introduces severe attribution artefacts unless compensated.
+    \item Estimator models in Kepler are unreliable and difficult to train due to poor documentation.
+    \item Container attribution in Kepler is fundamentally incorrect and cannot be fixed by changing the node power source.
+    \item Slice-level CPU usage in cAdvisor must be filtered to avoid misattribution.
+\end{itemize}
+
+This body of findings motivates the creation of a new tool with corrected metric pipelines, usable power models, reliable component attribution, and proper handling of delayed external power sources such as Redfish.
+
+
+\section*{Summary of Useful Insights from the KubeWatt Architecture}
+
+\subsection*{General Requirements and Design Goals}
+
+KubeWatt is introduced as an alternative to Kepler, intended to provide accurate container-level power attribution.
+Its design requirements are:
+\begin{enumerate}
+    \item Read Kubernetes CPU utilization at node and container level.
+    \item Obtain total node power from some external source.
+    \item Split node power into static (idle) and dynamic fractions.
+    \item Export container-level power as Prometheus metrics.
+\end{enumerate}
+
+The static power represents the baseline cost of running the node and the Kubernetes control plane.
+Dynamic power is attributed exclusively to non-control-plane containers.
+
+\subsection*{Power Split into Static and Dynamic Components}
+
+Static power is treated as a constant overhead that does not change over time.
+Dynamic power is attributed proportionally according to container CPU utilization.
+All power consumed by the control plane at idle is included in the static value.
+Additional control plane load that results from workload activity is attributed to the workloads themselves.
+
+\subsection*{KubeWatt Modes}
+
+KubeWatt operates in three modes.
+
+\paragraph{1. Base initialization mode}
+\begin{itemize}
+    \item Assumes an empty cluster running only control plane components.
+    \item User specifies regular expressions identifying control plane pods.
+    \item Measures node power every fifteen seconds for five minutes.
+    \item Computes static power as a simple average.
+    \item Expected to give the most accurate static power value.
+\end{itemize}
+
+\paragraph{2. Bootstrap initialization mode}
+\begin{itemize}
+    \item Designed for clusters with workloads that cannot be shut down.
+    \item Collects node CPU, container CPU and node power every fifteen seconds for thirty minutes.
+    \item Requires a sufficiently varied distribution of CPU usage values.
+    \item Performs bucket analysis to verify that the CPU usage distribution spans a reasonable range.
+    \item Also collects control plane CPU usage to estimate its average idle level.
+    \item Fits a third-degree polynomial to predict node power as a function of CPU load.
+    \item Evaluates the polynomial at the average control plane CPU usage to estimate static power.
+\end{itemize}
+
+\paragraph{Assumption 1}
+Static power does not significantly change over time.
+This assumption is needed because static power is measured once and not updated automatically.
+
+\subsection*{3. Estimation mode}
+
+This is the main operational mode.
+It takes the static power and configuration from the initialization phase and produces container-level power attribution metrics.
+
+\paragraph{Underlying model}
+KubeWatt adopts a CPU-proportional power mapping model inspired by the pod-mapping concept in Andringa [21].
+The original model maps:
+\begin{itemize}
+    \item bare-metal power to virtual machine power
+    \item virtual machine power to pod power
+\end{itemize}
+based solely on CPU utilization ratios.
+
+\paragraph{Adapted model for container-level attribution}
+KubeWatt modifies the model to:
+\begin{itemize}
+    \item directly split total node power into static and dynamic parts,
+    \item attribute only dynamic power to containers,
+    \item use the sum of actual container CPU usage as denominator, not node CPU usage from the metrics API.
+\end{itemize}
+
+Equation used:
+\[
+    power(c_{m,i}) = power_{d}(n_i) \cdot \frac{cpu(c_{m,i})}{\sum_{j} cpu(c_{j,i})}
+\]
+
+\paragraph{Important distinction}
+The denominator excludes:
+\begin{itemize}
+    \item system processes,
+    \item cgroup slices,
+    \item any non-container CPU activity.
+\end{itemize}
+These are considered part of static power and must not receive dynamic power attribution.
+
+\paragraph{Assumption 2}
+Each Kubernetes node consumes all measurable power of its underlying physical or virtual machine.
+There are no other workloads outside Kubernetes using power.
+This assumption is needed to treat the measured node power as node power exclusively.
+
+\subsection*{Overall Architectural Character}
+
+The overall structure of KubeWatt is characterized by:
+\begin{itemize}
+    \item a static power estimation step,
+    \item a CPU-proportional dynamic power attribution model,
+    \item reliance on a single power source per node,
+    \item exclusion of system processes and control plane idle consumption from dynamic power,
+    \item export of metrics in Prometheus format.
+\end{itemize}
+
+The model makes strong assumptions about workload exclusivity and static power stability.
+These assumptions simplify the implementation but may limit applicability in shared or dynamic environments.
+
+
+\section*{Summary of Useful Insights from the KubeWatt Power and Metrics Collection}
+
+\subsection*{Power Collector}
+
+The power collector provides a measurement of node-level power in Watts.
+KubeWatt defines a PowerCollector interface that abstracts the source of power.
+The proof-of-concept implementation includes only a Redfish-based collector.
+Important characteristics:
+\begin{itemize}
+    \item Uses the Redfish API exposed by server management interfaces such as iDRAC.
+    \item Each Kubernetes node must be matched to one or more Redfish ComputerSystem entries.
+    \item Host address, user credentials and the list of Redfish systems are supplied by configuration.
+    \item If multiple systems map to a node, their power readings are summed.
+    \item Design is extensible to other sources of power by implementing the interface.
+\end{itemize}
+
+\subsection*{Kubernetes Metrics Collector}
+
+The metrics collector obtains CPU usage for nodes and containers.
+It uses the following Kubernetes endpoints:
+\begin{itemize}
+    \item \texttt{metrics.k8s.io/v1beta1/nodes}: node CPU usage in nanoseconds.
+    \item \texttt{metrics.k8s.io/v1beta1/pods}: per-container CPU usage in nanoseconds.
+\end{itemize}
+
+The Java Kubernetes client returns pod metrics grouped by namespace.
+These metrics form the basis for CPU-proportional power attribution.
+
+\subsection*{Assumptions and Their Consequences}
+
+\subsubsection*{Assumption 1: Static power is constant over time}
+
+KubeWatt assumes that static (idle) power does not change significantly.
+This is justified using two months of iDRAC power data from the test server:
+\begin{itemize}
+    \item After filtering out active periods, the idle power distribution has a mean of 210.15 W.
+    \item Standard deviation is 0.95 W, which is an error of only 0.45 percent.
+    \item This indicates stable baseline power under the test conditions.
+\end{itemize}
+
+Consequences:
+\begin{itemize}
+    \item Static power is measured once and remains fixed.
+    \item If static power drifts slowly over time, KubeWatt will misallocate dynamic power.
+    \item If the machine becomes cooler, actual power may drop below the fixed static value, causing dynamic power to become zero.
+    \item If static power increases, containers will appear to use more dynamic power than they actually do.
+\end{itemize}
+
+\subsubsection*{Assumption 2: Kubernetes is the only workload on the measured machine}
+
+KubeWatt assumes that each node consumes all power measured through Redfish.
+This is necessary because Redfish only exposes total server power.
+If external workloads exist, KubeWatt has no information on how to distinguish their power usage.
+
+Consequences:
+\begin{itemize}
+    \item KubeWatt cannot operate correctly on shared bare-metal hosts.
+    \item KubeWatt cannot operate correctly on multi-tenant virtual machines unless isolation guarantees hold.
+    \item KubeWatt would misattribute external workload power to Kubernetes containers.
+\end{itemize}
+
+Possible extension (not implemented):
+\begin{itemize}
+    \item Use the multi-level mapping model from [21] to distribute bare-metal power across multiple logical partitions such as virtual machines.
+\end{itemize}
+
+\subsection*{Overall Architectural Observations}
+
+\begin{itemize}
+    \item The design separates power collection, CPU metrics collection and attribution logic cleanly.
+    \item Only Redfish is supported for power in the prototype.
+    \item The static power assumption simplifies the model but restricts applicability to stable environments.
+    \item KubeWatt does not compensate for Redfish latency and assumes instantaneous node power.
+    \item CPU usage is taken directly from metrics.k8s.io without addressing potential timing skew.
+    \item CPU slices and system processes are excluded by construction, unlike Kepler.
+\end{itemize}
+
+\section*{Summary of KubeWatt Evaluation}
+
+\subsection*{Base Initialization Mode (kwRQ3)}
+
+\begin{itemize}
+    \item Base initialization is run on an almost empty cluster (only control plane).
+    \item KubeWatt samples iDRAC power every 15 seconds for 5 minutes and averages it.
+    \item Six repeated runs yield static power values between 198.75 W and 199.15 W.
+    \item The z-scores for these observations are between approximately $-0.47$ and $0.31$.
+    \item Conclusion: base initialization reports static power accurately and consistently.
+\end{itemize}
+
+\subsection*{Bootstrap Initialization Mode (kwRQ4)}
+
+\begin{itemize}
+    \item Bootstrap mode is used when workloads cannot be stopped.
+    \item It collects node CPU, node power and control-plane CPU for 30 minutes (or more) and fits a regression.
+    \item With the initial third-degree polynomial regression and Hyper-Threading enabled:
+    \begin{itemize}
+        \item Static power estimates are around 178--185 W, underestimating the base-mode result by 7--11 percent.
+        \item The accuracy depends strongly on the lower bound of CPU utilization present in the data.
+        \item When low-CPU data is missing, static power estimates can become grossly inaccurate or even negative.
+    \end{itemize}
+    \item The data show a clear knee caused by simultaneous multithreading (SMT).
+    \item Repeating the experiments with SMT disabled yields a nearly linear power versus CPU relation:
+    \begin{itemize}
+        \item Linear regression gives $R^2 \approx 0.94$.
+        \item Static power estimates are between 199.9 W and 201.7 W, within 0.4--1.3 percent of the base-mode value.
+        \item Sensitivity to cuts in the CPU range is much reduced.
+    \end{itemize}
+    \item As a result, KubeWatt is changed as follows:
+    \begin{itemize}
+        \item Use linear regression instead of a third-degree polynomial.
+        \item When SMT is enabled, ignore the top 50 percent of CPU utilization data when fitting.
+    \end{itemize}
+    \item Conclusion: bootstrap initialization can work well but is inherently less robust and should be second choice after base mode.
+\end{itemize}
+
+\subsection*{Estimator Mode: Node Power (kwRQ1)}
+
+\begin{itemize}
+    \item Estimator mode uses Redfish power and the precomputed static power to infer dynamic power and attribute it to containers.
+    \item In single-stressor tests:
+    \begin{itemize}
+        \item Total node power reported by KubeWatt closely follows iDRAC.
+        \item The root mean squared error of instantaneous power is about 10.56 percent.
+        \item Most of this error appears when a load just starts, due to delay in Kubernetes CPU metrics.
+        \item When comparing total energy (area under the curve), the error is below 1 percent.
+    \end{itemize}
+    \item This is better than Kepler’s best configuration, which showed around 18.7 percent RSME to iDRAC.
+\end{itemize}
+
+\subsection*{Estimator Mode: Container Attribution (kwRQ2)}
+
+\paragraph{Single-stressor tests}
+\begin{itemize}
+    \item KubeWatt reports only dynamic power per namespace; static power is exported as a separate quantity.
+    \item Control-plane pods are excluded from dynamic attribution.
+    \item In single-stressor tests, the stress namespace receives dynamic power proportional to its CPU usage, as expected.
+\end{itemize}
+
+\paragraph{Multi-stressor tests}
+\begin{itemize}
+    \item Four stressors are run in phases, each using sixteen CPUs, up to full system load.
+    \item KubeWatt attributes equal power to stressor containers that have equal CPU utilization, as expected.
+    \item Power per container decreases once more than 32 threads run simultaneously, which aligns with throughput measurements and the SMT findings.
+    \item cAdvisor does not show this throughput difference since it reports only CPU seconds, not effective work done.
+\end{itemize}
+
+\paragraph{Transient misattribution during container startup}
+\begin{itemize}
+    \item When stressor container 0 starts, Redfish power already increases before Kubernetes metrics report CPU usage for that container.
+    \item During this brief window, dynamic power is assigned to containers 1–3 which are idle but visible in the metrics.
+    \item Once all containers are reported by metrics.k8s.io, attribution corrects itself.
+\end{itemize}
+
+\paragraph{Inactive pod deletion test}
+\begin{itemize}
+    \item The test with many idle pods that are created and then deleted is repeated for KubeWatt.
+    \item Total system power (iDRAC) is unchanged by deleting idle pods, as expected.
+    \item KubeWatt:
+    \begin{itemize}
+        \item does not attribute power to completed idle pods,
+        \item attributes dynamic power correctly to the stress namespace,
+        \item keeps the static power term separate.
+    \end{itemize}
+    \item Conclusion: KubeWatt does not suffer from the severe attribution problems observed in Kepler. It correctly ignores non-running idle pods and tracks the stressor.
+\end{itemize}
+
+\subsection*{Overall Evaluation Conclusions}
+
+\begin{itemize}
+    \item Base initialization gives accurate and stable static power values.
+    \item Bootstrap initialization is usable but sensitive to workload characteristics and CPU range; it benefits from linear regression and SMT-aware filtering.
+    \item Estimator mode tracks node power well and outperforms Kepler in terms of node-level accuracy relative to iDRAC.
+    \item Container-level dynamic power attribution behaves as intended in both single- and multi-stressor tests and remains stable under creation and deletion of large numbers of idle pods.
+\end{itemize}
+
+\section*{Summary of KubeWatt Discussion and Conclusion}
+
+\subsection*{Discussion of Research Questions}
+
+\paragraph{kwRQ1: Node power accuracy}
+KubeWatt can read node power accurately from an external source (iDRAC via Redfish).
+Base and bootstrap initialization both use these readings effectively.
+In estimator mode, accuracy is good except in short periods where dynamic power is non-zero but no container CPU usage is yet visible in the metrics.
+In that case, dynamic power cannot be attributed and is temporarily lost.
+
+\paragraph{kwRQ2: Container power attribution}
+In general, KubeWatt attributes power to containers in a way that matches CPU utilization, throughput, and the observed power curve.
+Power is briefly misattributed when new containers start producing load before they appear in the Kubernetes metrics API.
+Because data is sampled every 15 seconds and metrics are delayed, KubeWatt is only suitable for workloads with relatively stable CPU utilization.
+KubeWatt only uses CPU as a driver for power, so power usage of GPUs, FPGAs or other accelerators is not represented.
+
+\paragraph{kwRQ3: Base initialization accuracy}
+Base initialization reports a very stable static power value with minimal spread (about 0.4 W around a 199 W mean).
+It is fast (about five minutes) and considered accurate.
+
+\paragraph{kwRQ4: Bootstrap initialization accuracy}
+Bootstrap initialization can estimate static power with good accuracy if SMT effects and CPU range are handled correctly.
+With adjusted regression (linear) and SMT-aware filtering, errors of 0.4--1.3 percent are possible under ideal data, and within about 5 percent for reduced CPU ranges.
+It remains a second-best option compared to base initialization.
+
+\subsection*{Overall Conclusion}
+
+The main research question asked how to accurately measure or estimate container power from external measurements.
+Key conclusions:
+\begin{itemize}
+    \item Kepler shows serious attribution problems (static power on non-running containers, misattribution to system processes).
+    \item KubeWatt addresses many of these issues by:
+    \begin{itemize}
+        \item separating static and dynamic power,
+        \item excluding control-plane and system processes from dynamic attribution,
+        \item using a CPU-proportional mapping model,
+        \item and carefully calibrating static power.
+    \end{itemize}
+    \item External metrics have non-negligible latency, which affects both KubeWatt and Kepler and must be considered in any design.
+    \item KubeWatt can provide accurate container power metrics under its assumptions, and in specific tests it outperforms Kepler.
+    \item A key limitation is that KubeWatt considers only CPU as a power driver and therefore cannot handle accelerators such as GPUs or FPGAs.
+\end{itemize}
+
+\subsection*{Threats to Validity}
+
+\begin{itemize}
+    \item Limited Kepler evaluation: only RAPL and Redfish were tested as power sources, not NVML, ACPI or IPMI.
+    \item Hardware issues: the test server had intermittent memory errors, which might influence load and power noise.
+    \item Single-server testbed: no multi-node, multi-workload scenarios; results may not generalize to full datacenter environments.
+    \item Non-ideal environment: the server was located in a warm archival room with fluctuating temperatures rather than a controlled datacenter.
+    \item Synthetic workloads: only stress-ng workloads were used, which may not represent real production workloads.
+\end{itemize}
+
+\subsection*{Future Work}
+
+\begin{itemize}
+    \item Extend KubeWatt with more power collectors and support for accelerators such as GPUs.
+    \item Evaluate KubeWatt on realistic, multi-node Kubernetes workloads.
+    \item Study SMT effects in more detail across different hardware and measurement stacks to explain the observed knee in the power versus CPU curve.
+\end{itemize}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 1. Improvements KubeWatt Made Over Kepler
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section*{1.\;Improvements KubeWatt Made Over Kepler}
+
+\subsection*{1.1.\;Strict Static--Dynamic Power Separation}
+\textbf{Improvement:} KubeWatt explicitly separates total node power into a static (idle) component and a dynamic component.  
+\textbf{Addresses Kepler problems:}
+\begin{itemize}
+\item Kepler attributes static/idle power to non-running containers.
+\item Kepler assigns idle-mode power to completed pods.
+\item Control-plane idle overhead pollutes workload attribution.
+\end{itemize}
+
+\subsection*{1.2.\;Exclusion of System Processes and Cgroup Slices}
+\textbf{Improvement:} KubeWatt filters out system processes, slice-level aggregates, and non-container cgroups from the CPU denominator.  
+\textbf{Addresses Kepler problems:}
+\begin{itemize}
+\item Power assigned to \texttt{system\_processes}.
+\item Idle-mode leakage into best-effort slices.
+\end{itemize}
+
+\subsection*{1.3.\;Correct Handling of Control-Plane Workloads}
+\textbf{Improvement:} Idle control-plane CPU is incorporated into the static baseline.  
+\textbf{Addresses Kepler problems:} Control-plane activity is distributed across user namespaces.
+
+\subsection*{1.4.\;Robust Static Power Calibration}
+\textbf{Improvement:} Base initialization mode directly measures static power on an empty cluster.  
+\textbf{Addresses Kepler problems:} Kepler provides no calibration for static node power.
+
+\subsection*{1.5.\;Statistical Bootstrap Initialization}
+\textbf{Improvement:} When idle windows are unavailable, KubeWatt fits a regression model to CPU--power samples.  
+\textbf{Addresses Kepler problems:} No mechanism to infer static power on live, busy clusters.
+
+\subsection*{1.6.\;SMT-Aware Modelling}
+\textbf{Improvement:} KubeWatt detects SMT-induced knees in the CPU--power curve and adjusts regression accordingly.  
+\textbf{Addresses Kepler problems:} Kepler assumes linear proportionality even under SMT, causing misattribution.
+
+\subsection*{1.7.\;Transparent Ratio-Based Model}
+\textbf{Improvement:} A simple, explicit CPU-proportional ratio model replaces Kepler's multi-layered estimator logic.  
+\textbf{Addresses Kepler problems:} Undocumented estimator behaviour and inconsistent domain mixing.
+
+\subsection*{1.8.\;Power Collector Abstraction}
+\textbf{Improvement:} Any external power source can be plugged in behind a uniform interface.  
+\textbf{Addresses Kepler problems:} Tight coupling between collectors and model code.
+
+\subsection*{1.9.\;Predictable Behaviour under Pod Churn}
+\textbf{Improvement:} The ``inactive-pod deletion'' test behaves correctly.  
+\textbf{Addresses Kepler problems:} Kepler reports power usage for terminated pods.
+
+\subsection*{1.10.\;Deterministic, Low-Latency Metric Ingestion}
+\textbf{Improvement:} KubeWatt relies solely on the metrics-server pipeline, making delay behaviour predictable.  
+\textbf{Addresses Kepler problems:} Mixed eBPF, cAdvisor, and API sources yield inconsistent timing and alignment.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 2. Features Tycho Should Adopt (Ordered by Importance)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section*{2.\;Implementation Elements Tycho Should Adopt}
+
+\subsection*{2.1.\;High-Impact Features}
+\begin{enumerate}
+\item \textbf{Static--Dynamic Power Separation.}  
+Tycho should follow KubeWatt's approach of subtracting static power prior to container attribution.
+
+\item \textbf{Strict Cgroup Filtering.}  
+Tycho should exclude\,/\,ignore slice-level cgroups and system processes when summing container CPU.
+
+\item \textbf{Explicit Control-Plane Handling.}  
+Idle control-plane CPU should be treated as static; additional usage should be attributed to workloads indirectly causing it.
+
+\item \textbf{Dedicated Baseline Calibration Module.}  
+Adopt both base-mode calibration and a bootstrap fallback.
+
+\item \textbf{SMT-Aware Resource Modelling.}  
+Tycho should incorporate SMT-aware filtering or data selection to avoid non-linear artefacts.
+
+\item \textbf{Pluggable Power Collector Architecture.}  
+Ensure clean separation between collectors such as RAPL, Redfish, NVML, BMC-derived metrics, etc.
+
+\item \textbf{Transparent Ratio Model.}  
+Retain the simple proportional model
+\[
+  power(c) = power_d(n)\cdot\frac{\mathrm{cpu}(c)}{\sum \mathrm{cpu}(c)},
+\]
+as a well-understood baseline.
+\end{enumerate}
+
+\subsection*{2.2.\;Medium-Impact Features}
+\begin{itemize}
+\item Bootstrap-mode estimation for static power when idle windows do not occur.
+\item Incorporation of metric-latency handling using Tycho's timing engine.
+\item Explicit omission of static power from per-container metrics.
+\end{itemize}
+
+\subsection*{2.3.\;Low-Impact Features}
+\begin{itemize}
+\item User-configurable control-plane pod matching (e.g.\ via regex).
+\item Linear-regression fallback in calibration when SMT is disabled.
+\end{itemize}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 3. Overall Assessment of KubeWatt
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section*{3.\;Overall Assessment of KubeWatt}
+
+\subsection*{3.1.\;Strengths}
+\begin{itemize}
+\item Conceptually simple and transparent architecture.
+\item Fixes several fundamental attribution errors present in Kepler.
+\item Provides robust static power calibration mechanisms.
+\item Achieves very close correspondence to ground-truth node power.
+\item Handles churn and multi-stressor workloads more reliably than Kepler.
+\end{itemize}
+
+\subsection*{3.2.\;Weaknesses}
+\begin{itemize}
+\item CPU-only; ignores GPU, FPGA, NVMe, and domain-level energy.
+\item Assumes Kubernetes is the sole workload on a machine.
+\item Depends on the metrics-server pipeline with coarse temporal granularity.
+\item Assumes static power remains constant over long time scales.
+\item No timing alignment or latency correction compared to Tycho's design.
+\end{itemize}
+
+\subsection*{3.3.\;Summary}
+KubeWatt represents a clean, pragmatic rethinking of container-level energy attribution. It addresses many of Kepler's correctness issues through careful separation of static and dynamic power, strict CPU accounting, and explicit calibration. However, its scope is intentionally narrow: it is CPU-only, single-tenant, and limited by the latency of the Kubernetes metrics pipeline. In contrast, Tycho aims for higher accuracy, multi-source integration, timing alignment, and support for accelerated workloads. Nonetheless, several design principles from KubeWatt should directly inform Tycho's implementation.
