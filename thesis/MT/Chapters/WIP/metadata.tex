@@ -1,0 +1,106 @@
+\section{Metadata Subsystem}
+\label{sec:arch_metadata}
+
+Tycho introduces a dedicated metadata subsystem that provides an accurate, temporally aligned view of the node's execution state. 
+It follows the general Tycho design principles introduced in \S~\ref{sec:arch_principles}: separation of concerns, accuracy-first data selection, and consistent correlation via monotonic timestamps. 
+In contrast to \emph{Kepler}, where metadata handling is tightly coupled to the individual metric collectors and suffers from the limitations discussed in \S~\ref{sec:related_kepler_limitations} and \S~\ref{sec:related_kubewatt}, Tycho treats metadata as an independent architectural layer with its own storage and timing model.
+
+\subsection{Scope of Metadata}
+\label{sec:arch_metadata_scope}
+
+The subsystem aggregates all information required for correct and high-fidelity attribution. 
+Rather than collecting only the minimal subset, Tycho records all metadata that materially improves attribution accuracy or interpretability. 
+This includes:
+\begin{itemize}
+  \item Process identity and attributes: PID, command name, cgroup, start time, and container association.
+  \item Container and pod identity: container ID, container name, pod name, namespace, and basic lifecycle state.
+  \item Kubelet-derived status: running, terminating, completed, or evicted pods and containers.
+  \item Optional cAdvisor metadata: CPU, memory, and IO-level container usage counters for cross-validation and filtering.
+\end{itemize}
+Each of these sources contributes a partial view; the metadata subsystem maintains a unified, time-aligned representation by merging them into a shared store.
+
+\subsection{Positioning Within Tycho}
+\label{sec:arch_metadata_positioning}
+
+Metadata collection is fully decoupled from power and utilization sampling. 
+Collectors run on lightweight wall-clock intervals and push updates into a central store, while the analysis layer retrieves all required metadata when performing attribution. 
+This prevents temporal entanglement with high-frequency collectors and avoids the failure modes observed in prior systems where stale container or pod state leaked into energy attribution.
+
+\subsection{Store and Lifetime Management}
+\label{sec:arch_metadata_lifetime}
+
+All updates are written into a central in-memory store that maintains a coherent snapshot of the node’s current state. 
+Each entry is annotated with a monotonic timestamp such that it can be correlated with any analysis window. 
+Entries are retained as long as they have been refreshed within the same horizon used for power and utilization buffers. 
+A periodic garbage-collection pass removes entries older than this horizon, ensuring that completed or deleted processes, containers, or pods do not influence attribution.
+
+This provides deterministic freshness guarantees without maintaining a full history, and allows the analysis layer to operate with precise and self-consistent metadata for any recent interval.
+
+The following subsections describe the individual metadata collectors.
+
+\subsection{Process Metadata Collector}
+\label{sec:metadata_process_collector}
+
+The process metadata collector maintains a short-horizon view of all processes running on the node. Its purpose is to provide the analysis layer with enough contextual information to correlate per-process activity with container and pod identities, while avoiding any direct dependency on power or utilization collectors.
+
+The collector performs a best-effort enumeration of all processes via \code{/proc}. For each PID it records a minimal set of attributes useful for later energy attribution: a stable per-boot identifier (\code{PID}, \code{StartJiffies}), a container mapping, and a human-readable command name. Metadata is timestamped with monotonic and wall-clock time and inserted into the central metadata store, which enforces a sliding time horizon through periodic garbage collection.
+
+\paragraph{Reused functionality from Kepler}
+Tycho reuses Kepler's cgroup resolution logic to map processes to container identifiers. This logic extracts normalized container IDs from cgroup paths and distinguishes pod containers from system processes. Tycho integrates this component without modifying its behaviour.
+
+\paragraph{Tycho-specific additions}
+Tycho introduces a new, self-contained metadata subsystem and defines the process collector as an independent, low-overhead component. In contrast to Kepler, Tycho does not combine process enumeration with resource accounting. The collector records a stable process start token (\code{StartJiffies}), used only to disambiguate PID reuse, and stores all metadata in a dedicated in-memory store shared across all metadata collectors. No attribution logic is implemented at this stage.
+
+The process collector intentionally keeps its scope minimal. Higher-level enrichment such as pod metadata, QoS class or container state is delegated to the kubelet and cgroup-based container collectors described in \S~\ref{sec:metadata_kubelet_collector} XXXXXXXXXXXXXXXXXxx AND MAYBE OTHER SECTIONS.
+
+\subsubsection{Collected Metrics}
+
+The following table \ref{tab:process-metadata-collector-metrics} shows the collected metrics.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{p{3cm} p{3.4cm} p{6.2cm}}
+\toprule
+\textbf{Field} & \textbf{Source} & \textbf{Description} \
+\midrule
+\multicolumn{3}{l}{\textit{Process identity}} \\[2pt]
+PID & \code{/proc} & Numeric process identifier; unique at any moment but reused over time. \
+StartJiffies & \code{/proc/<pid>/stat} & Kernel start time of the process in clock ticks (jiffies), used to detect PID reuse. \\[4pt]
+\multicolumn{3}{l}{\textit{Container and system classification}} \\[2pt]
+Container ID & Kepler cgroup resolver & Normalized container identifier for pod processes; \code{system\_processes} for host and kernel processes. \\
+Command & \code{/proc/<pid>/comm} & Short command name for debugging and manual inspection. \\[4pt]
+
+\multicolumn{3}{l}{\textit{Timestamps}} \\[2pt]
+LastSeenMono & Tycho monotonic timebase & Monotonic timestamp aligned with power and utilization samples. \\
+LastSeenWall & Controller timestamp & Wall-clock timestamp for garbage-collection and debugging. \\
+\bottomrule
+\end{tabular}
+\caption{Process metadata collected by the Tycho process metadata collector}
+\label{tab:process-metadata-collector-metrics}
+\end{table}
+
+\subsection*{Kubelet Collector}
+\label{sec:arch_metadata_kubelet}
+\textit{See detailed description in this subsection.}
+
+\subsection*{cAdvisor Collector}
+\label{sec:arch_metadata_cadvisor}
+\textit{See detailed description in this subsection.}
+
+\subsection*{Metadata Store}
+\label{sec:arch_metadata_store}
+\textit{See detailed description in this subsection.}
+
+\subsection*{Garbage Collection}
+\label{sec:arch_metadata_gc}
+\textit{See detailed description in this subsection.}
+
+
+
+
+
+
+
+
+
+
