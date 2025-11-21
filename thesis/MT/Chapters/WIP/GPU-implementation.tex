@@ -562,25 +562,25 @@ the metrics collected at both levels.
 \toprule
 \textbf{Metric} & \textbf{Unit} & \textbf{Description} \\
 \midrule
-\multicolumn{3}{l}{\textit{Utilisation metrics}} \\[2pt]
+\multicolumn{3}{l}{\textit{Utilisation metrics}} \\[4pt]
 \code{SMUtilPct}      & \%   & Streaming multiprocessor (SM) utilisation. \\
 \code{MemUtilPct}     & \%   & Memory controller utilisation. \\
 \code{EncUtilPct}     & \%   & Hardware video encoder utilisation. \\
 \code{DecUtilPct}     & \%   & Hardware video decoder utilisation. \\[4pt]
 
-\multicolumn{3}{l}{\textit{Energy and thermal metrics}} \\[2pt]
+\multicolumn{3}{l}{\textit{Energy and thermal metrics}} \\[4pt]
 \code{PowerMilliW}        & mW & Instantaneous power via NVML/DCGM (1s average). \\
 \code{InstantPowerMilliW} & mW & High-frequency instantaneous power from NVIDIA field APIs. \\
 \code{CumEnergyMilliJ}    & mJ & Cumulative energy counter (preferred freshness signal). \\
 \code{TempC}              & °C & GPU temperature. \\[4pt]
 
-\multicolumn{3}{l}{\textit{Memory and frequency metrics}} \\[2pt]
+\multicolumn{3}{l}{\textit{Memory and frequency metrics}} \\[4pt]
 \code{MemUsedBytes}   & bytes & Allocated framebuffer memory. \\
 \code{MemTotalBytes}  & bytes & Total framebuffer memory. \\
 \code{SMClockMHz}     & MHz   & SM clock frequency. \\
 \code{MemClockMHz}    & MHz   & Memory clock frequency. \\[4pt]
 
-\multicolumn{3}{l}{\textit{Topology and metadata}} \\[2pt]
+\multicolumn{3}{l}{\textit{Topology and metadata}} \\[4pt]
 \code{DeviceIndex}    & --    & Numeric device identifier. \\
 \code{UUID}           & --    & Stable device UUID. \\
 \code{PCIBusID}       & --    & PCI bus identifier. \\
@@ -610,7 +610,7 @@ the metrics collected at both levels.
 \code{GpuUUID}          & --   & Corresponding device UUID. \\
 \code{TimeStampUS}      & µs   & Backend timestamp associated with the utilisation record. \\[4pt]
 
-\multicolumn{3}{l}{\textit{MIG metadata (when applicable)}} \\[2pt]
+\multicolumn{3}{l}{\textit{MIG metadata (when applicable)}} \\[4pt]
 \code{GpuInstanceID}     & --  & MIG GPU instance identifier. \\
 \code{ComputeInstanceID} & --  & MIG compute-instance identifier. \\
 \bottomrule

@@ -83,13 +83,13 @@ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 \toprule
 \textbf{Variable} & \textbf{Default} & \textbf{Description} \\
 \midrule
-\multicolumn{3}{l}{\textit{Collector enable flags}} \\[2pt]
+\multicolumn{3}{l}{\textit{Collector enable flags}} \\[4pt]
 \code{TYCHO\_COLLECTOR\_ENABLE\_BPF} & \code{true} & Enables eBPF-based process metric collection. \\
 \code{TYCHO\_COLLECTOR\_ENABLE\_RAPL} & \code{true} & Enables RAPL energy counter collection. \\
 \code{TYCHO\_COLLECTOR\_ENABLE\_GPU} & \code{true} & Enables GPU power telemetry collection. \\
 \code{TYCHO\_COLLECTOR\_ENABLE\_REDFISH} & \code{true} & Enables Redfish-based BMC power collection. \\[4pt]
 
-\multicolumn{3}{l}{\textit{Timing and delays}} \\[2pt]
+\multicolumn{3}{l}{\textit{Timing and delays}} \\[4pt]
 \code{TYCHO\_TIMEBASE\_QUANTUM\_MS} & \code{1} & Base system quantum (ms) defining the global monotonic time grid. \\
 \code{TYCHO\_RAPL\_POLL\_MS} & \code{50} & RAPL polling interval (ms). \\
 \code{TYCHO\_GPU\_POLL\_MS} & \code{200} & GPU telemetry polling interval (ms). \\
@@ -99,7 +99,7 @@ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 \code{TYCHO\_REDFISH\_DELAY\_MS} & \code{0} & Expected delay between workload change and Redfish visibility (ms). \\
 \code{TYCHO\_REDFISH\_HEARTBEAT\_MAX\_GAP\_MS} & \code{3000} & Maximum tolerated gap between consecutive Redfish samples (ms). \\[4pt]
 
-\multicolumn{3}{l}{\textit{Autotuning controls}} \\[2pt]
+\multicolumn{3}{l}{\textit{Autotuning controls}} \\[4pt]
 \code{TYCHO\_RAPL\_POLL\_AUTOTUNE} & \code{true} & Enables automatic calibration of RAPL polling interval. \\
 \code{TYCHO\_RAPL\_DELAY\_AUTOTUNE} & \code{true} & Enables automatic calibration of RAPL delay. \\
 \code{TYCHO\_GPU\_POLL\_AUTOTUNE} & \code{true} & Enables automatic calibration of GPU polling interval. \\
@@ -107,7 +107,7 @@ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 \code{TYCHO\_REDFISH\_POLL\_AUTOTUNE} & \code{true} & Enables automatic calibration of Redfish polling interval. \\
 \code{TYCHO\_REDFISH\_DELAY\_AUTOTUNE} & \code{true} & Enables automatic calibration of Redfish delay. \\[4pt]
 
-\multicolumn{3}{l}{\textit{Analysis parameters}} \\[2pt]
+\multicolumn{3}{l}{\textit{Analysis parameters}} \\[4pt]
 \code{TYCHO\_ANALYSIS\_TRIGGER} & \code{"timer"} & Defines analysis trigger: \code{redfish} or \code{timer}. \\
 \code{TYCHO\_ANALYSIS\_EVERY\_SEC} & \code{15} & Interval for timer-based analysis (s). \\
 \code{TYCHO\_ANALYSIS\_DETECT\_LONGEST\_DELAY} & \code{false} & Enables detection of the longest observed metric delay. \\

@@ -95,18 +95,18 @@ Table~\ref{tab:redfish-metrics} lists the collected fields.
 \toprule
 \textbf{Metric} & \textbf{Unit} & \textbf{Description} \\
 \midrule
-\multicolumn{3}{l}{\textit{Primary power metrics}} \\[2pt]
+\multicolumn{3}{l}{\textit{Primary power metrics}} \\[4pt]
 \code{PowerWatts} & W & Instantaneous chassis power draw reported by the BMC via \code{/redfish/v1/Chassis/*/Power}. \\
 \code{EnergyMilliJ} & mJ & Integrated node energy derived from consecutive power samples (computed downstream). \\[4pt]
 
-\multicolumn{3}{l}{\textit{Temporal and identity metadata}} \\[2pt]
+\multicolumn{3}{l}{\textit{Temporal and identity metadata}} \\[4pt]
 \code{ChassisID} & - & Identifier of the chassis or enclosure corresponding to the Redfish endpoint. \\
 \code{Seq} & - & Incremental counter marking each new reading as determined by header or value changes. \\
 \code{SourceTime} & s & Original BMC timestamp parsed from the HTTP \code{Date} header, if available. \\
 \code{CollectorTime} & s & Local collection time according to Tycho’s monotonic clock. \\
 \code{FreshnessMs} & ms & Time difference between \code{SourceTime} and \code{CollectorTime}, indicating sample latency. \\[4pt]
 
-\multicolumn{3}{l}{\textit{Operational context}} \\[2pt]
+\multicolumn{3}{l}{\textit{Operational context}} \\[4pt]
 \code{Heartbeat} & flag & Marks a repeated emission when no new BMC data were available within the configured heartbeat interval. \\
 \code{PollMode} & enum & Indicates whether fixed or auto polling mode was active during sampling. \\
 \bottomrule

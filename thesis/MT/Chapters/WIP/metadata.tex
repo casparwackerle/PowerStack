@@ -26,17 +26,16 @@ Metadata collection is fully decoupled from power and utilization sampling.
 Collectors run on lightweight wall-clock intervals and push updates into a central store, while the analysis layer retrieves all required metadata when performing attribution. 
 This prevents temporal entanglement with high-frequency collectors and avoids the failure modes observed in prior systems where stale container or pod state leaked into energy attribution.
 
-\subsection{Store and Lifetime Management}
-\label{sec:arch_metadata_lifetime}
+\subsection{Metadata Store and Lifetime Management}
+\label{sec:arch_metadata_store_gc}
 
-All updates are written into a central in-memory store that maintains a coherent snapshot of the node’s current state. 
-Each entry is annotated with a monotonic timestamp such that it can be correlated with any analysis window. 
-Entries are retained as long as they have been refreshed within the same horizon used for power and utilization buffers. 
-A periodic garbage-collection pass removes entries older than this horizon, ensuring that completed or deleted processes, containers, or pods do not influence attribution.
+All metadata produced by Tycho’s collectors is written into a shared in-memory store that represents the node’s recent execution context. The store maintains three independent maps for processes, containers, and pods, each keyed by a stable identifier. Every entry is annotated with two timestamps: a monotonic timestamp for correlation with power and utilization samples, and a wall-clock timestamp used for enforcing the same horizon that governs Tycho’s power and utilization buffers.
 
-This provides deterministic freshness guarantees without maintaining a full history, and allows the analysis layer to operate with precise and self-consistent metadata for any recent interval.
+The store maintains no long-term history. Instead, it retains a short rolling window of entries whose timestamps fall within the same horizon used by Tycho’s power and utilization buffers; the metadata retention period is therefore exactly the configured \texttt{maxAge}. Within this window, the analysis layer can reconstruct a coherent, time-aligned view of processes, containers, and pods for any attribution interval. Collectors only insert or update metadata; they never delete entries directly.
 
-The following subsections describe the individual metadata collectors.
+Removal is delegated entirely to a horizon-based garbage collector. During each garbage-collection pass, the store removes entries whose wall-clock timestamp is older than the configured horizon. This ensures that terminated or deleted entities remain visible long enough for overlapping attribution windows to resolve correctly, while preventing stale metadata from influencing later analysis. When collectors stop producing updates, the store drains itself naturally after the horizon expires. The result is deterministic freshness guarantees, bounded memory usage, and a simple, robust metadata lifecycle.
+
+The following subsections describe the individual metadata collectors that populate this store.
 
 \subsection{Process Metadata Collector}
 \label{sec:metadata_process_collector}
@@ -51,56 +50,128 @@ Tycho reuses Kepler's cgroup resolution logic to map processes to container iden
 \paragraph{Tycho-specific additions}
 Tycho introduces a new, self-contained metadata subsystem and defines the process collector as an independent, low-overhead component. In contrast to Kepler, Tycho does not combine process enumeration with resource accounting. The collector records a stable process start token (\code{StartJiffies}), used only to disambiguate PID reuse, and stores all metadata in a dedicated in-memory store shared across all metadata collectors. No attribution logic is implemented at this stage.
 
-The process collector intentionally keeps its scope minimal. Higher-level enrichment such as pod metadata, QoS class or container state is delegated to the kubelet and cgroup-based container collectors described in \S~\ref{sec:metadata_kubelet_collector} XXXXXXXXXXXXXXXXXxx AND MAYBE OTHER SECTIONS.
+The process collector intentionally keeps its scope minimal. Higher-level enrichment such as pod metadata, QoS class or container state is delegated to the kubelet and cgroup-based container collectors described in \S~\ref{sec:metadata_kubelet_collector}.
 
 \subsubsection{Collected Metrics}
 
 The following table \ref{tab:process-metadata-collector-metrics} shows the collected metrics.
 
-\begin{table}[h]
+\begin{table}[H]
 \centering
-\begin{tabular}{p{3cm} p{3.4cm} p{6.2cm}}
+\small
+\begin{tabular}{p{3cm} p{3.4cm} p{6.6cm}}
 \toprule
-\textbf{Field} & \textbf{Source} & \textbf{Description} \
+\textbf{Field} & \textbf{Source} & \textbf{Description} \\
 \midrule
-\multicolumn{3}{l}{\textit{Process identity}} \\[2pt]
-PID & \code{/proc} & Numeric process identifier; unique at any moment but reused over time. \
+\multicolumn{3}{l}{\textit{Process identity}} \\[4pt]
+PID & \code{/proc} & Numeric process identifier; unique at any moment but reused over time. \\
 StartJiffies & \code{/proc/<pid>/stat} & Kernel start time of the process in clock ticks (jiffies), used to detect PID reuse. \\[4pt]
-\multicolumn{3}{l}{\textit{Container and system classification}} \\[2pt]
-Container ID & Kepler cgroup resolver & Normalized container identifier for pod processes; \code{system\_processes} for host and kernel processes. \\
+\multicolumn{3}{l}{\textit{Container and system classification}} \\[4pt]
+Container ID & Kepler cgroup\newline resolver & Normalized container identifier for pod processes; \code{system\_processes} for host and kernel processes. \\
 Command & \code{/proc/<pid>/comm} & Short command name for debugging and manual inspection. \\[4pt]
 
-\multicolumn{3}{l}{\textit{Timestamps}} \\[2pt]
-LastSeenMono & Tycho monotonic timebase & Monotonic timestamp aligned with power and utilization samples. \\
-LastSeenWall & Controller timestamp & Wall-clock timestamp for garbage-collection and debugging. \\
+\multicolumn{3}{l}{\textit{Timestamps}} \\[4pt]
+LastSeenMono & Monotonic timebase & Timestamp aligned with metric collectors. \\
+LastSeenWall & Controller timestamp & Wall-clock timestamp for GC. \\
 \bottomrule
 \end{tabular}
-\caption{Process metadata collected by the Tycho process metadata collector}
+\caption{Process metadata collected by the process collector}
 \label{tab:process-metadata-collector-metrics}
 \end{table}
 
-\subsection*{Kubelet Collector}
-\label{sec:arch_metadata_kubelet}
-\textit{See detailed description in this subsection.}
+\subsection{Kubelet Metadata Collector}
+\label{sec:metadata_kubelet_collector}
 
-\subsection*{cAdvisor Collector}
-\label{sec:arch_metadata_cadvisor}
-\textit{See detailed description in this subsection.}
+The kubelet metadata collector provides Tycho with an authoritative, scheduler-consistent view of all pods and containers currently known to the node.
+It complements the process collector by supplying the semantic information required for correct attribution: pod identity, lifecycle state, container status, and resource specifications.
+Unlike the process collector, which observes execution from the operating system perspective, the kubelet collector captures the Kubernetes control-plane perspective.
 
-\subsection*{Metadata Store}
-\label{sec:arch_metadata_store}
-\textit{See detailed description in this subsection.}
+The collector periodically retrieves the full pod list from the kubelet’s \code{/pods} endpoint and extracts only metadata that cannot be reconstructed later.
+All entries are timestamped with Tycho’s monotonic timebase and inserted into the shared metadata store, where they remain available for attribution until removed by horizon-based garbage collection.
 
-\subsection*{Garbage Collection}
-\label{sec:arch_metadata_gc}
-\textit{See detailed description in this subsection.}
+\paragraph{Reused functionality from Kepler}
+Tycho reuses Kepler's container-ID normalization logic to extract runtime container identifiers from kubelet status fields.
+The use of the kubelet’s PodStatus API as the ground truth for container lifecycle state is also conceptually inherited from Kepler, but Tycho decouples it from resource accounting and avoids Kepler’s tightly coupled watcher design.
 
+\paragraph{Tycho-specific additions}
+Tycho substantially extends the kubelet collector relative to Kepler:
 
+\begin{itemize}
+\item Pod-level and container-level metadata are stored in a dedicated subsystem with monotonic timestamps, ensuring temporal alignment with power and utilization sampling.
+\item Resource requests and limits from \code{pod.spec} are recorded for both containers and aggregated pods, preserving information that disappears once pods terminate.
+\item Controller owner references (e.g.\ ReplicaSet, DaemonSet) are captured to support later grouping and attribution without encoding any classification logic in the collector.
+\item Ephemeral and init containers are fully supported, and termination state and exit codes are recorded to prevent attribution to completed workloads. Terminated containers remain in the store until the horizon expires, ensuring correct attribution for analysis windows that overlap their termination.
+\end{itemize}
 
+No scheduling decisions, classification, or attribution logic is executed at collection time; all interpretation is deferred to the analysis layer.
 
+\subsubsection{Collected Metrics}
 
+The kubelet collector records per-pod and per-container metadata as shown in Tables~\ref{tab:kubelet-metadata-pod} and~\ref{tab:kubelet-metadata-container}.
+Only fields that cannot be reliably reconstructed later are persisted.
 
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{p{2.6cm} p{3.8cm} p{6.6cm}}
+\toprule
+\textbf{Field} & \textbf{Source} & \textbf{Description} \\
+\midrule
+\multicolumn{3}{l}{\textit{Pod identity}} \\[4pt]
+PodUID & Kubelet PodList & Stable pod identifier for correlation\newline and container grouping. \\
+PodName,\newline Namespace & Kubelet PodList & Human-readable pod identity\newline and namespace. \\[4pt]
 
+\multicolumn{3}{l}{\textit{Lifecycle and scheduling context}} \\[4pt]
+Phase & PodStatus & Coarse pod state\newline (Pending, Running, Succeeded, Failed). \\
+QoSClass & PodStatus & Kubernetes QoS classification\newline (Guaranteed, Burstable, BestEffort). \\
+OwnerKind /\newline OwnerName & Pod metadata & Controller reference\newline (e.g.\ ReplicaSet, DaemonSet). \\[4pt]
 
+\multicolumn{3}{l}{\textit{Resource specifications}} \\[4pt]
+Requests\newline (CPU, Memory) & \code{pod.spec.containers} & Aggregate pod-level requests following Kubernetes scheduling semantics. \\
+Limits\newline (CPU, Memory) & \code{pod.spec.containers} & Aggregate pod-level limits following\newline Kubernetes scheduling semantics. \\[4pt]
 
+\multicolumn{3}{l}{\textit{Timestamps}} \\[4pt]
+LastSeenMono & Monotonic timebase & Timestamp aligned with metric collectors. \\
+LastSeenWall & Controller timestamp & Wall-clock timestamp for GC.\\
+\bottomrule
+\end{tabular}
+\caption{Pod metadata collected by the kubelet collector}
+\label{tab:kubelet-metadata-pod}
+\end{table}
 
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{p{2.6cm} p{3.8cm} p{6.6cm}}
+\toprule
+\textbf{Field} & \textbf{Source} & \textbf{Description} \\
+\midrule
+\multicolumn{3}{l}{\textit{Container identity}} \\[4pt]
+ContainerID & PodStatus & Normalized container identifier. \\
+ContainerName & PodStatus & Declared container name within pod. \\[4pt]
+
+\multicolumn{3}{l}{\textit{Lifecycle state}} \\[4pt]
+State & ContainerStatus & Fine-grained state\newline (Running, Waiting, Terminated). \\
+ExitCode & ContainerStatus & Termination exit code when available. \\[4pt]
+
+\multicolumn{3}{l}{\textit{Resource specifications}} \\[4pt]
+Requests\newline (CPU, Memory) & \code{pod.spec.containers} & Container-level resource requests;\newline preserved for terminated containers. \\
+Limits\newline (CPU, Memory) & \code{pod.spec.containers} & Container-level resource limits. \\[4pt]
+
+\multicolumn{3}{l}{\textit{Timestamps}} \\[4pt]
+LastSeenMono & Monotonic timebase & Timestamp aligned with metric collectors. \\
+LastSeenWall & Controller timestamp & Wall-clock timestamp for GC. \\
+\bottomrule
+\end{tabular}
+\caption{Container metadata collected by the kubelet collector}
+\label{tab:kubelet-metadata-container}
+\end{table}
+
+\subsection{Why Tycho Does Not Require cAdvisor for Container Enumeration}
+\label{sec:metadata_no_cadvisor}
+
+KubeWatt integrates \emph{cAdvisor} to correct several metadata inconsistencies observed in Kepler, in particular the presence of slice-level cgroups and terminated containers that continued to appear in resource usage reports. In KubeWatt’s design, cAdvisor serves primarily as a \emph{filter}: it exposes only real, runtime-managed containers and thereby removes artefacts such as \texttt{kubepods.slice} or QoS slices that would otherwise distort CPU attribution \parencite{pijnackerContainerlevelEnergyObservability2025}.
+
+Tycho does not require this mechanism. The root causes that motivated the use of cAdvisor in KubeWatt are addressed structurally by Tycho’s metadata subsystem: container and pod identity are obtained exclusively from the kubelet, process–container association is resolved using a stable cgroup parser, and all metadata is managed within a unified, timestamped store with deterministic garbage collection. As a result, Tycho never encounters the slice-level or terminated-container artefacts that cAdvisor was used to filter out.
+
+This does not preclude using cAdvisor as an optional enrichment source for slowly changing contextual metrics (for example throttling counters or memory usage), but its role as a correctness or filtering layer is superseded by Tycho’s dedicated metadata architecture.
