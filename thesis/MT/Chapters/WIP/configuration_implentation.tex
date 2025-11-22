@@ -117,3 +117,13 @@ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 \label{tab:tycho_config_parameters}
 \end{table}
 
+In summary, Tycho’s configuration layer provides a single, immutable snapshot of
+all timing, polling, and analysis parameters.  
+It is loaded once at startup, validated, normalized to a shared timebase, and
+propagated to all collectors and analysis modules.  
+The design prioritizes reproducibility and correctness: no live reconfiguration
+is supported, and all behaviour is derived from explicit user input or well-defined
+defaults.  
+This central configuration snapshot ensures that the timing engine, collectors,
+and buffering subsystem operate in a coherent, predictable manner throughout the
+entire runtime.

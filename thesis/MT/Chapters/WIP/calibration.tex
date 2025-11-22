@@ -1,4 +1,45 @@
-\subsection{Polling frequency Calibration}
+\section{Calibration}
+\label{sec:calibration}
+
+Calibration in Tycho serves two distinct purposes: determining suitable
+polling intervals for hardware interfaces with irregular publish behaviour, and
+quantifying the delay between workload onset and observable changes in a given
+metric.  
+Calibration is applied only where hardware characteristics exhibit variability
+that materially affects temporal alignment or accuracy.  
+Where metric sources are stable, low-latency, or analytically understood, Tycho
+uses fixed, justified settings instead of dynamic calibration.
+
+In practice, Tycho performs calibration for a small subset of collectors:
+
+\begin{itemize}
+\item \textbf{Polling-frequency calibration}  
+      is required only for GPU and Redfish power metrics, whose publish cadence
+      is hardware-controlled and irregular.  
+      eBPF metrics are event-driven and do not require calibration, and RAPL
+      counters update at sub-millisecond granularity with well-characterised
+      behaviour, making calibration unnecessary.
+
+\item \textbf{Delay calibration}  
+      is performed exclusively for GPU power metrics, where internal averaging
+      and buffered updates introduce measurable reaction latency.  
+      RAPL and eBPF have negligible or analytically bounded delay at Tycho’s
+      sampling scale, and Redfish delay is too irregular and too coarse for
+      meaningful calibration.
+\end{itemize}
+
+All remaining collectors operate with fixed, analysis-driven parameters.  
+The following subsections describe Tycho’s calibration strategy and procedures in
+detail.
+
+\subsection{Polling-frequency Calibration}
+
+Polling-frequency calibration identifies a suitable sampling interval for sources whose
+publish cadence is neither fixed nor documented.  
+For some collectors (e.g.\ RAPL, eBPF), the hardware already provides reliable or
+sufficiently fast update behaviour, making calibration unnecessary.  
+For others (GPU, Redfish), Tycho uses brief hyperpolling phases to infer the effective
+update rhythm before normal collection begins.
 
 \subsubsection{eBPF Polling frequency calibration}
 Tycho does not perform a dedicated polling-frequency calibration for eBPF-based utilization metrics. eBPF events can be sampled at arbitrarily high rates, and their timing does not depend on hardware update intervals. Instead, Tycho aligns eBPF sampling with the RAPL polling frequency to maintain temporal consistency across collectors. Allowing shorter eBPF intervals would provide limited additional benefit while increasing processing overhead, so eBPF adopts the same lower bound as the CPU energy path and does not require separate calibration.
@@ -22,7 +63,6 @@ Based on this estimate, Tycho selects an operational polling period:
 \item With continuous heartbeat enabled, Tycho selects a smaller polling interval (alf the median), allowing the collector to detect new samples promptly and maintain accurate freshness tracking despite Redfish’s inherent timing jitter.
 \end{itemize}
 This yields a coarse but sufficient estimate of the underlying BMC cadence while relying on the adaptive heartbeat mechanism during normal operation to maintain temporal coherence across all chassis.
-
 
 \subsection{Delay Calibration}
 Delay calibration determines the time interval between the start of a workload and the first measurable reaction in the corresponding hardware metric. Because Tycho itself does not execute workloads on the host and does not have direct access to specialised hardware resources, delay calibration must be performed by external scripts that run on the bare-metal node. Each calibration attempt begins with an idle period until the metric reaches a stationary state, followed by a controlled workload with a known start time. The delay is the earliest sample that exceeds the idle baseline by a detectable margin. Since many hardware metrics apply internal averaging or have irregular publish cycles, a single run is not sufficient. Multiple runs are required to obtain a stable distribution. Tycho uses either the minimum or the fifth percentile of observed delays. The minimum reflects the earliest possible reaction. The fifth percentile can be used when the minimum appears to be an outlier.
