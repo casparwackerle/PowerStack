@@ -44,7 +44,7 @@ This work introduces two contributions that address these challenges:
   event-driven process.
 
   \item \textbf{A unified integration of GPU telemetry} into Tycho’s global
-  timebase, producing exactly one \code{GpuTick} per confirmed hardware update,
+  timebase, producing at most one \code{GpuTick} per confirmed hardware update,
   with timestamps that are directly comparable to all other energy domains.
 \end{itemize}
 
@@ -92,10 +92,8 @@ Above this backend, the collector exposes two measurement paths:
 
 Both paths feed into a shared sampling layer governed by Tycho’s timing engine.  
 The device path is triggered by a \emph{phase-aware scheduler} that aligns its
-polling activity with the driver’s implicit publish cadence.  
-The process path is invoked only when a device update is detected, ensuring
-temporal alignment between instantaneous device measurements and aggregated
-process data.
+polling activity with the driver’s implicit publish cadence. The process path is invoked in lockstep with the device polling loop. 
+Process windows advance with each successful query, but only samples associated with confirmed device updates are propagated into \code{GpuTick} events, which keeps the exported timeline aligned with the device publishes.
 
 The final integration step mirrors all other Tycho subsystems:  
 each confirmed hardware update is converted into a \code{GpuTick} structure
@@ -149,7 +147,7 @@ Only when a new publish is detected does the sampler emit an event.
 
 The resulting behaviour is simple but powerful:
 \begin{quote}
-\emph{Each hardware update produces exactly one \code{GpuTick}, and no tick is
+\emph{Each hardware update produces at most one \code{GpuTick}, and no tick is
 emitted unless the device has genuinely updated.}
 \end{quote}
 This one-to-one correspondence is critical for integrating GPU measurements into
@@ -242,7 +240,7 @@ solely from observed updates and to align sampling with the device’s true upda
 edges.  
 By combining smooth period estimation, adaptive phase correction, and narrow
 burst windows around predicted publishes, the sampler detects new hardware
-updates with low latency and emits exactly one \code{GpuTick} per publish.
+updates with low latency and emits st most one \code{GpuTick} per publish.
 
 Figure~\ref{fig:gpu_phaseaware_timeline} visualises the behaviour of the
 phase-aware sampling model introduced above.  
@@ -435,7 +433,7 @@ timeline faithfully reflects the hardware’s publish cadence.
 The event lifecycle ensures that GPU telemetry is sampled only when meaningful,
 timestamped consistently with Tycho’s timebase, and integrated without blocking
 or duplication.  
-Each hardware update generates exactly one \code{GpuTick}, providing a precise,
+Each hardware update generates at most one \code{GpuTick}, providing a precise,
 causally ordered input to Tycho’s cross-domain energy attribution pipeline.
 
 \subsection{Per-Process Telemetry Window}
@@ -540,7 +538,8 @@ frequencies, along with backend-specific fields such as instantaneous power
 samples or cumulative energy counters.  
 Cumulative energy, when available, is used as the authoritative indicator of
 publish boundaries and therefore plays a central role in the timing model and
-freshness detection. Due to a tendency of NVIDIA GPUs to still produce (invalid) values when queried for cumulative energy, the actual availability of correct cumulative energy-metrics is verified during the initial calibration.
+freshness detection. Due to a tendency of NVIDIA GPUs to still produce (invalid) values when queried for cumulative energy, the actual availability of correct cumulative energy-metrics is verified during the initial calibration. The collector uses a per-device validity mask derived from this calibration when performing freshness detection: cumulative energy is treated as authoritative only for devices whose counters are verified as monotonic, and other devices fall back to a power-delta threshold.
+
 
 \paragraph{Process-Level Metrics.}
 Process-level metrics describe the aggregated utilisation of individual

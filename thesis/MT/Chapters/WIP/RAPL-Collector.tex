@@ -1,0 +1,77 @@
+\section{RAPL Collector Integration}
+\label{sec:rapl_collector}
+
+\subsection{Scope and Baseline}
+\label{subsec:rapl_scope}
+
+RAPL-based telemetry provides CPU energy readings at the level of logical power domains such as package, cores, uncore, and DRAM.  
+Tycho reuses Kepler's existing RAPL implementation almost unchanged: discovery, scaling, and raw counter reads are still provided by the shared \code{components} package (via the \code{power}-interface), which wraps the kernel's \code{powercap} interface and related mechanisms.  
+This collector therefore does not introduce a new hardware access path but instead focuses on integrating the existing RAPL metrics into Tycho's timing and buffering model.
+
+\subsection{Architecture and Data Flow}
+\label{subsec:rapl_architecture}
+
+The collector is deliberately simple and stateless.  
+On each engine tick, the \code{Collect} function:
+
+\begin{enumerate}
+  \item Verifies that system-wide RAPL collection is supported via\newline \code{components.IsSystemCollectionSupported()}.
+  \item Obtains a snapshot of cumulative energy counters for all sockets and domains through \code{components.GetAbsEnergyFromNodeComponents()}.
+  \item Translates the per-socket results into a \code{RaplTick} structure containing:
+  \begin{itemize}
+    \item a monotonic timestamp derived from \code{clock.Mono}, and
+    \item a map from socket identifier to domain counters.
+  \end{itemize}
+  \item Pushes exactly one immutable \code{RaplTick} into the shared ring buffer.
+\end{enumerate}
+
+The tick stores raw, monotonically increasing counters in millijoules rather than precomputed deltas.  
+Downstream analysis components compute inter-tick differences, perform wraparound handling, and align RAPL energy with CPU activity and platform-level power traces.  
+This separation keeps the collector minimal while allowing the analysis layer to apply a consistent attribution strategy across all energy domains.
+
+\subsection{Collected Metrics}
+\label{subsec:rapl_metrics}
+
+Table~\ref{tab:rapl-metrics} summarises the metrics stored in each \code{RaplTick}.\\  
+All counters are subject to platform availability.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{p{3.5cm} p{0.9cm} p{8.6cm}}
+\toprule
+\textbf{Metric} & \textbf{Unit} & \textbf{Description} \\
+\midrule
+\multicolumn{3}{l}{\textit{Per-socket energy counters}} \\[4pt]
+\code{Pkg}    & mJ & Cumulative package energy per socket\newline(RAPL \code{PKG} domain). \\
+\code{Core}   & mJ & Cumulative core energy per socket\newline (RAPL \code{PP0} domain), when available. \\
+\code{Uncore} & mJ & Cumulative uncore energy per socket\newline (RAPL \code{PP1} or uncore domain), when available. \\
+\code{DRAM}   & mJ & Cumulative DRAM energy per socket\newline (RAPL \code{DRAM} domain), if the platform exposes it. \\[6pt]
+
+\multicolumn{3}{l}{\textit{Metadata}} \\[4pt]
+\code{Source}    & -- & Identifier of the active RAPL backend (for example \code{powercap})\\
+\code{Sockets}   & -- & Map from socket identifier to the corresponding set of domain counters. \\
+\code{SampleMeta.Mono} & -- & Monotonic timestamp assigned by Tycho's timing engine at the moment of collection. \\
+\bottomrule
+\end{tabular}
+\caption{Metrics exported by the RAPL collector per \code{RaplTick}.}
+\label{tab:rapl-metrics}
+\end{table}
+
+These metrics provide a compact, hardware-backed view of CPU and memory-subsystem energy at socket granularity.  
+Combined with the timing guarantees of Tycho's engine and ring buffer, they form the CPU-related energy baseline against which per-process activity and platform-level power are later correlated.
+
+\subsection{Limitations and Reuse}
+\label{subsec:rapl_limitations}
+
+Because RAPL domain availability is hardware dependent, not all fields in
+Table~\ref{tab:rapl-metrics} are present on every platform.  
+Some systems expose only package-level counters, while others additionally
+provide core, uncore, or DRAM domains.  
+The collector reports only what the hardware exposes and does not attempt to
+approximate or reconstruct missing values.
+
+Beyond this domain variability, no further limitations apply.  
+The collector is intentionally minimal and serves as a timing-aware wrapper
+around the raw counters, providing reliable cumulative energy readings without
+adding intermediate modelling or transformation.
