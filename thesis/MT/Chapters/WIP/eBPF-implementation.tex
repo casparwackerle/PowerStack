@@ -93,9 +93,9 @@ Table~\ref{tab:ebpf-collector-metrics} summarizes all metrics grouped by categor
     \midrule
     \multicolumn{3}{l}{\textit{Time-based metrics}} \\[4pt]
     Process runtime & \code{tp\_btf/sched\_switch} & Per process. Elapsed on-CPU time accumulated at context switches. \\
-    Idle time & Derived from \code{sched\_switch} & Per CPU. Time with no runnable task (PID 0). \\
-    IRQ time & \code{irq\_handler\_{\{entry,exit\}}} & Per CPU. Duration spent in hardware interrupt handlers. \\
-    SoftIRQ time & \code{softirq\_{\{entry,exit\}}} & Per CPU. Duration spent in deferred kernel work. \\[4pt]
+    Idle time & Derived from \code{sched\_switch} & Per node. Aggregated idle time across CPUs. \\
+    IRQ time & \code{irq\_handler\_{\{entry,exit\}}} & Per node. Aggregated duration spent in hardware interrupt handlers. \\
+    SoftIRQ time & \code{softirq\_{\{entry,exit\}}} & Per node. Aggregated duration spent in deferred kernel work. \\[4pt]
     
     \multicolumn{3}{l}{\textit{Hardware-based metrics}} \\[4pt]
     CPU cycles & PMU (\code{perf\_event\_array}) & Per process. Retired CPU cycle count during task execution. \\
@@ -106,7 +106,7 @@ Table~\ref{tab:ebpf-collector-metrics} summarizes all metrics grouped by categor
     Cgroup ID & \code{sched\_switch} & Per process. Control group identifier for container attribution. \\
     Kernel thread flag & \code{sched\_switch} & Per process. Marks kernel threads executing in system context. \\
     Page cache hits & \code{mark\_page\_accessed} & Per process. Read or write access to cached pages; proxy for I/O activity. \\
-    IRQ vectors & \code{softirq\_entry} & Per CPU. Frequency of specific soft interrupt vectors. \\
+    IRQ vectors & \code{softirq\_entry} & Per process. Frequency of specific soft interrupt vectors. \\
     \bottomrule
     \end{tabular}
     \caption{Metrics collected by the kernel \code{eBPF} subsystem.}
