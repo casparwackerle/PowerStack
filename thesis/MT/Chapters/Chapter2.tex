@@ -1,278 +1,309 @@
 \chapter{Background and Related Research}
 \label{ch:background}
 
-% This chapter surveys existing research on power and energy measurement
-% in modern server systems, summarizes key telemetry sources, reviews
-% container-level attribution tools (with emphasis on Kepler and Kubewatt),
-% and synthesizes research gaps that motivate the development of a new system.
-% It deliberately excludes all Tycho-specific design decisions.
+% This chapter surveys existing research and practical knowledge about server-level
+% energy measurement, hardware and software telemetry sources, and attribution tools.
+% It provides the empirical and factual basis for the conceptual foundations in
+% Chapter~\ref{ch:concepts}. This chapter MUST NOT contain Tycho design decisions,
+% conceptual attribution models, or implementation details.
 
-\section{Introduction and Scope}
+%====================================================================
+\section{Scope and Purpose}
 \label{sec:background_scope}
 
 % Placeholder (0.5 page):
-% Introduce the purpose of Chapter 2.
-% Explain that this chapter covers measurement technologies, related tools,
-% and research findings relevant for fine-grained energy attribution.
-% Clarify that the chapter does not describe Tycho or any architectural decisions.
-% Position the chapter as the bridge between general research and the conceptual
-% foundations that will follow in Chapter 3.
+% - Clearly state that Chapter 2 summarises existing research and industrial knowledge
+%   on energy measurement in modern servers.
+% - Emphasise that this chapter reports *what is known* about telemetry sources,
+%   measurement techniques, and existing tools.
+% - Do NOT discuss conceptual attribution principles (reserved for Chapter 3).
+% - Do NOT describe Tycho, its architecture, or its methodology.
+% - Refer to VT2 in the appendix for extended details, stating that this chapter
+%   integrates only the essential findings needed for this thesis.
 
+%====================================================================
 \section{Energy Measurement in Modern Server Systems}
-\label{sec:background_measurement_overview}
+\label{sec:energy_measurement_systems}
 
+%--------------------------------------------------------------------
 \subsection{Energy Attribution in Multi-Tenant Environments}
 \label{subsec:attribution_context}
 
 % Placeholder (0.5 page):
-% Summarize the general idea of energy attribution as discussed in prior work.
-% Focus on research literature that explains why shared servers complicate attribution.
-% No explanation of attribution models or Tycho-specific content.
-% Mention the prevalence of multi-tenant cloud systems and container orchestration
-% as motivating factors in the literature.
+% - Summarise research identifying attribution difficulty in multi-tenant systems.
+% - Describe ephemeral workloads, resource interference, and mixed hardware domains 
+%   as reported in literature.
+% - DO include empirical or literature-reported challenges.
+% - DO NOT include conceptual explanations of attribution principles (Chapter 3).
+% - Keep the focus on research findings, not concepts.
 
+%--------------------------------------------------------------------
 \subsection{Telemetry Layers in Contemporary Architectures}
 \label{subsec:telemetry_layers}
 
 % Placeholder (0.5 page):
-% Introduce the distinction found in literature between in-band and out-of-band
-% measurement mechanisms.
-% Explain that research relies on a heterogeneous set of metric sources with
-% different sampling rates, delays, and accuracy characteristics.
-% Tie this to the complexity of correlating metrics, as mentioned in several studies.
+% - Describe the distinction between in-band (OS-exposed) and out-of-band (BMC/Redfish)
+%   telemetry as documented in research.
+% - Emphasise heterogeneity of sampling intervals, accuracy, and coverage.
+% - DO NOT introduce conceptual timing models, sampling theory, or clock behaviour 
+%   (Chapter 3).
+% - Only refer to literature-characterised properties of telemetry layers.
 
+%--------------------------------------------------------------------
 \subsection{Challenges for Container-Level Measurement}
 \label{subsec:container_challenges}
 
 % Placeholder (0.5–1.0 page):
-% Summarize research statements on why container-level attribution is difficult:
-% - ephemeral workloads and short-lived processes
-% - cgroup changes, metadata delays, lifecycle churn
-% - Kubelet–runtime–cgroup inconsistencies noted in prior studies
-% Avoid conceptual explanations of attribution models (reserved for Chapter 3).
+% - Summarise research identifying lifecycle churn, cgroup volatility,
+%   Kubernetes metadata delays, and inconsistencies across runtime layers.
+% - Cite only empirical research and known issues from literature.
+% - DO NOT introduce conceptual lifecycle models or semantics (Chapter 3).
+% - DO NOT mention Tycho's solutions or design impacts.
 
-\section{Power and Utilization Measurement Technologies}
+%====================================================================
+\section{Hardware and Software Telemetry Sources}
 \label{sec:measurement_techniques}
 
-% This is one of the longest sections (4–6 pages total).
-% Provide detailed summaries of the main telemetry sources and their research-backed
-% strengths and limitations.
+% This is one of the main sections (3–4 pages).
+% It must describe WHAT telemetry exists and WHAT research says about it.
+% It must NOT explain conceptual interpretations of these sources (Chapter 3).
 
-\subsection{Direct Hardware Measurement Approaches}
+%--------------------------------------------------------------------
+\subsection{Direct Hardware Measurement}
 \label{subsec:direct_measurement}
 
-% Placeholder (0.25–0.5 page):
-% Explain, based on literature, that direct electrical measurement exists but is
-% rarely practical.
-% Emphasize commissioning cost, hardware requirements, and lack of deployability.
-% Cite research that uses external meters but stresses limitations for real-world use.
+% Placeholder (0.3 page):
+% - Summarise research on physical instrumentation (power meters, shunts).
+% - Emphasise commissioning cost, impracticality, and limited real-world use.
+% - DO NOT go into electrical engineering detail or conceptual attribution.
+% - Keep concise.
 
-\subsection{ACPI and Legacy Mechanisms}
-\label{subsec:acpi_legacy}
+%--------------------------------------------------------------------
+\subsection{Legacy Telemetry Interfaces (ACPI, IPMI)}
+\label{subsec:legacy_telemetry}
 
-% Placeholder (0.2 page):
-% Briefly note that ACPI provides only power states, not measurable values.
-% Mention IMPI as historically relevant but replaced by Redfish.
+% Placeholder (0.3 page):
+% - Explain that ACPI only reports states, not power values.
+% - Mention IPMI as predecessor to Redfish.
+% - DO NOT describe ACPI concepts such as C/P states (Chapter 3).
+% - Keep strictly factual and empirical.
 
+%--------------------------------------------------------------------
 \subsection{Redfish Power Telemetry}
 \label{subsec:redfish}
 
 % Placeholder (1 page):
-% - Describe the Redfish measurement model from literature.
-% - Summarize update intervals (multi-second) and typical staleness.
-% - Emphasize accuracy for total node power but insufficient temporal granularity.
-% - Discuss vendor variability and the impact on short-duration workload studies.
-% - Mention research noting complementarity with faster CPU-domain telemetry.
+% - Describe Redfish power reporting based on literature:
+%   update intervals, precision, multi-second staleness.
+% - Discuss vendor variability and research findings on accuracy.
+% - Describe strengths: reliable whole-node power.
+% - Describe limitations: insufficient granularity for short workloads.
+% - DO NOT describe conceptual use of external telemetry (Chapter 3).
+% - DO NOT mention Tycho's polling model.
 
-\subsection{RAPL: CPU and Memory Domains}
+%--------------------------------------------------------------------
+\subsection{RAPL Power Domains}
 \label{subsec:rapl}
 
 % Placeholder (1.5–2.0 pages):
-% - Describe RAPL domains (package, core, uncore, dram) as per literature.
-% - Explain known uncertainty about domain boundaries and hardware differences.
-% - Summarize validation studies establishing modern RAPL accuracy.
-% - Mention AMD’s reduced domain support and weaker research coverage.
-% - Discuss lack of timestamps and implications for temporal alignment.
-% - Present observed issues in idle measurement and high-frequency sampling.
-% - Introduce multiple access mechanisms (MSR, powercap, perf, eBPF),
-%   and note that research treats powercap as most practical and accurate.
+% - Describe RAPL domains as reported in research:
+%   package, core, uncore, DRAM (and AMD’s reduced support).
+% - Summarise validation studies (accuracy, limitations).
+% - Discuss research observations about domain ambiguity and idle-state issues.
+% - Mention access mechanisms (MSR, powercap) only at high level.
+% - DO NOT describe conceptual domain meaning or attribution implications 
+%   (Chapter 3).
+% - DO NOT discuss sampling theory or timing behaviour (Chapter 3).
 
-\subsection{GPU Power and Utilization Metrics (NVML)}
+%--------------------------------------------------------------------
+\subsection{GPU Telemetry (NVML)}
 \label{subsec:nvml}
 
 % Placeholder (1–1.5 pages):
-% - Describe NVML telemetry: power draw, utilization, clocks, etc.
-% - Summarize research on sampling delays, internal averaging, and error margins.
-% - Mention virtualization challenges (MIG) and associated domain ambiguity.
-% - Emphasize consensus in literature that NVML is the best available despite limitations.
+% - Describe NVML power/usage metrics, internal averaging, sampling delays.
+% - Summarise research on accuracy and limitations, including MIG ambiguity.
+% - DO NOT explain conceptual GPU power-domain behaviour (Chapter 3).
+% - DO NOT mention Tycho's GPU-specific approach.
 
-\subsection{Linux Kernel Utilization Metrics}
-\label{subsec:linux_util}
+%--------------------------------------------------------------------
+\subsection{Software-Exposed Resource Metrics}
+\label{subsec:software_metrics}
+
+% This merged section replaces three previous subsections.
+
+% Placeholder (1 page):
+% - Summarise kernel-exposed CPU time accounting, I/O statistics, network counters.
+% - Mention missing or unusable telemetry for NICs, storage, PCIe.
+% - Describe how literature treats model-based estimation (regression, AI models).
+% - Emphasise limitations such as missing domains and poor applicability.
+% - DO NOT explain conceptual interpretation of resource counters 
+%   (reserved for Chapter 3).
+% - DO NOT mix with attribution philosophies.
+
+%====================================================================
+\section{Temporal Behaviour of Telemetry Sources}
+\label{sec:temporal_behaviour}
+
+% This section synthesises multi-source timing behaviour based on empirical research.
+% It must NOT introduce conceptual timing theory (Chapter 3).
+
+%--------------------------------------------------------------------
+\subsection{Sampling Characteristics and Update Cycles}
+\label{subsec:temporal_sampling}
+
+% Placeholder (0.5–0.7 page):
+% - Describe research findings on RAPL, NVML, Redfish update intervals.
+% - Include empirical observations of nondeterministic refresh times.
+% - DO NOT explain sampling vs event-time (Chapter 3).
+% - DO NOT introduce timing models.
+
+%--------------------------------------------------------------------
+\subsection{Sensor-Internal Averaging and Missing Timestamps}
+\label{subsec:averaging_timestamps}
 
 % Placeholder (0.5 page):
-% - Briefly describe CPU time accounting (jiffies), I/O statistics, and network counters.
-% - Summarize their role as complementary metrics used in earlier research.
-% - Emphasize limitations for energy estimation as described in prior studies.
+% - Summarise research showing lack of timestamps in RAPL and NVML.
+% - Mention internal sensor averaging reported in literature.
+% - DO NOT describe conceptual implications for attribution (Chapter 3).
 
-\subsection{Subsystems Without Usable Telemetry: Storage, NICs, PCIe}
-\label{subsec:lack_of_subsystem_telemetry}
-
-% Placeholder (0.5–1.0 page):
-% - Summarize the state of the research on missing or incomplete telemetry for NICs,
-%   storage, and PCIe domains.
-% - Highlight known NIC metrics (link speed, power states) and the limited dynamic range.
-% - Mention NVMe CLI and its limited applicability to runtime energy estimation.
-% - Clarify that literature identifies these domains as blind spots.
-
-\subsection{Model-Based Estimation Approaches}
-\label{subsec:model_based_estimation}
-
-% Placeholder (0.5 page):
-% - Summarize research on regression-based and model-based estimation.
-% - Discuss limitations noted in literature, especially system-specific tuning.
-% - Mention AI-based approaches only briefly, highlighting the training-data dependency.
-% Keep this section neutral and short.
-
-\section{Cross-Source Measurement Characteristics}
-\label{sec:measurement_characteristics}
-
-% This section synthesizes research on multi-source interactions:
-% expected length: 1–2 pages.
-
-\subsection{Temporal Characteristics and Sampling Behavior}
-\label{subsec:temporal_behaviour}
-
-% Placeholder (0.5–1.0 page):
-% - Present research describing asynchronous update cycles of RAPL, NVML, Redfish.
-% - Summarize studies reporting internal averaging and nondeterministic refresh timing.
-% - Explain how lack of timestamps complicates alignment in prior tools.
-
+%--------------------------------------------------------------------
 \subsection{Domain Boundary Ambiguity}
-\label{subsec:domain_boundary_ambiguity}
+\label{subsec:domain_ambiguity}
 
 % Placeholder (0.5 page):
-% - Summarize research identifying poorly documented domain boundaries in RAPL.
-% - Discuss GPU-domain ambiguity under MIG.
-% - Mention differences between CPU-package power and full-system power (Redfish).
+% - Summarise research showing uncertain boundaries of RAPL domains.
+% - Mention MIG-related ambiguity for GPU domains.
+% - DO NOT explain conceptual importance of domains (Chapter 3).
 
+%--------------------------------------------------------------------
 \subsection{Validation Methodologies in Prior Research}
 \label{subsec:validation_methods}
 
 % Placeholder (0.5 page):
-% - Outline how studies validated energy measurements (external meters, cross-domain comparison).
-% - Mention limitations in these methodologies and potential error sources.
+% - Summarise how prior studies validated measurements (meters, cross-domain comparison).
+% - Discuss known limitations.
+% - DO NOT discuss how validation will be performed in this thesis.
+% - Keep strictly historical/literature-based.
 
+%====================================================================
 \section{Existing Tools and Related Work}
 \label{sec:related_tools}
 
-% Expected length: 3–4 pages (Kepler and Kubewatt form the bulk).
+% Expected length: 3–4 pages.
+% DO NOT discuss Tycho or Tycho architecture.
+% DO summarise empirical findings from prior work (Kepler, Kubewatt, others).
 
-\subsection{Brief Overview of General Tools}
+%--------------------------------------------------------------------
+\subsection{General Tools (Brief Overview)}
 \label{subsec:general_tools}
 
 % Placeholder (0.3 page):
-% Scaphandre:
-% - RAPL-only, no idle power modeling, useful exclusion of CPU inactive states.
-% Smartwatts:
-% - RAPL-driven server models; limited relevance for container-level analysis.
-% Add 1–2 further tools if necessary, but keep extremely brief.
+% - Briefly summarise Scaphandre, Smartwatts, and 1–2 other tools.
+% - Emphasise their measurement scope and known limitations.
+% - DO NOT provide conceptual attribution explanation (Chapter 3).
+% - Keep this high-level and concise.
 
+%--------------------------------------------------------------------
 \subsection{Kepler}
-\label{subsec:kepler_review}
+\label{subsec:kepler}
 
 % Placeholder (1.5–2.0 pages):
-% - Outline the conceptual architecture of Kepler as described in literature.
-% - Summarize its metric sources (RAPL, utilization, optional GPU).
-% - Discuss its sampling strategy (multi-second windows) and implications noted in studies.
-% - Outline its ratio-based attribution approach.
-% - Summarize research observations of misattribution:
-%   * inconsistencies in idle power distribution
-%   * latency mismatch across metrics
-%   * unstable behavior under short-lived workloads
-%   * issues with system processes
-% - Mention the emerging shift in Kepler’s upstream direction (toward ease of deployment).
-% - Conclude with limitations identified in the literature and VT2.
+% - Describe Kepler’s architecture based purely on literature:
+%   * metric sources
+%   * ratio-based attribution strategy
+%   * sampling behaviour
+% - Summarise empirical misattribution issues identified by research and VT2:
+%   * idle power artefacts
+%   * latency mismatch
+%   * short-lived workload instability
+%   * system-process handling issues
+% - Emphasise Kepler's shift toward deployability (literature statements).
+% - DO NOT mention Tycho, Tycho improvements, or motivation for Tycho.
 
+%--------------------------------------------------------------------
 \subsection{Kubewatt}
-\label{subsec:kubewatt_review}
+\label{subsec:kubewatt}
 
 % Placeholder (1.0–1.5 pages):
-% - Summarize Kubewatt’s validation of Kepler as documented in the thesis and literature.
-% - List key findings:
-%   * incorrect idle power attribution
-%   * latency-induced attribution artefacts
-%   * inconsistent handling of system processes
-%   * observability issues for completed pods
-% - Summarize Kubewatt’s improvements:
-%   * explicit separation of static and dynamic power
-%   * simplified and more predictable attribution
-%   * fixes for timing-related issues
-% - Describe limitations noted in the Kubewatt thesis:
-%   * absence of certain metric domains
+% - Summarise Kubewatt’s findings validating Kepler:
+%   * incorrect idle attribution
+%   * metadata/race-condition problems
+%   * visibility issues with completed pods
+% - Summarise Kubewatt’s improvements:
+%   * static vs dynamic separation
+%   * simplified proportional models
+% - Summarise Kubewatt’s limitations as reported in thesis:
+%   * missing domains
 %   * limited metric scope
-%   * lack of calibration mechanisms
+%   * no calibration
+% - DO NOT reference Tycho or compare to Tycho.
 
-\section{Identified Research Gaps}
+%====================================================================
+\section{Research Gaps}
 \label{sec:research_gaps}
 
-% This is one of the most important sections (2–3 pages).
-% It must integrate findings from all previous sections while not revealing any Tycho design.
+% This section synthesises gaps identified throughout Chapter 2.
+% ABSOLUTELY NO Tycho discussion.
+% NO conceptual discussion (that belongs to Chapter 3).
 
-\subsection{Gap 1: Temporal Misalignment Across Measurement Sources}
+%--------------------------------------------------------------------
+\subsection{Gap 1: Temporal Misalignment}
 \label{subsec:gap_temporal}
 
 % Placeholder (0.5 page):
-% - Synthesize literature showing misaligned update intervals and nondeterministic delays.
-% - Highlight that existing tools cannot reliably align metrics.
+% - Integrate research showing misaligned update intervals and delays.
+% - DO NOT discuss strategies for alignment (Chapter 3 or 4).
 
-\subsection{Gap 2: Lack of Timestamps and Sensor-Internal Averaging}
+%--------------------------------------------------------------------
+\subsection{Gap 2: Missing Timestamps and Averaging}
 \label{subsec:gap_timestamps}
 
 % Placeholder (0.3 page):
-% - Emphasize the absence of timestamps in RAPL and NVML.
-% - Mention research noting that internal averaging obscures instantaneous behavior.
+% - Summarise lack of timestamps and internal averaging as documented by research.
 
-\subsection{Gap 3: Domain Boundary Ambiguity and Incomplete Telemetry}
+%--------------------------------------------------------------------
+\subsection{Gap 3: Domain Boundary Ambiguity}
 \label{subsec:gap_boundaries}
 
-% Placeholder (0.5 page):
-% - Summarize problems arising from undocumented boundaries (RAPL) and virtualization.
-% - Discuss missing telemetry for NICs, storage, and PCIe.
+% Placeholder (0.3–0.5 page):
+% - Integrate findings on poorly documented boundaries (RAPL, MIG).
 
+%--------------------------------------------------------------------
 \subsection{Gap 4: Metadata-Lifecycle Inconsistencies}
 \label{subsec:gap_metadata}
 
 % Placeholder (0.3–0.5 page):
-% - Highlight research noting race conditions between workload events and telemetry.
-% - Mention difficulties capturing terminated pods/processes reliably.
+% - Synthesise research showing cgroup/pod lifecycle inconsistencies.
 
-\subsection{Gap 5: Limitations in Idle Power Attribution}
+%--------------------------------------------------------------------
+\subsection{Gap 5: Idle Power Attribution Issues}
 \label{subsec:gap_idle}
 
-% Placeholder (0.3–0.5 page):
-% - Summarize studies showing incorrect idle attribution in existing tools.
-% - Identify need for more reliable separation of static and dynamic consumption.
+% Placeholder (0.3 page):
+% - Highlight known issues in idle power handling.
 
-\subsection{Gap 6: Limited Support for Multi-Domain Integration}
+%--------------------------------------------------------------------
+\subsection{Gap 6: Limited Multi-Domain Integration}
 \label{subsec:gap_multidomain}
 
 % Placeholder (0.3 page):
-% - Synthesize research noting lack of integrated CPU–GPU–system models.
+% - Summarise research noting lack of integrated CPU–GPU–system attribution.
 
-\subsection{Gap 7: Lack of Calibration and Uncertainty Treatment}
+%--------------------------------------------------------------------
+\subsection{Gap 7: Missing Calibration and Uncertainty Treatment}
 \label{subsec:gap_calibration}
 
 % Placeholder (0.3–0.5 page):
-% - Mention that existing tools do not model measurement uncertainty or sensor delay.
-% - Summarize literature calling for reproducible measurement calibration.
+% - Summarise research calling for calibration or uncertainty-aware methods.
 
-\section{Summary of Findings}
+%====================================================================
+\section{Summary}
 \label{sec:background_summary}
 
 % Placeholder (0.5 page):
-% Summarize the overall insights from prior research.
-% Emphasize that the literature shows substantial progress, but also
-% persistent issues in timing, attribution accuracy, telemetry coverage,
-% and multi-domain integration.
-% Prepare the reader for Chapter 3, which will introduce the conceptual
-% foundations that guide the design of a new system.
+% - Summarise fundamental insights: heterogeneous telemetry behaviour, 
+%   incomplete domain coverage, lifecycle inconsistency, lack of calibration.
+% - Prepare the reader for Chapter 3, stating explicitly that Chapter 3
+%   provides the conceptual foundations needed to understand the design 
+%   of an accuracy-oriented system (without yet describing Tycho).
+

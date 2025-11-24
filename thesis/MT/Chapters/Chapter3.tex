@@ -1,0 +1,341 @@
+\chapter{Conceptual Foundations of Container-Level Power Attribution}
+\label{ch:concepts}
+
+% This chapter introduces the conceptual principles required to understand
+% workload-level energy attribution in multi-tenant Kubernetes environments.
+% It provides the theoretical background for interpreting measurement behaviour,
+% resource tracking, and attribution logic. It MUST NOT contain:
+%   - empirical measurement characteristics (Chapter 2)
+%   - Tycho design decisions (Chapter 4)
+%   - Tycho implementation detail (Chapter 5)
+%   - detailed review of telemetry interfaces (Chapter 2)
+% Instead, it establishes the conceptual language used throughout the architecture.
+
+%====================================================================
+\section{Fundamentals of Power Attribution}
+\label{sec:fundamentals_attribution}
+
+%--------------------------------------------------------------------
+\subsection{Multi-Tenant Compute Environments}
+\label{subsec:multi_tenant}
+
+% Placeholder (0.3–0.5 page):
+% - Conceptually describe multi-tenant servers as environments hosting many 
+%   overlapping workloads sharing physical resources.
+% - Introduce the notion that hardware activity reflects aggregated behaviour.
+% - DO NOT reference specific telemetry sources (RAPL, NVML, etc.).
+% - DO NOT cite empirical update intervals or measurement behaviour.
+
+%--------------------------------------------------------------------
+\subsection{Meaning and Purpose of Attribution}
+\label{subsec:meaning_attribution}
+
+% Placeholder (0.3–0.5 page):
+% - Define attribution as the conceptual assignment of parts of total system
+%   power/energy to individual workloads.
+% - Clarify that attribution is a *logical model*, not a direct observation.
+% - Explain what attribution enables: accountability, optimisation, research.
+% - DO NOT discuss any specific attribution technique or implementation.
+
+%--------------------------------------------------------------------
+\subsection{Resource Use and Power Consumption}
+\label{subsec:resource_power_relation}
+
+% Placeholder (0.5 page):
+% - Conceptually describe how computation, memory access, and I/O 
+%   induce dynamic power consumption.
+% - Emphasise that mappings between resource use and power are:
+%     * non-linear
+%     * workload-dependent
+%     * hardware-dependent
+% - DO NOT present measurement technologies (these belong to Chapter 2).
+% - DO NOT discuss model formulas or Tycho mechanics.
+
+%--------------------------------------------------------------------
+\subsection{Assumptions and Limits of Attribution Models}
+\label{subsec:attribution_assumptions}
+
+% Placeholder (0.4–0.6 page):
+% - Explain foundational assumptions:
+%     * node power represents aggregated subsystem activity
+%     * workloads cannot be physically isolated perfectly
+%     * attribution depends on correlations rather than causality
+% - Discuss conceptual limits like non-uniqueness and unavoidable uncertainty.
+% - DO NOT mention known empirical issues (idle noise, timestamps, etc.—Chapter 2).
+
+%--------------------------------------------------------------------
+\subsection{Power and Energy}
+\label{subsec:power_vs_energy}
+
+% Placeholder (0.3–0.4 page):
+% - Define power (rate) and energy (integral).
+% - Explain concept of attributing energy over windows rather than instantaneous power.
+% - Keep fully conceptual — no references to powercap, RAPL counters, etc.
+% - This prepares understanding for integration windows in Chapter 4.
+
+%====================================================================
+\section{Execution and Resource Tracking in Linux and Kubernetes}
+\label{sec:execution_tracking}
+
+% This section establishes conceptual building blocks for the metadata layer.
+% It MUST NOT include empirical measurement details from Chapter 2.
+
+%--------------------------------------------------------------------
+\subsection{Processes, Threads, and Scheduling Units}
+\label{subsec:processes_threads}
+
+% Placeholder (0.4–0.5 page):
+% - Describe processes and threads as basic execution units.
+% - Explain conceptual CPU time accumulation and context switching.
+% - Clarify behaviour of short-lived tasks at a conceptual level.
+% - DO NOT describe /proc, jiffies, perf, or any specific Linux API.
+
+%--------------------------------------------------------------------
+\subsection{Control Groups as Resource Boundaries}
+\label{subsec:cgroups}
+
+% Placeholder (0.4–0.5 page):
+% - Introduce cgroups conceptually as hierarchical boundaries for grouping processes.
+% - Emphasise conceptual purpose: accounting, aggregation, isolation.
+% - DO NOT describe cgroup file systems, versions, or metrics (kept abstract).
+
+%--------------------------------------------------------------------
+\subsection{Resource Usage Counters}
+\label{subsec:linux_counters}
+
+% Placeholder (0.3–0.5 page):
+% - Introduce conceptual categories of resource counters:
+%     * CPU time
+%     * memory usage
+%     * block I/O
+%     * network use
+% - Emphasise that counters update asynchronously and accumulate state.
+% - DO NOT mention specific Linux files, kernel API, or numeric behaviour.
+% - DO NOT reference any telemetry discussed in Chapter 2.
+
+%--------------------------------------------------------------------
+\subsection{Kubernetes Abstractions}
+\label{subsec:kubernetes_abstractions}
+
+% Placeholder (0.4–0.5 page):
+% - Conceptually describe pods, containers, init containers, pause containers.
+% - Explain the mapping: pod → container → processes → cgroups.
+% - Keep fully conceptual; no details of kubelet API, cadvisor, or metadata sources.
+
+%--------------------------------------------------------------------
+\subsection{Lifecycle Semantics Relevant for Attribution}
+\label{subsec:lifecycle_semantics}
+
+% Placeholder (0.5–0.7 page):
+% - Conceptually describe workload events:
+%     * container start/stop
+%     * restart
+%     * crash
+%     * ephemeral execution
+% - Emphasise that lifetimes may overlap and be very short.
+% - DO NOT mention empirical behaviour of kubelet, cAdvisor, or runtimes (Chapter 2).
+
+%====================================================================
+\section{Temporal and Measurement Concepts}
+\label{sec:temporal_fundamentals}
+
+% This section merges conceptual timing theory and measurement logic.
+% It MUST NOT state empirical update intervals or sensor behaviours (Chapter 2).
+
+%--------------------------------------------------------------------
+\subsection{Sampling versus Event-Time}
+\label{subsec:sampling_event_time}
+
+% Placeholder (0.4–0.6 page):
+% - Conceptually contrast periodic sampling with event-driven changes.
+% - Describe mismatch: system changes between samples.
+% - DO NOT describe specific telemetry source behaviour (Chapter 2).
+
+%--------------------------------------------------------------------
+\subsection{Clock Models}
+\label{subsec:clock_models}
+
+% Placeholder (0.4–0.6 page):
+% - Explain realtime vs monotonic clocks conceptually.
+% - Describe why monotonic clocks are preferred for temporal ordering.
+% - DO NOT mention Tycho's clock.Mono implementation.
+
+%--------------------------------------------------------------------
+\subsection{Heterogeneous Metric Sources}
+\label{subsec:heterogeneous_sources}
+
+% Placeholder (0.4 page):
+% - Describe categories conceptually:
+%     * hardware counters
+%     * OS counters
+%     * device-level telemetry
+%     * external interfaces
+% - DO NOT repeat characteristics from Chapter 2; only conceptual classification.
+
+%--------------------------------------------------------------------
+\subsection{Delay, Jitter, and Asynchrony}
+\label{subsec:delay_jitter}
+
+% Placeholder (0.4–0.5 page):
+% - Define conceptual timing phenomena:
+%     * sampling delay
+%     * update delay
+%     * jitter
+% - Explain high-level implications for reconstructing behaviour.
+% - DO NOT give real-world values, update intervals, or empirical examples.
+
+%--------------------------------------------------------------------
+\subsection{Observation Windows and Temporal Alignment}
+\label{subsec:observation_windows}
+
+% Placeholder (0.5–0.7 page):
+% - Introduce conceptual observation windows for:
+%     * integrating power over time
+%     * aligning heterogeneous data
+% - Explain alignment challenges conceptually.
+% - NO formulas, NO implementation-level detail.
+
+%====================================================================
+\section{Power and Utilisation Metrics (Conceptual View)}
+\label{sec:metrics_types}
+
+% This section MUST remain conceptual and independent of technologies.
+% The detailed behaviour of RAPL, NVML, etc. is Chapter 2.
+
+%--------------------------------------------------------------------
+\subsection{CPU Activity and Utilisation}
+\label{subsec:cpu_utilisation}
+
+% Placeholder (0.3–0.4 page):
+% - Conceptually describe CPU utilisation as fraction of time runnable/active.
+% - Explain its use as a coarse proxy for work.
+% - DO NOT discuss scheduler-specific metrics or kernel counters.
+
+%--------------------------------------------------------------------
+\subsection{Power Domains and Subsystem Behaviour}
+\label{subsec:power_domains}
+
+% Placeholder (0.6–0.8 page):
+% - Introduce the concept of hardware power domains (CPU, memory, GPU, SoC).
+% - Explain that each domain behaves differently and responds to different workloads.
+% - DO NOT reference RAPL domain names or MIG partitioning (Chapter 2).
+
+%--------------------------------------------------------------------
+\subsection{External Measurements}
+\label{subsec:external_measurements}
+
+% Placeholder (0.3–0.4 page):
+% - Conceptually describe the idea of external power interfaces.
+% - Emphasise that they provide whole-system measurements.
+% - DO NOT mention Redfish or its behaviour (Chapter 2).
+
+%====================================================================
+\section{Attribution Models and Philosophies}
+\label{sec:attribution_models}
+
+% This section introduces conceptual frameworks used in the literature.
+% It MUST NOT describe Tycho's design or implementation.
+
+%--------------------------------------------------------------------
+\subsection{Container-Centric Attribution}
+\label{subsec:container_centric}
+
+% Placeholder (0.4 page):
+% - Describe proportional assignment of dynamic power to container activity.
+% - Conceptual advantages: interpretability, simplicity.
+% - Conceptual limitations: ignores static power and shared costs.
+
+%--------------------------------------------------------------------
+\subsection{Shared-Cost Attribution}
+\label{subsec:shared_cost}
+
+% Placeholder (0.4–0.5 page):
+% - Describe sharing approaches where system-level power is divided among active workloads.
+% - Discuss conceptual trade-offs between fairness and accuracy.
+
+%--------------------------------------------------------------------
+\subsection{Residual Modelling}
+\label{subsec:residual_modelling}
+
+% Placeholder (0.4 page):
+% - Introduce idea of modelling background or unassignable power as a residual term.
+% - Explain conceptual necessity when workloads do not explain all power.
+
+%--------------------------------------------------------------------
+\subsection{Process Idle versus CPU Idle}
+\label{subsec:idle_difference}
+
+% Placeholder (0.4 page):
+% - Conceptually distinguish process idle (app not running) from hardware idle (C-state).
+% - Explain why this complicates attribution models.
+% - DO NOT cite empirical idle-state behaviour (Chapter 2).
+
+%--------------------------------------------------------------------
+\subsection{Unaccounted Energy and Model Limitations}
+\label{subsec:unaccounted_energy}
+
+% Placeholder (0.4 page):
+% - Describe conceptual sources of unaccounted energy:
+%     * background daemons
+%     * subsystem activity outside model
+%     * asynchronous events
+% - Emphasise that attribution is inherently approximate.
+
+%====================================================================
+\section{Domain Challenges}
+\label{sec:domain_challenges}
+
+% This section summarises general conceptual difficulties faced by any
+% attribution system. Empirical expressions of these difficulties belong to Chapter 2.
+
+%--------------------------------------------------------------------
+\subsection{Asynchronous Metric Sources}
+\label{subsec:async_sources}
+
+% Placeholder (0.3–0.4 page):
+% - Conceptually describe the challenge of combining asynchronous streams.
+
+%--------------------------------------------------------------------
+\subsection{Uneven Temporal Granularity}
+\label{subsec:uneven_granularity}
+
+% Placeholder (0.3–0.4 page):
+% - Describe varying update/refresh characteristics conceptually.
+
+%--------------------------------------------------------------------
+\subsection{Lifecycle Volatility}
+\label{subsec:lifecycle_challenges}
+
+% Placeholder (0.3–0.4 page):
+% - Emphasise that processes and containers may appear/disappear rapidly.
+
+%--------------------------------------------------------------------
+\subsection{Short-Lived Execution Units}
+\label{subsec:short_lived_units}
+
+% Placeholder (0.3 page):
+% - Describe conceptual difficulty of capturing units that exist for less than a window.
+
+%--------------------------------------------------------------------
+\subsection{Multi-Domain Power Paths}
+\label{subsec:multi_domain_powerpaths}
+
+% Placeholder (0.3–0.4 page):
+% - Conceptually explain that power flows span multiple subsystems.
+
+%--------------------------------------------------------------------
+\subsection{Measurement Uncertainty and Noise}
+\label{subsec:noise_uncertainty}
+
+% Placeholder (0.4 page):
+% - Describe conceptual uncertainty from noise, variability, and filtering.
+
+%====================================================================
+\section{Summary}
+\label{subsec:summary_ch3}
+
+% Placeholder (0.4–0.5 page):
+% - Summarise the conceptual challenges and abstractions.
+% - State explicitly that Chapter 4 builds on these foundations to introduce
+%   an accuracy-first architecture without relying on any of the empirical
+%   details from Chapter 2.
