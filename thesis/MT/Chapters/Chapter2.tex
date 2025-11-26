@@ -7,58 +7,35 @@
 % Chapter~\ref{ch:concepts}. This chapter MUST NOT contain Tycho design decisions,
 % conceptual attribution models, or implementation details.
 
-%====================================================================
-\section{Scope and Purpose}
-\label{sec:background_scope}
+\noindent This chapter summarises the current state of research and industrial knowledge on server-level energy measurement. Its focus is limited to what the literature reports about available telemetry sources, measurement techniques, and existing attribution tools. The discussion is descriptive rather than conceptual: it does not introduce attribution principles, methodological reasoning, or design considerations, which are addressed in \chapref{ch:concepts}. Extended background material is available in \hyperref[appendix_vt2]{Appendix~A} and the present chapter integrates only those findings that are directly relevant for understanding the research landscape.
 
-% Placeholder (0.5 page):
-% - Clearly state that Chapter 2 summarises existing research and industrial knowledge
-%   on energy measurement in modern servers.
-% - Emphasise that this chapter reports *what is known* about telemetry sources,
-%   measurement techniques, and existing tools.
-% - Do NOT discuss conceptual attribution principles (reserved for Chapter 3).
-% - Do NOT describe Tycho, its architecture, or its methodology.
-% - Refer to VT2 in the appendix for extended details, stating that this chapter
-%   integrates only the essential findings needed for this thesis.
-
-%====================================================================
 \section{Energy Measurement in Modern Server Systems}
 \label{sec:energy_measurement_systems}
 
-%--------------------------------------------------------------------
+The energy consumption of modern servers arises from a heterogeneous set of subsystems, including CPUs, GPUs, memory, storage devices, network interfaces, and platform management components. Prior research highlights that these subsystems expose highly unequal visibility into their power behaviour, since measurement capabilities, granularity, and accuracy differ significantly across hardware generations and vendors \parencite{lin2020taxonomy, long2022review}. Some domains provide direct telemetry, while others can only be approximated through software-derived activity metrics. As a result, no single interface offers complete or temporally consistent power information, and most studies rely on a single source or combine multiple sources to approximate system-level consumption. This fragmented measurement landscape forms the basis for much of the existing work on power modelling, validation, and multi-source energy estimation in server environments.
+
 \subsection{Energy Attribution in Multi-Tenant Environments}
 \label{subsec:attribution_context}
 
-% Placeholder (0.5 page):
-% - Summarise research identifying attribution difficulty in multi-tenant systems.
-% - Describe ephemeral workloads, resource interference, and mixed hardware domains 
-%   as reported in literature.
-% - DO include empirical or literature-reported challenges.
-% - DO NOT include conceptual explanations of attribution principles (Chapter 3).
-% - Keep the focus on research findings, not concepts.
+Several studies identify containerised and multi-tenant systems as challenging environments for energy attribution. Containers share the host kernel and rely on common processor, memory, storage, and network subsystems, which removes the isolation boundaries present in virtual machines and prevents direct measurement of per-container power. Research reports that workloads running concurrently on the same node create interference effects across hardware domains, leading to utilisation patterns that correlate only loosely with actual energy consumption \parencite{lin2020taxonomy}. Modern orchestration platforms further increase attribution difficulty through highly dynamic execution behaviour: containers are created, destroyed, and rescheduled at high frequency, often numbering in the thousands on large clusters. These rapid lifecycle changes produce volatile metadata and short-lived resource traces that are difficult to align with node-level telemetry. Collectively, the literature treats container-level energy attribution as an estimation problem constrained by incomplete observability, heterogeneous measurement quality, and continuous runtime churn.
 
-%--------------------------------------------------------------------
 \subsection{Telemetry Layers in Contemporary Architectures}
 \label{subsec:telemetry_layers}
 
-% Placeholder (0.5 page):
-% - Describe the distinction between in-band (OS-exposed) and out-of-band (BMC/Redfish)
-%   telemetry as documented in research.
-% - Emphasise heterogeneity of sampling intervals, accuracy, and coverage.
-% - DO NOT introduce conceptual timing models, sampling theory, or clock behaviour 
-%   (Chapter 3).
-% - Only refer to literature-characterised properties of telemetry layers.
+Modern servers expose power and activity information through two largely independent telemetry layers. The first consists of in-band mechanisms that are visible to the operating system, including on-die energy counters, GPU management interfaces, and kernel-level resource statistics. These interfaces typically offer higher sampling rates and finer granularity, but their accuracy and coverage vary across hardware generations and vendors. Prior work notes that in-band telemetry often represents estimated rather than directly measured power and that several domains, such as network and storage devices, expose only partial or indirect information.
 
-%--------------------------------------------------------------------
+The second layer is out-of-band telemetry provided by baseboard management controllers through interfaces such as IPMI or Redfish. These systems aggregate sensor readings independently of the host and report stable, whole-system power values at coarse temporal resolution. Empirical studies show that out-of-band telemetry provides useful system-level accuracy, although update intervals and measurement precision differ substantially between vendors \parencite{wang2019empirical}. Compared with instrument-based measurements, which remain the benchmark for high-fidelity evaluation but are impractical at scale, both in-band and out-of-band methods represent trade-offs between granularity, availability, and measurement reliability.
+
+Combined, these layers form a heterogeneous telemetry landscape in which sampling rates, accuracy, and domain coverage differ significantly, motivating the use of multi-source measurement approaches in research.
+
 \subsection{Challenges for Container-Level Measurement}
 \label{subsec:container_challenges}
 
-% Placeholder (0.5–1.0 page):
-% - Summarise research identifying lifecycle churn, cgroup volatility,
-%   Kubernetes metadata delays, and inconsistencies across runtime layers.
-% - Cite only empirical research and known issues from literature.
-% - DO NOT introduce conceptual lifecycle models or semantics (Chapter 3).
-% - DO NOT mention Tycho's solutions or design impacts.
+Existing research identifies several factors that complicate accurate energy measurement for containerised workloads. Large-scale trace analyses show that cloud environments exhibit substantial churn, with many tasks being short-lived and resource demands changing rapidly over time \parencite{reissHeterogeneityDynamicityClouds2012}. Such dynamism limits the observability of fine-grained resource usage and makes it difficult to capture short execution intervals with sufficient temporal resolution.
+
+Monitoring studies further report inconsistencies across the different layers that expose resource information for containers. In multi-cloud settings, observability often depends on heterogeneous monitoring stacks, leading to fragmented visibility and non-uniform coverage of system activity \parencite{waseemContainerizationMultiCloudEnvironment2025}. Even within a single host, performance counters obtained from container-level interfaces may diverge from system-level measurements. Empirical evaluations demonstrate that container-level CPU and I/O counters can underestimate actual activity by a non-negligible margin, and that co-located workloads introduce contention effects that distort these metrics \parencite{casalicchioStateoftheartContainerTechnologies2020}.
+
+These findings indicate that container-level measurement operates under conditions of rapid workload turnover, heterogeneous monitoring behaviour, and imperfect resource visibility. As a consequence, the literature treats container energy attribution as a problem constrained by incomplete and potentially biased measurement signals rather than as a directly measurable quantity.
 
 %====================================================================
 \section{Hardware and Software Telemetry Sources}
@@ -150,7 +127,7 @@ A comprehensive treatment can be found in \appchapterref{A}{vt2_Chapter2}, but t
 % It must NOT introduce conceptual timing theory (Chapter 3).
 
 %--------------------------------------------------------------------
-\subsection{Sampling Characteristics and Update Cycles}
+\subsection{Sampling Characteristics and Update Cycles} --------->> MERGE WITH NEXT SECTION:
 \label{subsec:temporal_sampling}
 
 % Placeholder (0.5–0.7 page):
@@ -196,7 +173,7 @@ A comprehensive treatment can be found in \appchapterref{A}{vt2_Chapter2}, but t
 % DO summarise empirical findings from prior work (Kepler, Kubewatt, others).
 
 %--------------------------------------------------------------------
-\subsection{General Tools (Brief Overview)}
+\subsection{General Tools (Brief Overview)} ->>>>In “Existing Tools,” potentially merge “General Tools” + short mentions of other tools into a single paragraph
 \label{subsec:general_tools}
 
 % Placeholder (0.3 page):
