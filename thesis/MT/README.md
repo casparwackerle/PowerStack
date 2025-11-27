@@ -4,7 +4,7 @@ This directory contains all LaTeX files required for compiling the PowerStack th
 
 ## Compiled PDF
 The latest compiled version of the thesis can be found here:
-[Thesis PDF](/thesis/MT/build/main.pdf)
+[Thesis PDF](/thesis/MT/build/tycho.pdf)
 
 ## Personal Setup Guide
 To ensure the LaTeX environment is correctly configured for building the thesis, refer to the setup guide here:

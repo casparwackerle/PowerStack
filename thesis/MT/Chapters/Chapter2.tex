@@ -37,71 +37,95 @@ Monitoring studies further report inconsistencies across the different layers th
 
 These findings indicate that container-level measurement operates under conditions of rapid workload turnover, heterogeneous monitoring behaviour, and imperfect resource visibility. As a consequence, the literature treats container energy attribution as a problem constrained by incomplete and potentially biased measurement signals rather than as a directly measurable quantity.
 
-%====================================================================
+
 \section{Hardware and Software Telemetry Sources}
 \label{sec:measurement_techniques}
-\appchapterref{A}{vt2_Chapter2} provides a detailed analysis of this topic; the present section summarizes the key research findings.
 
-% This is one of the main sections (3–4 pages).
-% It must describe WHAT telemetry exists and WHAT research says about it.
-% It must NOT explain conceptual interpretations of these sources (Chapter 3).
+This section outlines the primary telemetry sources used to observe power and resource behaviour in modern server systems. It summarises established research on external measurement devices, firmware-level interfaces, on-die energy counters, accelerator telemetry, and kernel-exposed resource metrics. The emphasis is on reporting the properties and empirical characteristics documented in prior work, without interpreting these signals conceptually or analysing their temporal behaviour, which are addressed in later sections. A comprehensive technical discussion is provided in \appchapterref{A}{vt2_Chapter2}; the present section extracts only the findings relevant for understanding the measurement landscape.
 
-%--------------------------------------------------------------------
 \subsection{Direct Hardware Measurement}
 \label{subsec:direct_measurement}
 
-% Placeholder (0.3 page):
-% - Summarise research on physical instrumentation (power meters, shunts).
-% - Emphasise commissioning cost, impracticality, and limited real-world use.
-% - DO NOT go into electrical engineering detail or conceptual attribution.
-% - Keep concise.
+Direct physical instrumentation remains the most accurate method for measuring server power consumption. External power meters or inline shunt-based devices can capture node-level energy usage with high fidelity, and research frequently uses such instrumentation as a ground truth for validating software-reported power values. Studies employing dedicated measurement setups, such as custom DIMM-level sensing boards, demonstrate that high-frequency sampling and component-level granularity are technically feasible but require bespoke hardware and non-trivial integration effort \parencite{desrochers2016validation}. Lin et al.\ classify these approaches as offering very high data credibility but only coarse spatial granularity and limited scalability in operational environments \parencite{lin2020taxonomy}.
 
-%--------------------------------------------------------------------
+Recent work on specialised sensors, such as the PowerSensor3 platform\parencite{van2025powersensor3} for high-rate voltage and current monitoring of GPUs and other accelerators, illustrates ongoing interest in hardware-centric power measurement. However, these systems share the same fundamental drawback: deployment across production servers is complex, costly, and incompatible with large-scale or multi-tenant settings. As a consequence, direct instrumentation is predominantly used in controlled experiments or for validation of other telemetry sources, rather than as a primary measurement mechanism in real-world server infrastructures.
+
 \subsection{Legacy Telemetry Interfaces (ACPI, IPMI)}
 \label{subsec:legacy_telemetry}
 
-% Placeholder (0.3 page):
-% - Explain that ACPI only reports states, not power values.
-% - Mention IPMI as predecessor to Redfish.
-% - DO NOT describe ACPI concepts such as C/P states (Chapter 3).
-% - Keep strictly factual and empirical.
+Early power-related telemetry on server platforms was primarily exposed through ACPI and IPMI. ACPI provides a standardised interface for configuring and controlling hardware power states, but it does not offer real-time energy or power readings. The interface exposes only abstract performance and idle states defined by the firmware \parencite{uefi_acpi_6_6}, and these states do not include the instantaneous power information required for empirical energy measurement. Consequently, ACPI has seen little use in modern power estimation research.
 
-%--------------------------------------------------------------------
+IPMI, accessed through the baseboard management controller, represents an older class of out-of-band telemetry that predates Redfish. Although widely supported across server hardware, IPMI power values are known to be coarse, slowly refreshed, and often inaccurate when compared with external instrumentation. Empirical studies report multi-second averaging windows, substantial quantisation effects, and unreliable idle power readings \parencite{kavanagh2016accuracy, kavanagh2019rapid}. These limitations, together with the availability of more precise alternatives, have led IPMI to be largely superseded by Redfish on contemporary server platforms.
+
 \subsection{Redfish Power Telemetry}
 \label{subsec:redfish}
 
-% Placeholder (1 page):
-% - Describe Redfish power reporting based on literature:
-%   update intervals, precision, multi-second staleness.
-% - Discuss vendor variability and research findings on accuracy.
-% - Describe strengths: reliable whole-node power.
-% - Describe limitations: insufficient granularity for short workloads.
-% - DO NOT describe conceptual use of external telemetry (Chapter 3).
-% - DO NOT mention Tycho's polling model.
+Redfish is the modern out-of-band management interface available on contemporary server platforms and is designed as the successor to IPMI. It exposes system-level telemetry through a RESTful API implemented on the baseboard management controller (BMC), providing access to whole-node power readings derived from on-board sensors. Prior work consistently shows that Redfish delivers higher precision than IPMI, with lower quantisation artefacts and more stable readings across power ranges \parencite{wang2019empirical}. In controlled experiments, Redfish achieved a mean absolute percentage error of roughly three percent when compared to a high-accuracy power analyser, outperforming IPMI in all evaluated power intervals.
 
-%--------------------------------------------------------------------
+A key limitation of Redfish is its temporal granularity. Empirical studies report that power values exhibit non-negligible staleness, with refresh delays of approximately 200\,ms \parencite{wang2019empirical}. This latency restricts the ability of Redfish to capture short bursts of activity or rapid fluctuations in dynamic workloads. Accuracy and responsiveness also vary across vendors, reflecting differences in embedded sensors, BMC firmware, and management controller architectures.
+
+The interface is widely deployed in real-world infrastructure. Modern enterprise servers from Dell, HPE, Lenovo, Cisco, and Supermicro routinely expose power telemetry via Redfish as part of their standard BMC firmware \parencite{herrlinAccessingOnboardServer2021}. Out-of-band monitoring studies further highlight that Redfish avoids the overheads and failure modes associated with in-band agents \parencite{aliRedfishNagiosScalableOutofBand2022}. In practice, Redfish implementations tend to provide stable low-frequency updates suitable for coarse-grained power reporting.
+
+Preliminary measurements conducted for this thesis also observed irregular update intervals on the evaluated hardware, occasionally extending into the multi-second range. While this behaviour is specific to a single system and not generalisable, it reinforces the literature’s position that Redfish telemetry exhibits meaningful vendor-dependent variability and remains unsuitable for fine-grained temporal correlation.
+
+Overall, Redfish provides accessible, reliable whole-node power telemetry at coarse temporal resolutions, making it valuable for long-interval monitoring and for validating other measurement sources, but inappropriate for attributing energy consumption to short-lived or rapidly fluctuating containerised workloads.
+
 \subsection{RAPL Power Domains}
 \label{subsec:rapl}
 
-% Placeholder (1.5–2.0 pages):
-% - Describe RAPL domains as reported in research:
-%   package, core, uncore, DRAM (and AMD’s reduced support).
-% - Summarise validation studies (accuracy, limitations).
-% - Discuss research observations about domain ambiguity and idle-state issues.
-% - Mention access mechanisms (MSR, powercap) only at high level.
-% - DO NOT describe conceptual domain meaning or attribution implications 
-%   (Chapter 3).
-% - DO NOT discuss sampling theory or timing behaviour (Chapter 3).
+Running Average Power Limit (RAPL) provides hardware-backed energy counters for several internal power domains of a processor package. Originally introduced by Intel and later adopted in a compatible form by AMD, RAPL exposes energy measurements via model-specific registers that can be accessed directly or through higher-level interfaces such as the Linux \texttt{powercap} framework or the \texttt{perf-events} subsystem \parencite{intel-sdm, raffin2024dissecting}. Raffin et~al.\ provide a detailed comparison of these access mechanisms, noting that MSR, powercap, perf-events, and eBPF differ mainly in convenience, required privileges, and robustness; all can retrieve equivalent RAPL readings when implemented correctly \parencite{raffin2024dissecting}. They recommend accessing RAPL via the powercap interface, which is easiest to implement reliably and suffers from no overhead penalties when compared with more low-level methods.
+
+Intel platforms typically expose several well-established RAPL domains, including the processor package, the core subsystem, and (on many server architectures) a DRAM domain \parencite{hackenberg2015energy}. These domains have been validated extensively against external measurement equipment. Studies report that the combination of package and DRAM energy tracks CPU-and-memory power with good accuracy from Haswell onwards, which has led to RAPL becoming the primary fine-grained energy source in server-oriented research \parencite{hackenberg2013power, desrochers2016validation, alt2024experimental, kennes2023measuring}. More recent work on hybrid architectures such as Alder Lake confirms that RAPL continues to correlate well with external measurements under load, while precision decreases somewhat in low-power regimes \parencite{schone2024energy}. Across these studies, RAPL is generally regarded as sufficiently accurate for scientific analysis when its domain boundaries and update characteristics are considered \parencite{raffin2024dissecting}.
+
+AMD implements a RAPL-compatible interface with a similar programming model but a reduced set of domains. Zen 1 through Zen 4 processors expose package and core domains only, without a dedicated DRAM domain \parencite{schone2021energy, raffin2024dissecting}. Sch\"one et~al.\ show that, as a consequence, memory-related energy may not be represented explicitly in AMD’s RAPL output, leading to a smaller portion of total system energy being observable through the package domain alone \parencite{schone2021energy}. This limitation primarily concerns domain completeness rather than measurement correctness: for compute-intensive workloads, package-domain values behave consistently, but workloads with significant memory activity exhibit a larger gap relative to whole-system measurements because DRAM energy is not separately reported. Raffin et~al.\ further note that, on the evaluated Zen-based server, different kernel interfaces initially exposed inconsistent domain sets; this was later corrected upstream, illustrating that AMD support is evolving and still maturing within the Linux ecosystem \parencite{raffin2024dissecting}.
+
+Technical considerations also apply to both Intel and AMD platforms. RAPL counters have finite width and wrap after sufficiently large energy accumulation, requiring consumers to implement overflow correction \parencite{khan2018rapl, raffin2024dissecting}. The counters do not include timestamps, and empirical work shows that actual update intervals may deviate from nominal values, complicating precise temporal correlation with other telemetry \parencite{hackenberg2013power, jay2023experimental}. On some Intel platforms, security hardening measures such as energy filtering reduce temporal granularity for certain domains to mitigate side-channel risks \parencite{lipp2021platypus, intel2023, schone2024energy}. In virtualised environments, RAPL access may be trapped by the hypervisor, increasing latency and introducing small deviations from bare-metal behaviour \parencite{jay2023experimental}.
+
+In summary, RAPL provides a widely used and comparatively fine-grained source of processor-side energy telemetry. Intel platforms typically offer multiple validated domains, including DRAM, enabling a broader view of CPU-and-memory energy. AMD platforms expose fewer domains and therefore provide a more limited perspective on total system power, particularly for memory-intensive workloads. These differences in domain coverage, measurement scope, and software integration need to be taken into account when using RAPL as a basis for energy analysis.
 
 %--------------------------------------------------------------------
 \subsection{GPU Telemetry (NVML)}
 \label{subsec:nvml}
 
-% Placeholder (1–1.5 pages):
-% - Describe NVML power/usage metrics, internal averaging, sampling delays.
-% - Summarise research on accuracy and limitations, including MIG ambiguity.
-% - DO NOT explain conceptual GPU power-domain behaviour (Chapter 3).
-% - DO NOT mention Tycho's GPU-specific approach.
+NVIDIA GPUs expose power, utilization, and device-state information through the
+\textit{NVIDIA Management Library} (NVML), which forms the basis of commonly used tools
+such as \texttt{nvidia-smi}.  
+In Kubernetes and other distributed environments, NVML is the most widely supported
+interface for obtaining GPU-level telemetry without additional hardware support.
+
+NVML provides several metrics relevant to energy analysis.  
+\emph{Instantaneous power} represents a smoothed estimate of board-level power draw, while
+\emph{energy counters} are available only on selected data-center GPUs and implement a
+coarse-grained cumulative measurement.  
+\emph{GPU utilization}, frequently misinterpreted, denotes the percentage of time during
+which the GPU reports any active workload, not the fraction of compute resources used
+\parencite{weakleyMonitoringCharacterizingGPU2025}.  
+Additional fields include memory utilization, temperature, clock frequencies, and throttle
+state.
+
+Recent empirical studies show that NVML telemetry is shaped by internal sampling and
+averaging behaviour rather than by high-frequency sensor access.  
+Yang~et~al.\ demonstrate across more than seventy devices—from Ampere to Hopper—that NVML
+produces fresh power samples only intermittently and applies temporal smoothing, leading
+to underrepresentation of short-lived activity and delayed adjustment during sudden power
+changes.  
+Despite these limitations, steady-state power values typically deviate by only a few
+percent from external measurements on modern data-center GPUs.
+
+A detailed analysis on the Grace--Hopper GH200 further clarifies these effects:
+Hernandez~et~al.\ show that NVML reflects an internal one-second averaging interval on
+this architecture, causing transient peaks to be smoothed out and short kernels to be
+misestimated by more than twenty percent
+\parencite{hernandezPreliminaryStudyFineGrained2025}.  
+Higher-frequency interfaces such as the Linux \texttt{hwmon} subsystem reveal fine-grained
+fluctuations that NVML cannot represent.
+
+Overall, NVML provides broadly accessible and reasonably accurate GPU telemetry for
+medium-granularity power and utilization assessment, but its internal averaging,
+architecture-dependent update behaviour, and limited temporal fidelity impose clear
+constraints.  
+These characteristics define the practical scope within which NVML-based GPU measurements
+can be interpreted, while more
 
 %--------------------------------------------------------------------
 \subsection{Software-Exposed Resource Metrics}
