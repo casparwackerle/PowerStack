@@ -83,110 +83,298 @@ Technical considerations also apply to both Intel and AMD platforms. RAPL counte
 
 In summary, RAPL provides a widely used and comparatively fine-grained source of processor-side energy telemetry. Intel platforms typically offer multiple validated domains, including DRAM, enabling a broader view of CPU-and-memory energy. AMD platforms expose fewer domains and therefore provide a more limited perspective on total system power, particularly for memory-intensive workloads. These differences in domain coverage, measurement scope, and software integration need to be taken into account when using RAPL as a basis for energy analysis.
 
-%--------------------------------------------------------------------
-\subsection{GPU Telemetry (NVML)}
-\label{subsec:nvml}
+\subsection{GPU Telemetry}
+\label{subsec:gpu_telemetry}
 
-NVIDIA GPUs expose power, utilization, and device-state information through the
-\textit{NVIDIA Management Library} (NVML), which forms the basis of commonly used tools
-such as \texttt{nvidia-smi}.  
-In Kubernetes and other distributed environments, NVML is the most widely supported
-interface for obtaining GPU-level telemetry without additional hardware support.
+Unlike CPUs, where power and utilization telemetry is supported through standardised
+interfaces, GPU energy visibility relies primarily on vendor-specific mechanisms.
+For NVIDIA devices, two interfaces dominate this landscape: the \textit{NVIDIA Management
+Library} (NVML), which has become the industry standard, and the \textit{Data Center GPU
+Manager} (DCGM), a less widely used management layer that also exposes telemetry.
 
-NVML provides several metrics relevant to energy analysis.  
-\emph{Instantaneous power} represents a smoothed estimate of board-level power draw, while
-\emph{energy counters} are available only on selected data-center GPUs and implement a
-coarse-grained cumulative measurement.  
-\emph{GPU utilization}, frequently misinterpreted, denotes the percentage of time during
-which the GPU reports any active workload, not the fraction of compute resources used
-\parencite{weakleyMonitoringCharacterizingGPU2025}.  
-Additional fields include memory utilization, temperature, clock frequencies, and throttle
-state.
+\subsubsection{NVML}
+NVML is NVIDIA’s primary interface for device-level monitoring and underpins tools such
+as \texttt{nvidia-smi}.  
+It provides access to power, energy (on selected data-center GPUs), GPU utilization,
+memory usage, clock frequencies, thermal state, and various health and throttle
+indicators.  
+Among these, power and utilization are most relevant for energy analysis.
 
-Recent empirical studies show that NVML telemetry is shaped by internal sampling and
-averaging behaviour rather than by high-frequency sensor access.  
-Yang~et~al.\ demonstrate across more than seventy devices—from Ampere to Hopper—that NVML
-produces fresh power samples only intermittently and applies temporal smoothing, leading
-to underrepresentation of short-lived activity and delayed adjustment during sudden power
-changes.  
-Despite these limitations, steady-state power values typically deviate by only a few
-percent from external measurements on modern data-center GPUs.
-
-A detailed analysis on the Grace--Hopper GH200 further clarifies these effects:
-Hernandez~et~al.\ show that NVML reflects an internal one-second averaging interval on
-this architecture, causing transient peaks to be smoothed out and short kernels to be
-misestimated by more than twenty percent
+NVML power values represent board-level estimates derived from on-device sensing
+circuits and are shaped by internal averaging and architecture-dependent update
+behaviour.  
+Recent empirical studies across modern devices show that NVML produces fresh samples only
+intermittently and applies smoothing that reduces the visibility of short-lived power
+changes, while steady-state power levels remain comparatively accurate
+\parencite{yang2024accurate}.  
+On the Grace--Hopper GH200, these effects are pronounced: NVML reflects a coarse internal
+averaging interval and therefore underrepresents short kernels and transient peaks
+relative to higher-frequency system interfaces
 \parencite{hernandezPreliminaryStudyFineGrained2025}.  
-Higher-frequency interfaces such as the Linux \texttt{hwmon} subsystem reveal fine-grained
-fluctuations that NVML cannot represent.
+These findings indicate that NVML captures long-term power behaviour reliably but
+inherently limits fine-grained visibility.  
+Despite these constraints, existing studies consistently find that NVML provides
+reasonably accurate steady-state power estimates on modern data-center GPUs and currently
+represents the most reliable and widely supported mechanism for obtaining GPU power
+telemetry in practical systems \parencite{hernandezPreliminaryStudyFineGrained2025}.
 
-Overall, NVML provides broadly accessible and reasonably accurate GPU telemetry for
-medium-granularity power and utilization assessment, but its internal averaging,
-architecture-dependent update behaviour, and limited temporal fidelity impose clear
-constraints.  
-These characteristics define the practical scope within which NVML-based GPU measurements
-can be interpreted, while more
+GPU utilization provides contextual information about device activity.  
+It reports the proportion of time during which the GPU is executing any workload rather
+than the fraction of computational capacity in use, making it a coarse activity
+indicator rather than a detailed performance metric
+\parencite{weakleyMonitoringCharacterizingGPU2025}.
 
-%--------------------------------------------------------------------
+\subsubsection{DCGM}
+DCGM is NVIDIA’s management and observability framework designed for data-center
+deployments.  
+It aggregates telemetry, performs health monitoring, exposes thermal and throttle state,
+and provides detailed visibility in environments that employ Multi-Instance GPU (MIG)
+partitioning.  
+However, DCGM’s power and utilization metrics are derived from the same underlying
+measurement sources as NVML.  
+In practice, DCGM is far less commonly used for energy analysis because it does not
+provide higher-fidelity power telemetry; instead, it applies additional aggregation and
+is typically deployed with coarse sampling intervals, especially when used through
+exporters in cluster monitoring systems.  
+DCGM therefore represents an alternative access path to the same measurements rather than
+a distinct source of energy-related information.  
+
+DCGM is considerably less common in both research and operational practice, with most
+GPU monitoring systems relying primarily on NVML while DCGM appears only occasionally in
+cluster-level deployments \parencite{weakleyMonitoringCharacterizingGPU2025}.
+
+\subsubsection{Summary}
+NVML and DCGM jointly define the available mechanisms for GPU telemetry in cloud
+environments.  
+NVML is the dominant and broadly supported interface for power and utilization
+measurement, while DCGM extends it with operational metadata and management integration.
+Current studies consistently show that both interfaces expose averaged, device-level
+power estimates that capture long-term behaviour but are inherently limited in their
+ability to represent short-duration activity or fine-grained workload structure.  
+These characteristics form the scientific foundation for later discussions of temporal
+behaviour and measurement methodology.
+
 \subsection{Software-Exposed Resource Metrics}
 \label{subsec:software_metrics}
 
-% This merged section replaces three previous subsections.
+In addition to hardware telemetry, Linux and Kubernetes expose a wide range of
+software-level resource metrics that describe system and workload activity.
+These metrics do not measure power directly but provide essential behavioural
+context that complements RAPL, Redfish, and GPU telemetry.
 
-% Placeholder (1 page):
-% - Summarise kernel-exposed CPU time accounting, I/O statistics, network counters.
-% - Mention missing or unusable telemetry for NICs, storage, PCIe.
-% - Describe how literature treats model-based estimation (regression, AI models).
-% - Emphasise limitations such as missing domains and poor applicability.
-% - DO NOT explain conceptual interpretation of resource counters 
-%   (reserved for Chapter 3).
-% - DO NOT mix with attribution philosophies.
+\subsubsection{CPU and Memory Activity Metrics}
 
-%====================================================================
+Linux provides several complementary mechanisms for tracking CPU and memory
+usage.  
+Global counters such as \path{/proc/stat} record cumulative CPU time since boot,
+while per-task statistics in \path{/proc/<pid>} expose user-mode and kernel-mode
+execution time with high granularity \parencite{kernelprocfs}.  
+Control groups (cgroups) provide container-level CPU and memory accounting and
+form the primary basis for utilisation metrics inside Kubernetes
+\parencite{kernelcgroupv1, kernelcgroupv2}.  
+Higher-level tools such as cAdvisor and metrics-server aggregate this
+information via Kubelet, but at significantly lower update rates.
+
+Event-driven approaches provide substantially finer resolution.  
+eBPF allows dynamic attachment to kernel events such as context switches,
+scheduling decisions, and I/O operations, enabling near-real-time capture of
+per-task CPU activity with low overhead
+\parencite{ciliumbpf, cassagnesRiseEBPFNonintrusive2020}.  
+Hardware performance counters accessed through \code{perf} offer insight into
+instruction counts, cycles, cache behaviour, and stalls
+\parencite{Gregg2017CpuUtilizationWrong}.  
+These sources provide detailed behavioural information but still represent
+utilisation rather than energy.
+
+\subsubsection{Storage Activity Metrics}
+
+Storage subsystems do not expose real-time power telemetry, yet Linux provides a
+rich set of activity indicators.  
+Per-process statistics in \path{/proc/<pid>/io} track bytes read and written,
+while cgroup I/O controllers report aggregated container-level metrics.  
+Subsystem-specific tools such as \code{smartctl} and \code{nvme-cli} reveal
+additional device characteristics, queue behaviour, and state transitions
+\parencite{smartmontools_github, nvmecli_github}.  
+
+In the absence of hardware power sensors, multiple works propose
+workload-dependent energy models for storage devices
+\parencite{choDesignTradeoffsSSDs2015, liWhichStorageDevice2014,
+borbaModelingApproachEstimating2022}.  
+These models can yield accurate estimates when calibrated for a specific device
+but do not generalise across heterogeneous hardware due to differences in flash
+controllers, firmware, and internal data paths.
+
+\subsubsection{Network and PCIe Device Metrics}
+
+Network interfaces provide byte and packet counters via \path{/proc/net/dev}, but
+expose no dedicated power telemetry.  
+Research models for NIC energy consumption exist
+\parencite{sohanCharacterizing10Gbps2010, basmadjianCloudComputingIts2012,
+baneshiAnalyzingPerApplicationEnergy2024}, yet all rely on device-specific idle
+and active power characteristics that are not available at runtime.  
+Similarly, PCIe devices support abstract power states as defined by the PCIe
+specification \parencite{technotes_pci_power_2024}, but these states do not
+reflect instantaneous power usage and thus offer only coarse activity signals.
+
+\subsubsection{Secondary System Components}
+
+Components such as fans, motherboard logic, and power delivery subsystems rarely
+expose fine-grained telemetry.  
+Although some BMC implementations report coarse sensor values, these readings
+are inconsistent across platforms and generally unsuitable for high-resolution
+analysis.  
+Consequently, research commonly treats these subsystems as part of the residual
+power that scales with the activity of primary components
+\parencite{basmadjianCloudComputingIts2012}.
+
+\subsubsection{Model-Based Estimation Approaches}
+
+Because software-visible metrics capture detailed workload behaviour, many works
+propose inferring energy consumption from utilisation using regression or
+stochastic models
+\parencite{fan2007power, hsu2011power, song2013unified,
+arjonaarocaMeasurementbasedAnalysisEnergy2014}.  
+While these models can be effective when fitted to a specific hardware platform,
+their accuracy depends heavily on device-specific parameters, making them
+unsuitable as a general mechanism for heterogeneous server environments.  
+Machine-learning-based estimators share the same limitation: high accuracy when
+trained for a fixed configuration, poor portability without extensive retraining.
+
+\subsubsection{Summary}
+
+Software-exposed metrics provide high-resolution visibility into CPU, memory,
+I/O, and network activity.  
+They are indispensable for correlating workload behaviour with hardware power
+signals, especially for components that lack native telemetry. 
+Model-based estimation remains possible but inherently platform-specific, and
+therefore unsuitable as a universal foundation for fine-grained attribution in
+heterogeneous environments.
+
 \section{Temporal Behaviour of Telemetry Sources}
 \label{sec:temporal_behaviour}
-A comprehensive treatment can be found in \appchapterref{A}{vt2_Chapter2}, but the following discussion focuses on the aspects relevant for the present thesis.
 
-% This section synthesises multi-source timing behaviour based on empirical research.
-% It must NOT introduce conceptual timing theory (Chapter 3).
+A comprehensive discussion of timing behaviour across hardware and software telemetry 
+interfaces is provided in \appchapterref{A}{vt2_Chapter2}. 
+The present section summarises the aspects most relevant for understanding the 
+limitations of existing measurement sources and sets the empirical foundation for 
+later discussions of attribution challenges.
 
 %--------------------------------------------------------------------
-\subsection{Sampling Characteristics and Update Cycles} --------->> MERGE WITH NEXT SECTION:
+\subsection{Update Cycles and Sampling Variability}
 \label{subsec:temporal_sampling}
 
-% Placeholder (0.5–0.7 page):
-% - Describe research findings on RAPL, NVML, Redfish update intervals.
-% - Include empirical observations of nondeterministic refresh times.
-% - DO NOT explain sampling vs event-time (Chapter 3).
-% - DO NOT introduce timing models.
+% PURPOSE OF THIS SUBSECTION:
+% Provide an empirical synthesis of how often telemetry sources produce new values, 
+% how predictable these updates are, and how this differs across technologies.
+%
+% MUST INCLUDE:
+% - RAPL: extremely fast pollable interface, but stable updates only above ~20 Hz;
+%         occasional zero-delta samples; heterogeneous domain update frequencies.
+% - NVML: fixed internal update periods but unreliable sample freshness;
+%         intermittent update availability; delays of 100–300 ms between physical 
+%         change and reported update; architecture-dependent differences (Ampere, 
+%         Hopper, GH200).
+% - DCGM: often sampled at coarse intervals (default ~1 s); inherits NVML update 
+%         behaviour.
+% - Redfish: vendor-dependent behaviour; generally low update rates; empirically 
+%            irregular intervals (sub-second to multi-second); occasional missing 
+%            or skipped updates; no guarantee of sync across sensors.
+% - eBPF and perf-events: not “sampled”; event-driven or syscall-driven; update 
+%                         behaviour dominated by system activity rather than 
+%                         sensor refresh cycles.
+%
+% MUST NOT INCLUDE:
+% - Any conceptual explanation of sampling vs event time (Chapter 3).
+% - Any Tycho-specific reasoning (delay calibration, time alignment).
+% - Any discussion of consequences for attribution.
+%
+% STYLE:
+% Keep descriptive, neutral, empirical. Reference VT2 results only by summary, 
+% not by reproducing detailed experiments.
+
 
 %--------------------------------------------------------------------
 \subsection{Sensor-Internal Averaging and Missing Timestamps}
 \label{subsec:averaging_timestamps}
 
-% Placeholder (0.5 page):
-% - Summarise research showing lack of timestamps in RAPL and NVML.
-% - Mention internal sensor averaging reported in literature.
-% - DO NOT describe conceptual implications for attribution (Chapter 3).
+% PURPOSE OF THIS SUBSECTION:
+% Show that telemetry values do not represent instantaneous measurements and do 
+% not carry explicit temporal metadata. Prepare the empirical ground for Gap 2.
+%
+% MUST INCLUDE:
+% - RAPL: provides only cumulative energy counters; no timestamps, no indication 
+%         of when the underlying sensor last updated.
+% - NVML: all power values are internally averaged over undocumented windows; 
+%         smoothing hides short peaks; no sample timestamps; utilisation metric 
+%         also averaged separately.
+% - DCGM: scrape-time timestamps only; underlying values have same averaging as NVML.
+% - Redfish: values reflect BMC-internal sensing and averaging; no documented 
+%            averaging window; no timestamps indicating measurement time.
+%
+% MUST NOT INCLUDE:
+% - Conceptual interpretation (e.g. “this leads to misalignment”).
+% - Any discussion of reconstruction, interpolation, or Tycho’s mitigation.
+%
+% STYLE:
+% Emphasise empirical findings; treat averaging and timestamp absence as 
+% observational facts.
+
 
 %--------------------------------------------------------------------
 \subsection{Domain Boundary Ambiguity}
 \label{subsec:domain_ambiguity}
 
-% Placeholder (0.5 page):
-% - Summarise research showing uncertain boundaries of RAPL domains.
-% - Mention MIG-related ambiguity for GPU domains.
-% - DO NOT explain conceptual importance of domains (Chapter 3).
+% PURPOSE OF THIS SUBSECTION:
+% Summarise the uncertainty about what exactly is being measured in each domain.
+% Provide empirical background for Gap 3.
+%
+% MUST INCLUDE:
+% - RAPL: Intel’s pkg / core / uncore / dram domains partially overlap; boundaries 
+%         are architecture-dependent and not fully documented. 
+% - AMD: only pkg and core domains; no DRAM domain; unclear coverage of memory-related 
+%        activity; observed differences between perf-events and powercap listings.
+% - GPU (NVML/DCGM): “board power” aggregates multiple rails; no per-SM or per-memory 
+%                    domains; MIG instances share a single power domain.
+% - Redfish: chassis or PSU-level values may include fans, VRMs, or unrelated components 
+%            depending on vendor implementation.
+%
+% MUST NOT INCLUDE:
+% - Interpretation such as “this complicates attribution” (reserved for Chapter 3).
+% - Methodological responses or design implications.
+%
+% STYLE:
+% State factual ambiguity without judgement; stay architecture-neutral.
+
 
 %--------------------------------------------------------------------
 \subsection{Validation Methodologies in Prior Research}
 \label{subsec:validation_methods}
 
-% Placeholder (0.5 page):
-% - Summarise how prior studies validated measurements (meters, cross-domain comparison).
-% - Discuss known limitations.
-% - DO NOT discuss how validation will be performed in this thesis.
-% - Keep strictly historical/literature-based.
+% PURPOSE OF THIS SUBSECTION:
+% Provide historical context on how prior work evaluated the correctness of telemetry.
+% This prepares the ground for understanding the reliability of published results.
+%
+% MUST INCLUDE:
+% - Description of common validation practices:
+%   * External hardware power meters (wall power or inline sensors).
+%   * Cross-domain comparison (e.g. RAPL pkg + dram vs AC measurement).
+#   * Synthetic workloads for stress-testing temporal response (short kernels, bursts).
+#   * Architecture-comparative studies (Ampere vs Hopper, Intel vs AMD).
+#   * Occasional use of performance counters as secondary reference.
+% - Known limitations of these methods:
+%   * External meters have coarse sampling.
+%   * Lack of timestamps complicates sample alignment.
+%   * Domain ambiguity limits interpretability of discrepancies.
+%
+% MUST NOT INCLUDE:
+% - Any discussion of how validation will be performed in this thesis.
+% - Any critique or proposal of improved methods (belongs to research gaps or methods).
+%
+% STYLE:
+% Brief, descriptive, purely historical. Avoid excessive methodological detail.
+
+
+
 
 %====================================================================
 \section{Existing Tools and Related Work}
