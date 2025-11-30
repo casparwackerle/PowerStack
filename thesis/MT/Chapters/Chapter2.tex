@@ -37,7 +37,6 @@ Monitoring studies further report inconsistencies across the different layers th
 
 These findings indicate that container-level measurement operates under conditions of rapid workload turnover, heterogeneous monitoring behaviour, and imperfect resource visibility. As a consequence, the literature treats container energy attribution as a problem constrained by incomplete and potentially biased measurement signals rather than as a directly measurable quantity.
 
-
 \section{Hardware and Software Telemetry Sources}
 \label{sec:measurement_techniques}
 
@@ -253,127 +252,212 @@ heterogeneous environments.
 \section{Temporal Behaviour of Telemetry Sources}
 \label{sec:temporal_behaviour}
 
-A comprehensive discussion of timing behaviour across hardware and software telemetry 
-interfaces is provided in \appchapterref{A}{vt2_Chapter2}. 
-The present section summarises the aspects most relevant for understanding the 
-limitations of existing measurement sources and sets the empirical foundation for 
-later discussions of attribution challenges.
+A comprehensive treatment of temporal characteristics can be found in 
+\appchapterref{A}{vt2_Chapter2}, but the present section focuses on the empirical, 
+source-specific behaviours that constrain fine-grained power and energy estimation on 
+real systems. Modern server platforms expose a heterogeneous set of telemetry 
+interfaces, and their timing properties vary substantially: some update at fixed 
+intervals, others employ internal averaging or smoothing, several expose counters 
+without timestamps, and many lack guarantees on refresh regularity. These behaviours 
+shape the effective temporal resolution with which workload-induced power changes can 
+be observed.
 
-%--------------------------------------------------------------------
-\subsection{Update Cycles and Sampling Variability}
-\label{subsec:temporal_sampling}
+The purpose of this section is not to develop a conceptual theory of sampling or to 
+explain why timing matters for attribution (both are deferred to \chapref{ch:concepts}), nor to 
+introduce Tycho’s timing engine (\chapref{ch:architecture}). Rather, it establishes the empirical 
+constraints imposed by the telemetry sources themselves. These include sensor refresh 
+intervals, stability of consecutive updates, delays between physical behaviour and 
+reported values, the presence or absence of timestamps, and the distinction between 
+instantaneous versus internally averaged measurements.
 
-% PURPOSE OF THIS SUBSECTION:
-% Provide an empirical synthesis of how often telemetry sources produce new values, 
-% how predictable these updates are, and how this differs across technologies.
-%
+The subsections that follow describe these temporal properties for each telemetry 
+source individually and summarise the practical limits they impose on high-resolution 
+energy analysis.
+
+\subsection{RAPL Update Intervals and Sampling Stability}
+\label{subsec:rapl_timing}
+
+RAPL exposes energy \emph{counters} rather than instantaneous power values.
+These counters accumulate energy since boot and can be read at arbitrarily high
+frequency, but their usefulness is determined entirely by how often the internal
+measurement logic refreshes them, a timing behaviour that is undocumented and
+domain-dependent.
+
+\paragraph{Domain-specific internal update rates}
+Intel specifies the RAPL time unit as 0.976\,ms for the slowest-updating
+domains, while others, notably the PP0 (core) domain, may refresh
+significantly faster \parencite{schone2024energy}.  
+In practice, however, these theoretical limits do not translate into usable
+temporal resolution because RAPL provides no timestamps: the moment of counter
+refresh is unknown to the reader.  At sub-millisecond sampling rates, the lack
+of timestamps combined with irregular refresh behaviour introduces substantial
+relative error, since differences between consecutive reads may reflect counter
+staleness rather than actual power dynamics \parencite{khan2018rapl}.
+
+\paragraph{Noise introduced by security-driven filtering}
+To mitigate power-side channels such as Platypus, Intel optionally introduces
+randomised noise through the \code{ENERGY\_FILTERING\_ENABLE} mechanism
+\parencite{intel2023}.  
+This filtering increases the effective minimum granularity from roughly
+1\,ms to approximately 8\,ms for the PP0 domain \parencite{schone2024energy}.  
+While average energy over longer intervals remains accurate, instantaneous
+increments become less reliable at very short timescales.
+
+\paragraph{Practical sampling limits}
+Despite the nominal sub-millisecond timing, empirical work consistently shows
+that high-frequency polling offers no practical benefit.  
+Multiple studies report that sampling faster than the internal update period
+only produces repeated counter values and amplifies read noise
+\parencite{khan2018rapl}.  
+Jay et~al.\ demonstrate that at polling rates slower than 50\,Hz, the relative
+error falls below 0.5\,\% \parencite{jay2023experimental}.  
+Consequently, typical measurement practice (and the limits adopted in this
+thesis) treats RAPL as reliable only at tens-of-milliseconds resolution, not at
+the theoretical millisecond scale suggested by its nominal time unit.
+
+\paragraph{Summary}
+Although RAPL counters can be read extremely quickly, the effective temporal
+resolution is constrained by undocumented refresh intervals, absence of
+timestamps, optional security filtering, and substantial measurement noise at
+high polling rates.  
+For practical purposes, sampling at approximately 20--50\,ms intervals yields
+the most stable and accurate results, while sub-millisecond polling is
+inadvisable due to high relative error and counter staleness.
+
+\subsection{GPU Update Intervals and Sampling Freshness}
+\label{subsec:gpu_timing}
+
+GPU power telemetry is exposed primarily through NVML, with DCGM providing an alternative access path that builds on the same underlying measurement source.
+Unlike CPU-side interfaces integrated into the processor package, GPU power monitoring is performed entirely by the device itself: internal sensing circuits and firmware determine how often new values are produced, how they are averaged, and when they are published to software. As a result, refresh behaviour varies substantially across architectures, and the temporal properties of the reported values depend on device-internal update cycles rather than the rate at which the host system issues queries, which limits the achievable resolution of any external sampling strategy.
+
+\paragraph{Internal update cycles and sampling freshness}
+Empirical studies consistently show that NVML publishes new power values only intermittently, even when queried at high frequency.
+Yang et~al.\ report sampling availability as low as roughly twenty–twenty-five percent across more than seventy modern data-center GPUs, meaning that the majority of polls return previously published values rather than fresh measurements \parencite{yang2024accurate}.
+
+Typical internal update periods fall on the order of tens to several hundreds of milliseconds, with architectural variation between GPU generations.
+Hernandez et~al.\ report that newer architectures apply more aggressive smoothing and exhibit longer gaps between updates, reflecting slower publication cadence at the firmware level \parencite{hernandezPreliminaryStudyFineGrained2025}.
+Overall, empirical evaluations show that NVML’s internal update interval may lie on the order of hundreds of milliseconds and that repeated queries do not guarantee the retrieval of a new sample at every call \parencite{yang2024accurate}.
+NVML power readings do not represent instantaneous electrical measurements; they reflect firmware-level integration and smoothing over a device-internal averaging window, the duration of which varies by GPU generation and is not publicly documented..
+
+\paragraph{Reaction delay to workload-induced power changes}
+A related characteristic is NVML’s reaction delay: when GPU power changes due to workload activity, the corresponding update becomes visible only after a lag.
+Multiple studies document delays in the range of approximately one to three hundred milliseconds before a new NVML value reflects the underlying power transition \parencite{yang2024accurate}.
+This delay is distinct from averaging effects and arises from deferred publication of internally accumulated measurements.
+On some recent architectures, the delay can be longer due to device-level smoothing layers that defer updates until sufficient internal samples have been collected \parencite{hernandezPreliminaryStudyFineGrained2025}.
+
+\paragraph{Update regularity and jitter}
+NVML update cycles are not perfectly periodic.
+Even when a nominal internal cadence is observable, individual publish times exhibit modest jitter, and occasional missed or skipped updates can result in sequences of identical values.
+These effects are pronounced on certain consumer-class devices and in configurations that partition the GPU, such as MIG, although they are also present to a lesser degree on data-center accelerators \parencite{yang2024accurate}.
+Such irregularity introduces uncertainty regarding the true measurement time of any retrieved value, especially in the sub-second range.
+
+\paragraph{DCGM sampling behaviour}
+DCGM relies on the same underlying measurement path as NVML and therefore inherits NVML’s internal update characteristics.
+In practice, DCGM is commonly accessed through its exporter, which introduces an additional periodic sampling stage (typically around one second) resulting in markedly coarser temporal behaviour than NVML’s native cadence.
+As a result, DCGM-based power telemetry rarely offers sub-second resolution in operational environments \parencite{weakleyMonitoringCharacterizingGPU2025}.
+
+\paragraph{GPU utilization update cycles}
+NVML’s GPU utilization metric follows its own internal update cadence, separate from power.
+It is typically refreshed more frequently (on the order of tens of milliseconds) although the exact timing remains undocumented.
+While this metric does not track computational efficiency, its shorter update interval provides a comparatively more responsive indicator of device activity \parencite{weakleyMonitoringCharacterizingGPU2025}.
+
+\subsection{Redfish Sensor Refresh Intervals and Irregularity}
+\label{subsec:redfish_timing}
+
+Redfish exposes power telemetry through the baseboard management controller (BMC) and therefore inherits the temporal behaviour of its embedded sensing hardware and firmware. In contrast to on-chip interfaces such as RAPL or NVML, Redfish is designed for management-plane observability rather than high-frequency monitoring. Prior studies consistently report that Redfish refreshes whole-node power values at coarse intervals, typically ranging from several hundred milliseconds to multiple seconds, with the exact cadence depending on vendor, BMC firmware, and underlying sensor design \parencite{wang2019empirical, aliRedfishNagiosScalableOutofBand2022}. The Redfish standard does not define a minimum update frequency, and available documentation provides little insight into internal sampling or averaging strategies.
+
+\paragraph{Measurement semantics of Redfish power values}
+Redfish does not expose instantaneous electrical measurements. Instead, the reported values originate from on-board monitoring chips connected to shunt-based sensors and are subsequently processed inside the BMC. Vendor documentation indicates that these sensors inherently integrate power over tens to hundreds of milliseconds, and that additional firmware-level smoothing may be applied before values are published through the Redfish API \parencite{aliRedfishNagiosScalableOutofBand2022}. Empirical evaluations support this interpretation: Wang et~al.\ show that Redfish exhibits reaction delays of roughly two hundred milliseconds and displays particularly stable behaviour under steady loads, consistent with block-averaged rather than instantaneous sampling \parencite{wang2019empirical}. Because neither the sensor integration window nor any BMC filtering policies are defined in the standard, the temporal semantics of published values remain implementation-dependent.
+
+Redfish power readings include a timestamp field, but this value reflects the BMC’s observation time rather than the sampling instant of the physical power sensor. In many implementations, timestamps are rounded to seconds, which limits their utility for reconstructing sub-second dynamics and prevents reliable inference of the underlying sampling moment.
+
+Beyond published work, empirical observations from the system used in this thesis reveal that Redfish update intervals may exhibit substantial variability. While nominal refresh periods appear regular over longer windows, individual samples occasionally show multi-second gaps, repeated values, or irregular spacing. Such behaviour is consistent with a telemetry source operating on management-plane scheduling and BMC workload constraints rather than real-time guarantees. These observations do not generalise across vendors but illustrate the degree of temporal uncertainty that can occur in practice.
+
+Overall, Redfish provides a widely supported mechanism for obtaining whole-system power readings and is well suited for coarse-grained monitoring or validation of other telemetry sources. Its coarse refresh intervals, lack of sensor-level timestamps, and implementation-dependent irregularities, however, make it unsuitable for analysing short-duration phenomena or for use as a primary source in high-resolution energy attribution.
+
+
+\subsection{Timing of Software-Exposed Metrics}
+\label{subsec:sw_timing}
+
 % MUST INCLUDE:
-% - RAPL: extremely fast pollable interface, but stable updates only above ~20 Hz;
-%         occasional zero-delta samples; heterogeneous domain update frequencies.
-% - NVML: fixed internal update periods but unreliable sample freshness;
-%         intermittent update availability; delays of 100–300 ms between physical 
-%         change and reported update; architecture-dependent differences (Ampere, 
-%         Hopper, GH200).
-% - DCGM: often sampled at coarse intervals (default ~1 s); inherits NVML update 
-%         behaviour.
-% - Redfish: vendor-dependent behaviour; generally low update rates; empirically 
-%            irregular intervals (sub-second to multi-second); occasional missing 
-%            or skipped updates; no guarantee of sync across sensors.
-% - eBPF and perf-events: not “sampled”; event-driven or syscall-driven; update 
-%                         behaviour dominated by system activity rather than 
-%                         sensor refresh cycles.
+% - /proc and cgroup files present cumulative counters.
+% - Effective resolution = polling resolution.
+% - Kernel updates these counters on scheduler ticks (not constant on all systems).
+% - cgroup CPU counters updated at high granularity (nanoseconds, monotonic).
+% - Disk/network counters updated as part of driver paths → not periodic.
+%
+% eBPF:
+% - Event-driven rather than periodic.
+% - Timestamped on event occurrence.
+% - Offers effectively “instantaneous” temporal resolution.
+% - Limited only by probe overhead, not by intrinsic update cycles.
+%
+% perf:
+% - PMCs update continuously in hardware.
+% - No fixed refresh cycle: counters are read at poll-time.
+% - High precision, but reading them too frequently increases overhead.
 %
 % MUST NOT INCLUDE:
-% - Any conceptual explanation of sampling vs event time (Chapter 3).
-% - Any Tycho-specific reasoning (delay calibration, time alignment).
-% - Any discussion of consequences for attribution.
+% - No event-time model explanations (Chapter 3).
+% - No Tycho scheduling concepts (Chapter 4).
+
+Key message:
+- Software counters are cumulative and quasi-continuous.
+- Their temporal behaviour is dominated by polling strategy, not internal refresh.
+- eBPF is the only source that is inherently event-timestamped.
+
+
+\subsection{Temporal Implications of Domain Boundary Ambiguity}
+\label{subsec:domain_ambiguity_temporal}
+
+% MUST INCLUDE (Temporal Aspects Only):
+% - RAPL package/core/uncore/dram domains sometimes roll up different components
+%   depending on CPU generation → impacts WHEN domain aggregates change.
+% - Some domains update at different refresh intervals (e.g., uncore slower).
+% - AMD RAPL equivalents have different update variability.
 %
-% STYLE:
-% Keep descriptive, neutral, empirical. Reference VT2 results only by summary, 
-% not by reproducing detailed experiments.
-
-
-%--------------------------------------------------------------------
-\subsection{Sensor-Internal Averaging and Missing Timestamps}
-\label{subsec:averaging_timestamps}
-
-% PURPOSE OF THIS SUBSECTION:
-% Show that telemetry values do not represent instantaneous measurements and do 
-% not carry explicit temporal metadata. Prepare the empirical ground for Gap 2.
-%
-% MUST INCLUDE:
-% - RAPL: provides only cumulative energy counters; no timestamps, no indication 
-%         of when the underlying sensor last updated.
-% - NVML: all power values are internally averaged over undocumented windows; 
-%         smoothing hides short peaks; no sample timestamps; utilisation metric 
-%         also averaged separately.
-% - DCGM: scrape-time timestamps only; underlying values have same averaging as NVML.
-% - Redfish: values reflect BMC-internal sensing and averaging; no documented 
-%            averaging window; no timestamps indicating measurement time.
+% GPU/MIG:
+% - MIG partitions share underlying power measurement refresh cycles.
+% - Per-instance values may reflect aggregation over multiple components.
+% - Only mention timing behaviour: i.e., partition boundaries DO NOT change 
+%   update cycles, but influence the temporal correlation of domain-level energy.
 %
 % MUST NOT INCLUDE:
-% - Conceptual interpretation (e.g. “this leads to misalignment”).
-% - Any discussion of reconstruction, interpolation, or Tycho’s mitigation.
-%
-% STYLE:
-% Emphasise empirical findings; treat averaging and timestamp absence as 
-% observational facts.
+% - No detailed domain explanations (Chapter 3).
+% - No attribution theory.
+% - No Kepler/Kubewatt discussion.
+
+Key message:
+- Domain ambiguity affects temporal alignment because different domains refresh 
+  at different speeds or aggregate different internal components.
 
 
-%--------------------------------------------------------------------
-\subsection{Domain Boundary Ambiguity}
-\label{subsec:domain_ambiguity}
-
-% PURPOSE OF THIS SUBSECTION:
-% Summarise the uncertainty about what exactly is being measured in each domain.
-% Provide empirical background for Gap 3.
-%
-% MUST INCLUDE:
-% - RAPL: Intel’s pkg / core / uncore / dram domains partially overlap; boundaries 
-%         are architecture-dependent and not fully documented. 
-% - AMD: only pkg and core domains; no DRAM domain; unclear coverage of memory-related 
-%        activity; observed differences between perf-events and powercap listings.
-% - GPU (NVML/DCGM): “board power” aggregates multiple rails; no per-SM or per-memory 
-%                    domains; MIG instances share a single power domain.
-% - Redfish: chassis or PSU-level values may include fans, VRMs, or unrelated components 
-%            depending on vendor implementation.
-%
-% MUST NOT INCLUDE:
-% - Interpretation such as “this complicates attribution” (reserved for Chapter 3).
-% - Methodological responses or design implications.
-%
-% STYLE:
-% State factual ambiguity without judgement; stay architecture-neutral.
-
-
-%--------------------------------------------------------------------
 \subsection{Validation Methodologies in Prior Research}
 \label{subsec:validation_methods}
 
-% PURPOSE OF THIS SUBSECTION:
-% Provide historical context on how prior work evaluated the correctness of telemetry.
-% This prepares the ground for understanding the reliability of published results.
-%
 % MUST INCLUDE:
-% - Description of common validation practices:
-%   * External hardware power meters (wall power or inline sensors).
-%   * Cross-domain comparison (e.g. RAPL pkg + dram vs AC measurement).
-#   * Synthetic workloads for stress-testing temporal response (short kernels, bursts).
-#   * Architecture-comparative studies (Ampere vs Hopper, Intel vs AMD).
-#   * Occasional use of performance counters as secondary reference.
-% - Known limitations of these methods:
-%   * External meters have coarse sampling.
-%   * Lack of timestamps complicates sample alignment.
-%   * Domain ambiguity limits interpretability of discrepancies.
+% - Common validation techniques:
+%     - External power meters (PDU, Yokogawa WT-series, NI DAQ).
+%     - Cross-domain comparison: RAPL vs NVML vs Redfish vs wall power.
+%     - Step-load experiments (CPU/GPU bursts).
+%     - Steady-state plateaus.
+%     - Controlled microbenchmarks (stress-ng, gpu-burn, custom kernels).
+%
+% - Known limitations:
+%     - External meters often have low sampling rates (1–10 Hz).
+%     - PDUs may average over long windows.
+%     - Hard to validate sub-100 ms behaviour.
+%     - Internal smoothing makes “ground truth” ambiguous.
+%     - Multi-device setups introduce time drift between sensors.
 %
 % MUST NOT INCLUDE:
-% - Any discussion of how validation will be performed in this thesis.
-% - Any critique or proposal of improved methods (belongs to research gaps or methods).
-%
-% STYLE:
-% Brief, descriptive, purely historical. Avoid excessive methodological detail.
+% - No mention of Tycho's validation method.
+% - No description of how this thesis performs validation.
+% - No theoretical treatment of model error.
 
-
+Key message:
+- Prior work validates temporal behaviour indirectly and imperfectly.
+- Lack of high-frequency external reference devices limits precision.
 
 
 %====================================================================
