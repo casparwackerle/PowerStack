@@ -1,12 +1,6 @@
 \chapter{Background and Related Research}
 \label{ch:background}
 
-% This chapter surveys existing research and practical knowledge about server-level
-% energy measurement, hardware and software telemetry sources, and attribution tools.
-% It provides the empirical and factual basis for the conceptual foundations in
-% Chapter~\ref{ch:concepts}. This chapter MUST NOT contain Tycho design decisions,
-% conceptual attribution models, or implementation details.
-
 \noindent This chapter summarises the current state of research and industrial knowledge on server-level energy measurement. Its focus is limited to what the literature reports about available telemetry sources, measurement techniques, and existing attribution tools. The discussion is descriptive rather than conceptual: it does not introduce attribution principles, methodological reasoning, or design considerations, which are addressed in \chapref{ch:concepts}. Extended background material is available in \hyperref[appendix_vt2]{Appendix~A} and the present chapter integrates only those findings that are directly relevant for understanding the research landscape.
 
 \section{Energy Measurement in Modern Server Systems}
@@ -375,210 +369,175 @@ Beyond published work, empirical observations from the system used in this thesi
 
 Overall, Redfish provides a widely supported mechanism for obtaining whole-system power readings and is well suited for coarse-grained monitoring or validation of other telemetry sources. Its coarse refresh intervals, lack of sensor-level timestamps, and implementation-dependent irregularities, however, make it unsuitable for analysing short-duration phenomena or for use as a primary source in high-resolution energy attribution.
 
-
 \subsection{Timing of Software-Exposed Metrics}
 \label{subsec:sw_timing}
 
-% MUST INCLUDE:
-% - /proc and cgroup files present cumulative counters.
-% - Effective resolution = polling resolution.
-% - Kernel updates these counters on scheduler ticks (not constant on all systems).
-% - cgroup CPU counters updated at high granularity (nanoseconds, monotonic).
-% - Disk/network counters updated as part of driver paths → not periodic.
-%
-% eBPF:
-% - Event-driven rather than periodic.
-% - Timestamped on event occurrence.
-% - Offers effectively “instantaneous” temporal resolution.
-% - Limited only by probe overhead, not by intrinsic update cycles.
-%
-% perf:
-% - PMCs update continuously in hardware.
-% - No fixed refresh cycle: counters are read at poll-time.
-% - High precision, but reading them too frequently increases overhead.
-%
-% MUST NOT INCLUDE:
-% - No event-time model explanations (Chapter 3).
-% - No Tycho scheduling concepts (Chapter 4).
+Software-exposed resource metrics differ fundamentally from hardware-integrated telemetry sources: rather than publishing sampled power or energy values at device-defined intervals, the Linux kernel exposes cumulative counters whose temporal behaviour is almost entirely determined by when they are read. These interfaces therefore provide quasi-continuous visibility into system activity, but without intrinsic update cycles or timestamps that would define the sampling moment of the underlying measurement.
 
-Key message:
-- Software counters are cumulative and quasi-continuous.
-- Their temporal behaviour is dominated by polling strategy, not internal refresh.
-- eBPF is the only source that is inherently event-timestamped.
+\paragraph{Cumulative counters in \texttt{/proc} and cgroups}
+Kernel interfaces such as \path{/proc/stat}, per-task entries under \path{/proc/<pid>}, and the CPU accounting files in cgroups expose resource usage as monotonically increasing counters.  
+These values are updated by the kernel during scheduler events, timer interrupts, and context-switch accounting, rather than at fixed intervals.  
+As a consequence, their effective temporal resolution is determined entirely by the user’s polling cadence: reading them more frequently produces more detailed deltas, but the kernel does not provide any guarantee about when a counter was last updated.  
+None of these counters include timestamps, and their update timing may vary across systems due to tickless operation, kernel configuration, and workload characteristics.
 
+\paragraph{Disk and network I/O statistics}
+I/O-related counters follow the same principle.  
+Entries such as \path{/proc/<pid>/io}, cgroup I/O files, and interface statistics in \path{/proc/net/dev} are incremented as part of the corresponding driver paths when I/O operations occur.  
+They do not refresh periodically and therefore exhibit update patterns that mirror workload activity rather than a regular cadence.  
+Temporal interpretation again depends entirely on the polling rate of the monitoring system.
 
-\subsection{Temporal Implications of Domain Boundary Ambiguity}
-\label{subsec:domain_ambiguity_temporal}
+\paragraph{eBPF-based event timing}
+In contrast to cumulative counters, eBPF enables event-driven monitoring with explicit timestamps.  
+Kernel probes attached to scheduler events, I/O paths, or tracepoints can record event times with high precision using the kernel’s monotonic clock.  
+As a result, eBPF metrics provide effectively instantaneous temporal resolution and are limited only by the overhead of probe execution and user-space consumption of BPF maps.  
+No internal refresh cycle exists; events are timestamped at the moment they occur.
 
-% MUST INCLUDE (Temporal Aspects Only):
-% - RAPL package/core/uncore/dram domains sometimes roll up different components
-%   depending on CPU generation → impacts WHEN domain aggregates change.
-% - Some domains update at different refresh intervals (e.g., uncore slower).
-% - AMD RAPL equivalents have different update variability.
-%
-% GPU/MIG:
-% - MIG partitions share underlying power measurement refresh cycles.
-% - Per-instance values may reflect aggregation over multiple components.
-% - Only mention timing behaviour: i.e., partition boundaries DO NOT change 
-%   update cycles, but influence the temporal correlation of domain-level energy.
-%
-% MUST NOT INCLUDE:
-% - No detailed domain explanations (Chapter 3).
-% - No attribution theory.
-% - No Kepler/Kubewatt discussion.
+\paragraph{Performance counters and \texttt{perf}-based monitoring}
+Hardware performance monitoring counters (PMCs), accessed via \code{perf\_event\_open}, advance continuously within the processor.  
+They do not follow a publish interval, and their timing semantics are defined solely by the instant at which user space reads the counter.  
+This provides fine-grained and low-latency access to execution metrics such as cycles and retired instructions, with overhead rising only when polling is performed at very high frequencies.
 
-Key message:
-- Domain ambiguity affects temporal alignment because different domains refresh 
-  at different speeds or aggregate different internal components.
+Overall, software-exposed metrics behave as cumulative or event-driven signals rather than sampled telemetry sources. Their temporal characteristics are dominated by polling strategy and kernel-level event timing, with eBPF representing the only interface that attaches precise timestamps directly to system events.
 
-
-\subsection{Validation Methodologies in Prior Research}
-\label{subsec:validation_methods}
-
-% MUST INCLUDE:
-% - Common validation techniques:
-%     - External power meters (PDU, Yokogawa WT-series, NI DAQ).
-%     - Cross-domain comparison: RAPL vs NVML vs Redfish vs wall power.
-%     - Step-load experiments (CPU/GPU bursts).
-%     - Steady-state plateaus.
-%     - Controlled microbenchmarks (stress-ng, gpu-burn, custom kernels).
-%
-% - Known limitations:
-%     - External meters often have low sampling rates (1–10 Hz).
-%     - PDUs may average over long windows.
-%     - Hard to validate sub-100 ms behaviour.
-%     - Internal smoothing makes “ground truth” ambiguous.
-%     - Multi-device setups introduce time drift between sensors.
-%
-% MUST NOT INCLUDE:
-% - No mention of Tycho's validation method.
-% - No description of how this thesis performs validation.
-% - No theoretical treatment of model error.
-
-Key message:
-- Prior work validates temporal behaviour indirectly and imperfectly.
-- Lack of high-frequency external reference devices limits precision.
-
-
-%====================================================================
 \section{Existing Tools and Related Work}
-\label{sec:related_tools}
-\appchapterref{A}{vt2_Chapter4}
-% Expected length: 3–4 pages.
-% DO NOT discuss Tycho or Tycho architecture.
-% DO summarise empirical findings from prior work (Kepler, Kubewatt, others).
+\label{sec:existing-tools}
 
-%--------------------------------------------------------------------
-\subsection{General Tools (Brief Overview)} ->>>>In “Existing Tools,” potentially merge “General Tools” + short mentions of other tools into a single paragraph
-\label{subsec:general_tools}
+Energy observability in containerized environments has attracted increasing attention in recent years, leading to the development of several tools that combine hardware, software, and statistical telemetry to estimate per-workload energy consumption. Despite this diversity, only a small number of tools attempt to attribute energy at container or pod granularity with sufficient detail to inform system-level research. Among these, \emph{Kepler} has emerged as the most widely adopted open-source solution within the cloud-native ecosystem, while \emph{Kubewatt} represents the first focused research effort to critically evaluate and refine Kepler’s attribution methodology. Other frameworks, such as Scaphandre, SmartWatts, or PowerAPI, offer relevant ideas but differ in scope, telemetry assumptions, or operational goals. For this reason, the remainder of this section concentrates primarily on Kepler and Kubewatt, using these two tools to illustrate the architectural and methodological challenges that motivate the research gaps identified at the end of this chapter.
 
-% Placeholder (0.3 page):
-% - Briefly summarise Scaphandre, Smartwatts, and 1–2 other tools.
-% - Emphasise their measurement scope and known limitations.
-% - DO NOT provide conceptual attribution explanation (Chapter 3).
-% - Keep this high-level and concise.
-
-%--------------------------------------------------------------------
 \subsection{Kepler}
-\label{subsec:kepler}
+\label{sec:kepler}
 
-% Placeholder (1.5–2.0 pages):
-% - Describe Kepler’s architecture based purely on literature:
-%   * metric sources
-%   * ratio-based attribution strategy
-%   * sampling behaviour
-% - Summarise empirical misattribution issues identified by research and VT2:
-%   * idle power artefacts
-%   * latency mismatch
-%   * short-lived workload instability
-%   * system-process handling issues
-% - Emphasise Kepler's shift toward deployability (literature statements).
-% - DO NOT mention Tycho, Tycho improvements, or motivation for Tycho.
+\subsubsection{Architecture and Metric Sources}
+\label{subsec:kepler-architecture}
 
-%--------------------------------------------------------------------
-\subsection{Kubewatt}
-\label{subsec:kubewatt}
+Kepler\parencite{kepler_energy} is a node-local energy observability agent designed for Kubernetes environments. Its architecture follows a modular dataflow pattern: a set of collectors periodically ingests telemetry from hardware and kernel interfaces, an internal aggregator aligns and normalizes these inputs, and a Prometheus exporter exposes the resulting metrics at container, pod, and node granularity. This structure allows Kepler to integrate heterogeneous telemetry sources while presenting a unified metric interface to external monitoring systems.
 
-% Placeholder (1.0–1.5 pages):
-% - Summarise Kubewatt’s findings validating Kepler:
-%   * incorrect idle attribution
-%   * metadata/race-condition problems
-%   * visibility issues with completed pods
-% - Summarise Kubewatt’s improvements:
-%   * static vs dynamic separation
-%   * simplified proportional models
-% - Summarise Kubewatt’s limitations as reported in thesis:
-%   * missing domains
-%   * limited metric scope
-%   * no calibration
-% - DO NOT reference Tycho or compare to Tycho.
+Kepler’s collectors obtain process, container, and node telemetry from standard Linux and Kubernetes subsystems. Resource usage statistics are taken from \texttt{/proc}, cgroup hierarchies, and Kubernetes metadata, while hardware-level energy data is read from RAPL domains via the \texttt{powercap} interface. Optional collectors provide GPU metrics through NVIDIA’s NVML library and platform-level power measurements via Redfish or other BMC interfaces. All inputs are treated as cumulative counters or periodically refreshed state, and their effective resolution is therefore determined by Kepler’s sampling configuration. All metrics are updated at same interval and at the same time (default: 60 seconds for redfish, 3 seconds for all other sources). A central responsibility of the aggregator is to map raw per-process telemetry to containers and pods, using cgroup paths and Kubernetes API metadata. The derived metrics are finally exposed via a Prometheus endpoint, enabling integration into common cloud-native observability stacks.
 
-%====================================================================
+In contrast to generic system monitoring agents, Kepler’s architecture is tailored specifically to Kubernetes. Its emphasis on container metadata, cgroup-based accounting, and workload-oriented metric aggregation distinguishes it from tools that operate primarily at the host or VM level. At the same time, its reliance on standard Linux interfaces keeps deployment overhead low, requiring only node-local access to \texttt{/proc}, cgroups, and the \texttt{powercap} subsystem.
+
+Overall, Kepler’s architectural design reflects a trade-off between flexibility and granularity: while it can ingest diverse telemetry sources and attribute energy at container level, its accuracy is constrained by the timing and resolution of the underlying metrics, as well as the unified sampling cadence chosen for the collectors.
+
+\subsubsection{Attribution Model}
+\label{subsec:kepler-attribution}
+
+Kepler’s attribution logic follows a two-stage structure. First, node-level energy is decomposed into \emph{idle} and \emph{dynamic} components for each available power domain (package, core, uncore, DRAM, and optionally GPU or platform-level readings). Second, the dynamic portion is distributed across processes and containers according to their observed resource usage, while idle power is assigned using a domain-specific default policy.
+
+Dynamic power is attributed proportionally using ratio-based models. For each domain, Kepler computes the energy delta over the sampling interval and distributes it according to a usage metric selected for that domain. Instructions, cache misses, and CPU time are used as primary signals, with fallbacks when a metric is unavailable. GPU dynamic power is attributed based on GPU compute utilization. Platform-level power, when available, is treated as a residual domain: after subtracting CPU and DRAM power, the remaining portion is shared across workloads using the designated default metric or, if none is configured (which is the case), an equal split.
+
+Idle energy is handled separately. Kepler maintains a rolling estimate of minimum node-level power for each domain and treats these values as idle baselines. In the default configuration, idle energy is divided evenly across all active workloads during the attribution interval. While this behaviour differs from protocol recommendations that scale idle power by container size, Kepler applies a uniform policy across domains to ensure attribution completeness.
+
+Attribution operates at process granularity, with container and pod values obtained by aggregating the processes mapped to each cgroup. This approach allows Kepler to attribute energy to short-lived or multi-process containers while retaining compatibility with Kubernetes metadata.
+
+Kepler performs attribution at a fixed internal update interval (default: 3\,s). All usage metrics and energy deltas within that interval are aggregated before attribution is computed. Because Prometheus scrapes occur independently of Kepler’s internal loop, the exported time series may reflect misalignment when the scrape period is not a multiple of the update interval. This can lead to visible step patterns or oscillations, particularly for dynamic workloads. Despite these limitations, the model provides a coherent and workload-oriented view of node-level energy consumption suitable for cloud-native observability scenarios.
+
+\subsubsection{Observed Behavior and Limitations}
+\label{subsec:kepler-limitations}
+
+Several studies and code-level inspections reveal that Kepler’s attribution behaviour exhibits systematic limitations that affect accuracy and interpretability. The most comprehensive empirical evaluation to date, conducted by Pijnacker et al., demonstrates that attribution inaccuracies arise even when node-level power estimation is reliable\parencite{pijnackerEstimatingContainerlevelPower2024}. Their experiments highlight that idle power is often distributed to containers that are no longer active, including Completed pods, and that dynamic power can be reassigned inconsistently when containers are added or removed. These effects stem from the coupling of process-level accounting with container lifecycle events, which may lag behind cgroup or Kubernetes metadata updates.
+
+Timing mismatches further contribute to attribution artifacts. High-frequency CPU and cgroup statistics are combined with slower telemetry sources such as Redfish, whose update intervals may span tens of seconds. When workload intensity changes during such periods, Kepler may assign disproportionately large or small dynamic energy shares to individual containers. Similar behavior occurs at the Prometheus interface when scrape intervals do not align with Kepler’s internal update loop, producing visible oscillations in the exported time series.
+
+Source-code inspection reinforces these observations. Numerous unimplemented or placeholder sections (e.g. TODO markers) affect key components of the ratio-based attribution model and default configuration paths. In particular, some domains lack explicit usage metrics, leading to fallback behaviour and equal-cost splitting regardless of container activity. GPU attribution relies on a single utilization metric and is therefore sensitive to the temporal behaviour of NVML’s sampling. Together, these issues introduce variability across domains and reduce the transparency of the resulting per-container energy values.
+
+Lifecycle handling also presents challenges. Because container metadata is aggregated from process-level information, short-lived or Completed pods may retain residual energy assignments. Conversely, system processes that cannot be mapped cleanly to Kubernetes abstractions may absorb unassigned power, obscuring the relationship between application behaviour and observed consumption.
+
+Overall, these limitations underscore that Kepler provides a practical but imperfect approximation of container-level energy consumption. The observed behaviour motivates the research gaps identified at the end of this section, particularly the need for finer temporal resolution, explicit handling of idle and residual power, configurable attribution models, and more robust reconciliation across heterogeneous telemetry sources.
+
+\subsubsection{Kepler v0.10.0}
+\label{subsec:kepler-v010}
+
+In July 2025, Kepler underwent a substantial architectural redesign with the release of version~0.10.0\parencite{kepler_current}. The new implementation replaces many of the privileged operations used in earlier versions, removing the need for \texttt{CAP\_BPF} or \texttt{CAP\_SYSADMIN} and reducing reliance on kernel instrumentation. Instead, Kepler now obtains all workload statistics from read-only \texttt{/proc} and cgroup interfaces. This reduction in privilege requirements significantly improves deployability and security, particularly for managed Kubernetes environments where eBPF- or perf-based approaches are infeasible.
+
+The redesign also introduces a markedly simplified attribution model. Whereas earlier versions combined multiple hardware and software counters (e.g.\ instructions, cache misses, GPU utilization) to estimate dynamic energy, Kepler~v0.10.0 relies exclusively on CPU time as the usage metric. Node-level dynamic energy is computed by correlating RAPL deltas with aggregate CPU activity, and each workload receives a proportional share of this value based solely on its CPU time fraction. Idle energy is not distributed to containers and instead remains part of a node-level baseline. Containers, processes, and pods are treated as independent consumers drawing from the same active-energy pool, with no dependence on process-derived aggregation.
+
+These changes increase robustness and predictability: the simplified model is easier to reason about, less sensitive to heterogeneous workloads or timing mismatches, and compatible with environments where kernel-level measurement facilities are unavailable. However, the loss of metric flexibility substantially reduces modeling fidelity. Fine-grained distinctions between compute-bound and memory-bound tasks are no longer observable, and the attribution model presumes a strictly linear relationship between CPU time and power consumption. As a result, Kepler~v0.10.0 no longer targets high-accuracy energy attribution but instead emphasises operational stability and minimal overhead.
+
+For the purposes of this thesis, Kepler~v0.10.0 is relevant primarily as an indication of the project’s strategic shift toward simplicity and broad deployability. Its CPU-time-only model is not suitable as a basis for Tycho, whose objectives require higher temporal resolution, more diverse metric inputs, and explicit handling of domain-level energy contributions. Accordingly, the remainder of this chapter focuses on the behaviour of Kepler~v0.9.x, which remains the most representative version for research-oriented attribution discussions.
+
+\subsection{KubeWatt}
+\label{sec:kubewatt}
+
+KubeWatt is a proof-of-concept exporter developed by Pijnacker as a direct response to the attribution issues uncovered in Kepler.\parencite{pijnackerEstimatingContainerlevelPower2024,pijnackerContainerlevelEnergyObservability2025}
+Rather than extending Kepler’s complex pipeline, KubeWatt implements a deliberately narrow but transparent model that focuses on correcting three specific problems: misattribution of idle power, leakage of energy into generic ``system processes'', and unstable behaviour under pod churn. It targets Kubernetes clusters running on dedicated servers and assumes that a single external power source per node is available (in the prototype, Redfish/iDRAC).
+
+A central design decision is the strict separation between \emph{static} and \emph{dynamic} power. Static power is defined as the baseline cost of running the node and its control plane in an otherwise idle state. KubeWatt measures or estimates this baseline once and treats it as a constant; it is \emph{not} attributed to containers. Dynamic power is then computed as the difference between total node power and this static baseline and is the only quantity distributed across workloads. Control-plane pods are explicitly excluded from the dynamic attribution set, so their idle consumption remains part of the static term and does not pollute application-level metrics.
+
+To obtain the static baseline, KubeWatt provides two initialization modes. In \emph{base initialization}, the cluster is reduced to an almost idle state (only control-plane components), and node power is sampled for a few minutes. The static power value is computed as a simple average, yielding a highly stable estimate under the test conditions. When workloads cannot be stopped, \emph{bootstrap initialization} fits a regression model to time series of node power and CPU utilization collected during normal operation. The regression is evaluated at the average control-plane CPU usage to infer the static baseline. This mode is more sensitive to workload characteristics and SMT effects but provides a practical fallback when base initialization is not feasible.
+
+During normal operation, KubeWatt runs in an \emph{estimation mode} that attributes dynamic node power to containers proportionally to their CPU usage. CPU usage is obtained from the Kubernetes metrics API (\texttt{metrics.k8s.io}) at node and container level. The denominator explicitly sums only container CPU usage; system processes, cgroup slices, and other non-container activity are excluded by construction. This corrects a key source of error in Kepler, where slice-level metrics and kernel processes could receive non-trivial fractions of node power. Under stable workloads and at the relatively coarse sampling interval used in the prototype, KubeWatt achieves container-level power curves that align well with both iDRAC readings and observed CPU utilisation, and it behaves robustly when large numbers of idle pods are created and deleted.
+
+The scope of KubeWatt is intentionally narrow. It is CPU-only, uses a single external power source per node, assumes that Kubernetes is the only significant workload on the machine, and does not attempt to model GPU, memory, storage, or network energy. It also inherits the temporal limitations of the Kubernetes metrics pipeline and treats Redfish power readings as instantaneous, without explicit latency compensation. Nevertheless, KubeWatt demonstrates that a simple, well-documented ratio model with explicit static--dynamic separation and strict cgroup filtering can eliminate several of Kepler’s most problematic attribution artefacts. These design principles are directly relevant for the attribution redesign pursued in this thesis and inform the requirements placed on Tycho’s more general, multi-source architecture.
+
+\subsection{Other Tools (Brief Overview)}
+\label{sec:other-tools}
+
+Beyond Kepler, several tools illustrate the methodological diversity in container- and process-level energy attribution, although they are not central to the Kubernetes-specific challenges addressed in this thesis. Scaphandre\parencite{scaphandre_documentation} provides a lightweight proportional attribution model based exclusively on CPU time and RAPL deltas. Its design emphasises simplicity and portability, offering basic container mapping through cgroups but limited control over sampling behaviour or attribution semantics. SmartWatts\parencite{fieni2020smartwatts}, by contrast, represents a more sophisticated approach: it builds performance-counter-based models that self-calibrate against RAPL measurements and adapt dynamically to the host system. While effective in controlled environments, SmartWatts requires access to perf events, provides only CPU and DRAM models, and is not deeply integrated with Kubernetes abstractions.
+
+A broader ecosystem of lightweight tools (e.g.\ CodeCarbon\parencite{codecarbon} and related library-level estimators) demonstrates further variation in scope and assumptions, but these generally target high-level application profiling rather than system-wide workload attribution. Collectively, these tools highlight a spectrum of design choices (from simplicity and portability to model-driven estimation) but none address the combination of high-resolution telemetry, multi-tenant attribution, and Kubernetes metadata integration that motivates the development of Tycho.
+
+\subsection{Cross-Tool Limitations Informing Research Gaps}
+\label{sec:cross-tool-limitations}
+
+Across the surveyed tools, several structural limitations recur despite substantial differences in design philosophy and implementation. First, temporal granularity remains insufficient: although hardware interfaces such as RAPL support millisecond-level updates, most tools aggregate measurements over multi-second intervals. This obscures short-lived workload behaviour and reduces attribution fidelity, particularly in heterogeneous or bursty environments. Second, all tools depend on telemetry sources whose internal semantics are only partially documented. Ambiguities regarding RAPL domain coverage, NVML power reporting, or BMC-derived node power constrain both the interpretability and the auditability of reported metrics, reinforcing the black-box character of current measurement pipelines.
+
+Idle-power handling presents a further source of inconsistency. Tools differ widely in how idle power is defined, whether it is attributed, and to whom. These choices are often implicit, undocumented, or constrained by implementation artefacts, leading to attribution patterns that are difficult to interpret or reproduce. Multi-domain coverage is similarly limited: existing tools focus primarily on CPU and, to a lesser extent, DRAM or GPU consumption, leaving storage, networking, and other subsystems unmodelled despite their relevance to node-level energy use.
+
+Metadata lifecycle management also emerges as a common limitation. Rapid container churn, transient pods, and the interaction between Kubernetes and cgroup identifiers can produce incomplete or stale workload associations, affecting attribution stability. Finally, attribution models themselves are typically rigid. Most tools hard-code a specific proportionality assumption (commonly CPU time or a single hardware counter) and provide limited support for calibration, uncertainty quantification, or alternative modelling philosophies.
+
+Taken together, these limitations reveal structural gaps in current approaches to container-level energy attribution. They motivate the need for tools that combine high-resolution telemetry handling, transparent and configurable attribution logic, robust metadata management, and principled treatment of uncertainty. The next section distills these observations into concrete research gaps that inform the design objectives of Tycho.
+
 \section{Research Gaps}
-\label{sec:research_gaps}
+\label{sec:research-gaps}
 
-% This section synthesises gaps identified throughout Chapter 2.
-% ABSOLUTELY NO Tycho discussion.
-% NO conceptual discussion (that belongs to Chapter 3).
+This section synthesises the findings from the preceding analyses of telemetry sources, temporal behaviour, and existing tools. 
+Across these perspectives, a set of structural limitations emerges that fundamentally constrains accurate and explainable energy attribution in Kubernetes environments. 
+These limitations arise at three intertwined layers: the measurement interfaces exposed by hardware and kernel subsystems, the attribution models built on top of these measurements, and the operational context in which Kubernetes workloads execute. 
+Taken together, they demonstrate the absence of a framework that provides high temporal precision, transparent modelling assumptions, and robustness to container lifecycle dynamics. 
+The gaps identified below define the technical requirements that motivate the design of Tycho.
 
-%--------------------------------------------------------------------
-\subsection{Gap 1: Temporal Misalignment}
-\label{subsec:gap_temporal}
+\subsection*{(1) Measurement Gaps: Temporal Resolution and Telemetry Semantics}
 
-% Placeholder (0.5 page):
-% - Integrate research showing misaligned update intervals and delays.
-% - DO NOT discuss strategies for alignment (Chapter 3 or 4).
+Existing tools do not exploit the full temporal capabilities of modern hardware telemetry. Interfaces such as RAPL offer fast, reliable update frequencies, yet tools operate on fixed multi-second loops, causing short-lived or bursty activity to be temporally averaged away. Moreover, latency mismatches between high-frequency utilization signals (e.g.\ cgroups, perf counters) and low-frequency power interfaces (e.g.\ Redfish/BMC) introduce structural attribution errors that are not explicitly modelled or corrected.
 
-%--------------------------------------------------------------------
-\subsection{Gap 2: Missing Timestamps and Averaging}
-\label{subsec:gap_timestamps}
+A related issue is the opacity of hardware telemetry. RAPL, NVML, and BMC power sensors provide indispensable data, but their domain boundaries, averaging windows, and internal update behaviour are insufficiently documented. This prevents rigorous interpretation of reported values and inhibits the development of calibration or uncertainty models. Finally, measurement coverage remains incomplete: while CPU and DRAM domains are widely supported, no standardised telemetry exists for storage, networking, or other subsystems. Current tools treat these components either implicitly (as part of ``platform’’ power) or not at all.
 
-% Placeholder (0.3 page):
-% - Summarise lack of timestamps and internal averaging as documented by research.
+\subsection*{(2) Attribution Model Gaps: Rigidity, Idle Power, and Domain Consistency}
 
-%--------------------------------------------------------------------
-\subsection{Gap 3: Domain Boundary Ambiguity}
-\label{subsec:gap_boundaries}
+Current attribution models rely on rigid proportionality assumptions (typically CPU time, instructions, or a single hardware counter) without considering alternative modelling philosophies. Idle power remains a persistent source of inconsistency: tools variously divide it evenly, proportionally, or not at all, often without documenting the rationale. These choices have substantial effects on per-container energy values, particularly in lightly loaded or heterogeneous systems.
 
-% Placeholder (0.3–0.5 page):
-% - Integrate findings on poorly documented boundaries (RAPL, MIG).
+At the domain level, attribution methods are not unified. CPU, DRAM, uncore, GPU, and platform energy are treated through incompatible heuristics, and many domains fall back to equal distribution when no clear usage signal is defined. None of the surveyed tools quantify uncertainty, despite relying on noisy, coarse, or undocumented telemetry sources. As a result, attribution outputs appear deterministic even when they rest on incomplete or ambiguous measurement assumptions.
 
-%--------------------------------------------------------------------
-\subsection{Gap 4: Metadata-Lifecycle Inconsistencies}
-\label{subsec:gap_metadata}
+\subsection*{(3) Metadata and Lifecycle Gaps: Churn, Timing, and Virtualization}
 
-% Placeholder (0.3–0.5 page):
-% - Synthesise research showing cgroup/pod lifecycle inconsistencies.
+Container-level attribution requires consistent mapping between processes, cgroups, and Kubernetes metadata. Existing tools struggle in scenarios with rapid container churn, ephemeral or Completed pods, and multi-process containers. Mismatches between metadata refresh cycles and metric sampling lead to stale or missing associations, which propagate into attribution artefacts.
 
-%--------------------------------------------------------------------
-\subsection{Gap 5: Idle Power Attribution Issues}
-\label{subsec:gap_idle}
+Energy attribution inside virtual machines remains essentially unsolved. No standard mechanism exists for exposing host-side telemetry to guest systems in a way that preserves temporal alignment and attribution consistency. The limited QEMU-based passthrough available in Scaphandre is not generalisable, and conceptual proposals (e.g.\ Kepler’s hypercall mechanism) remain unimplemented. Given the prevalence of cloud-hosted Kubernetes clusters, this constitutes a major practical limitation.
 
-% Placeholder (0.3 page):
-% - Highlight known issues in idle power handling.
+\subsection*{(4) Usability, Transparency, and Operational Gaps}
 
-%--------------------------------------------------------------------
-\subsection{Gap 6: Limited Multi-Domain Integration}
-\label{subsec:gap_multidomain}
+For most tools, implementation assumptions, fallback paths, and attribution decisions are implicit. Users cannot easily distinguish measured values from estimated ones, nor identify the assumptions underlying attribution outputs. This lack of transparency reduces trust and complicates debugging.
 
-% Placeholder (0.3 page):
-% - Summarise research noting lack of integrated CPU–GPU–system attribution.
+Operational constraints further restrict applicability. Tools that require privileged kernel instrumentation (eBPF, \texttt{perf\_event\_open}) are unsuitable for many production clusters, while tools designed around unprivileged access often sacrifice modelling fidelity. At the same time, developers, operators, and researchers have fundamentally different observability needs, yet existing tools optimise for only one audience at a time. None provide configurable attribution modes or role-specific abstractions.
 
-%--------------------------------------------------------------------
-\subsection{Gap 7: Missing Calibration and Uncertainty Treatment}
-\label{subsec:gap_calibration}
+\subsection*{(5) Missing Support for Calibration and Validation}
 
-% Placeholder (0.3–0.5 page):
-% - Summarise research calling for calibration or uncertainty-aware methods.
+Beyond isolated exceptions, existing tools provide limited mechanisms for systematic calibration or validation of their attribution models. 
+KubeWatt is one of the few systems that performs explicit baseline calibration, offering both an idle-power measurement mode and a statistical fallback for environments without idle windows. 
+Kepler offers no structured calibration workflow, and its estimator models lack reproducible training procedures. 
+SmartWatts introduces online model recalibration but focuses narrowly on performance-counter regression, leaving node-level baselines, multi-domain alignment, and external ground-truth integration unaddressed.
 
-%====================================================================
+Across all tools, there is no standardized path to incorporate external measurements (for example from wall-power sensors or BMC-level telemetry) to validate or refine model behaviour. 
+Idle power is seldom isolated as a first-class parameter, attribution error is rarely quantified, and no system provides uncertainty estimates that reflect measurement or modelling limitations. 
+Without such calibration and validation capabilities, attribution accuracy cannot be assessed, corrected, or improved over time—an essential requirement for any system intended to provide trustworthy, high-resolution energy insights in Kubernetes environments.
+
 \section{Summary}
 \label{sec:background_summary}
 
-% Placeholder (0.5 page):
-% - Summarise fundamental insights: heterogeneous telemetry behaviour, 
-%   incomplete domain coverage, lifecycle inconsistency, lack of calibration.
-% - Prepare the reader for Chapter 3, stating explicitly that Chapter 3
-%   provides the conceptual foundations needed to understand the design 
-%   of an accuracy-oriented system (without yet describing Tycho).
+The analyses in this chapter reveal that modern server platforms provide a heterogeneous and only partially documented set of telemetry interfaces whose temporal and semantic properties fundamentally constrain container-level energy attribution. Hardware-integrated sources such as RAPL and NVML expose valuable domain-level energy information but differ substantially in update behaviour, averaging semantics, and domain completeness. Out-of-band telemetry via Redfish provides stable whole-system measurements but at coarse and irregular temporal granularity. Software-exposed metrics offer fine-grained visibility into workload behaviour, yet they measure utilisation rather than power and depend entirely on polling strategies for temporal interpretation.
 
+Temporal irregularities, internal averaging, and undocumented sensor behaviour reduce the effective precision of all telemetry sources, especially when attempting to capture short-lived workload dynamics. Existing tools aggregate these heterogeneous signals using fixed multi-second sampling loops and rigid proportionality assumptions, which leads to systematic attribution artefacts. Idle power is treated inconsistently across systems, residual power is frequently conflated with workload activity, and multi-domain attribution remains fragmented in both semantics and implementation. Metadata churn and asynchronous refresh cycles further complicate the mapping between processes, containers, and Kubernetes abstractions, reducing the stability and interpretability of attribution outputs.
+
+The cross-tool evaluation confirms these structural limitations. Kepler provides broad telemetry integration but struggles with timing mismatches, incomplete domain semantics, and opaque idle handling. Kubewatt demonstrates the importance of explicit baseline separation and cgroup filtering, yet remains limited to single-domain CPU-based estimation. Other tools illustrate a spectrum of design choices but do not address the combined challenges of high-frequency telemetry, multi-domain attribution, container lifecycle dynamics, and Kubernetes integration.
+
+Together, these findings motivate the need for a framework that provides high temporal fidelity, transparent modelling assumptions, unified domain treatment, explicit handling of idle and residual energy, and robust metadata reconciliation. These requirements form the conceptual and architectural foundations developed in \chapref{ch:concepts}, which introduces the methodological principles guiding the design of Tycho.
