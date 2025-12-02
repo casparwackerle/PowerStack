@@ -1,345 +1,194 @@
 \chapter{Conceptual Foundations of Container-Level Power Attribution}
 \label{ch:concepts}
-Some of these concepts have already been discussed in  \appchapterref{A}{vt2_Chapter3}.
 
-% This chapter introduces the conceptual principles required to understand
-% workload-level energy attribution in multi-tenant Kubernetes environments.
-% It provides the theoretical background for interpreting measurement behaviour,
-% resource tracking, and attribution logic. It MUST NOT contain:
-%   - empirical measurement characteristics (Chapter 2)
-%   - Tycho design decisions (Chapter 4)
-%   - Tycho implementation detail (Chapter 5)
-%   - detailed review of telemetry interfaces (Chapter 2)
-% Instead, it establishes the conceptual language used throughout the architecture.
+Energy attribution explains how workloads contribute to the power consumed by a node. Hardware exposes only aggregate energy behaviour, so attribution constructs a model that distributes this aggregate across multiple sources of activity. The aim of this chapter is to establish the conceptual basis for such modelling. It introduces the abstractions needed to reason about workloads, execution units, temporal structure, and observation windows. It also presents the principles that constrain any defensible attribution model and identifies the interactions that make attribution non-trivial. The discussion is purely conceptual and does not rely on empirical detail from \chapref{ch:background}. These concepts form the foundation for the system requirements developed later in the chapter and for the architectural design presented in \chapref{ch:architecture}.
 
-%====================================================================
-\section{Fundamentals of Power Attribution}
-\label{sec:fundamentals_attribution}
+\section{Nature and Purpose of Power Attribution}
+\label{sec:nature_purpose}
 
-%--------------------------------------------------------------------
-\subsection{Multi-Tenant Compute Environments}
-\label{subsec:multi_tenant}
+Power attribution is a modelling activity. Hardware reports only aggregate power or energy, and attribution constructs an explanation that distributes this aggregate across the workloads running on the node. The model is necessarily reactive because measurements become available only after the underlying activity has occurred. Attribution therefore explains past energy behaviour rather than providing realtime insight, although the resulting information can support optimisation and accountability.
 
-% Placeholder (0.3–0.5 page):
-% - Conceptually describe multi-tenant servers as environments hosting many 
-%   overlapping workloads sharing physical resources.
-% - Introduce the notion that hardware activity reflects aggregated behaviour.
-% - DO NOT reference specific telemetry sources (RAPL, NVML, etc.).
-% - DO NOT cite empirical update intervals or measurement behaviour.
+Attribution is useful because it reveals how different workloads contribute to dynamic power consumption. This enables comparisons between workloads, supports evaluation of deployment or scheduling strategies, and provides interpretable information for higher level policy decisions.
 
-%--------------------------------------------------------------------
-\subsection{Meaning and Purpose of Attribution}
-\label{subsec:meaning_attribution}
+For the purposes of this chapter, a workload is defined as a logical entity that groups one or more execution units into a stable attribution target. Execution units may include processes, threads, containers, virtual machines, or service components. Their membership can change over time, but the workload identity persists as the object to which energy is assigned.
 
-% Placeholder (0.3–0.5 page):
-% - Define attribution as the conceptual assignment of parts of total system
-%   power/energy to individual workloads.
-% - Clarify that attribution is a *logical model*, not a direct observation.
-% - Explain what attribution enables: accountability, optimisation, research.
-% - DO NOT discuss any specific attribution technique or implementation.
+\section{Workload Identity and Execution Boundaries}
+\label{sec:workload_boundaries}
 
-%--------------------------------------------------------------------
-\subsection{Resource Use and Power Consumption}
-\label{subsec:resource_power_relation}
+Energy attribution operates on workload identities rather than on individual execution units. Execution units such as processes, threads, or container instances appear and terminate independently, often with lifetimes that do not align with observation windows. Their behaviour may overlap, interleave, or succeed one another in ways that complicate any direct mapping between activity and energy. A workload need not coincide with a single application; it may represent a subset of an application, a combination of cooperating services, or a logical grouping chosen purely for attribution.
 
-% Placeholder (0.5 page):
-% - Conceptually describe how computation, memory access, and I/O 
-%   induce dynamic power consumption.
-% - Emphasise that mappings between resource use and power are:
-%     * non-linear
-%     * workload-dependent
-%     * hardware-dependent
-% - DO NOT present measurement technologies (these belong to Chapter 2).
-% - DO NOT discuss model formulas or Tycho mechanics.
+Attribution therefore relies on a stable abstraction that groups such units into coherent entities. Orchestration frameworks, including systems such as Kubernetes, illustrate this principle by associating container instances with higher level constructs such as pods or services. The attribution target is the logical workload, not the transient units that realise it at any moment.
 
-%--------------------------------------------------------------------
-\subsection{Assumptions and Limits of Attribution Models}
-\label{subsec:attribution_assumptions}
+Short lived execution units raise specific challenges. Some may terminate between consecutive measurements, and their activity may be only partially observable. Others may overlap in time while belonging to the same workload identity. A consistent attribution model must track these changing memberships without losing energy when units disappear or double counting energy when multiple units contribute concurrently. Stable workload identities provide the conceptual basis for such tracking.
 
-% Placeholder (0.4–0.6 page):
-% - Explain foundational assumptions:
-%     * node power represents aggregated subsystem activity
-%     * workloads cannot be physically isolated perfectly
-%     * attribution depends on correlations rather than causality
-% - Discuss conceptual limits like non-uniqueness and unavoidable uncertainty.
-% - DO NOT mention known empirical issues (idle noise, timestamps, etc.—Chapter 2).
+\section{Principles of Workload-Level Energy Attribution}
+\label{sec:principles}
 
-%--------------------------------------------------------------------
-\subsection{Power and Energy}
-\label{subsec:power_vs_energy}
+Several principles constrain how node-level energy can be attributed to workloads. These principles are intertwined and reflect structural properties of shared hardware, the limits of observability, and the semantics of available metrics. Some depend on how measurements are structured in time, while others remain independent of temporal detail. The temporal aspects are developed further in \S~\ref{sec:temporal_concepts}, but the principles themselves abstract from any specific system and define the conditions that any defensible attribution model must satisfy.
 
-% Placeholder (0.3–0.4 page):
-% - Define power (rate) and energy (integral).
-% - Explain concept of attributing energy over windows rather than instantaneous power.
-% - Keep fully conceptual — no references to powercap, RAPL counters, etc.
-% - This prepares understanding for integration windows in Chapter 4.
 
-%====================================================================
-\section{Execution and Resource Tracking in Linux and Kubernetes}
-\label{sec:execution_tracking}
+\subsection{Aggregated Hardware Activity}
+\label{subsec:principle_aggregation}
 
-% This section establishes conceptual building blocks for the metadata layer.
-% It MUST NOT include empirical measurement details from Chapter 2.
+Hardware exposes only aggregate power or energy for the node or for coarse hardware domains. It does not reveal how much of this consumption originates from any specific workload. Attribution therefore begins with a single observable quantity that reflects the combined activity of all execution units. Any per workload assignment is an inferred decomposition of this aggregate and must remain consistent with the measured total.
 
-%--------------------------------------------------------------------
-\subsection{Processes, Threads, and Scheduling Units}
-\label{subsec:processes_threads}
+\subsection{Domain Decomposition}
+\label{subsec:principle_domains}
 
-% Placeholder (0.4–0.5 page):
-% - Describe processes and threads as basic execution units.
-% - Explain conceptual CPU time accumulation and context switching.
-% - Clarify behaviour of short-lived tasks at a conceptual level.
-% - DO NOT describe /proc, jiffies, perf, or any specific Linux API.
+Total system power is composed of contributions from several hardware domains, such as compute, memory, accelerators, storage, and platform circuitry. These domains respond differently to workload behaviour, and their relative impact varies across systems. Attribution must therefore reason at the domain level before assigning energy to workloads. Without such decomposition, the resulting assignments would combine unrelated forms of activity and obscure the link between workload characteristics and observed power.
 
-%--------------------------------------------------------------------
-\subsection{Control Groups as Resource Boundaries}
-\label{subsec:cgroups}
+\subsection{Conservation}
+\label{subsec:principle_conservation}
 
-% Placeholder (0.4–0.5 page):
-% - Introduce cgroups conceptually as hierarchical boundaries for grouping processes.
-% - Emphasise conceptual purpose: accounting, aggregation, isolation.
-% - DO NOT describe cgroup file systems, versions, or metrics (kept abstract).
+Node-level energy is a fixed quantity within any observation window. An attribution model must assign energy to workloads in a way that is consistent with this total. The sum of all assigned energy, including any explicitly modelled background components, must equal the measured dynamic energy. Violations of conservation indicate that the model is incomplete or internally inconsistent.
 
-%--------------------------------------------------------------------
-\subsection{Resource Usage Counters}
-\label{subsec:linux_counters}
+\subsection{Static--Dynamic Separation}
+\label{subsec:principle_static_dynamic}
 
-% Placeholder (0.3–0.5 page):
-% - Introduce conceptual categories of resource counters:
-%     * CPU time
-%     * memory usage
-%     * block I/O
-%     * network use
-% - Emphasise that counters update asynchronously and accumulate state.
-% - DO NOT mention specific Linux files, kernel API, or numeric behaviour.
-% - DO NOT reference any telemetry discussed in Chapter 2.
+System power consists of a baseline component that persists regardless of workload activity and a dynamic component induced by the workloads. Attribution concerns only the dynamic portion, so the baseline must be treated explicitly rather than absorbed into workload assignments. Any remaining unexplained energy must appear as a residual component and must not be redistributed silently across workloads.
 
-%--------------------------------------------------------------------
-\subsection{Kubernetes Abstractions}
-\label{subsec:kubernetes_abstractions}
+\subsection{Uncertainty and Non-Uniqueness}
+\label{subsec:principle_nonuniqueness}
 
-% Placeholder (0.4–0.5 page):
-% - Conceptually describe pods, containers, init containers, pause containers.
-% - Explain the mapping: pod → container → processes → cgroups.
-% - Keep fully conceptual; no details of kubelet API, cadvisor, or metadata sources.
+Workload-level energy attribution has no unique ground truth. Limited observability, asynchronous measurements, and interactions between hardware domains allow multiple decompositions of the same aggregate energy to be consistent with the measurements. A defensible attribution model must acknowledge this non-uniqueness and avoid implying precision that the underlying information does not support.
 
-%--------------------------------------------------------------------
-\subsection{Lifecycle Semantics Relevant for Attribution}
-\label{subsec:lifecycle_semantics}
+\subsection{Dependence on Metric Fidelity}
+\label{subsec:principle_metric_fidelity}
 
-% Placeholder (0.5–0.7 page):
-% - Conceptually describe workload events:
-%     * container start/stop
-%     * restart
-%     * crash
-%     * ephemeral execution
-% - Emphasise that lifetimes may overlap and be very short.
-% - DO NOT mention empirical behaviour of kubelet, cAdvisor, or runtimes (Chapter 2).
+Attribution quality depends on the fidelity of the metrics that describe workload activity. Each metric has specific semantics, precision, and temporal resolution, and these properties determine how reliably the metric reflects the underlying hardware behaviour. An attribution model must therefore interpret metrics consistently and acknowledge that limited or coarse measurements constrain the accuracy of any inferred energy assignments.
 
-%====================================================================
-\section{Temporal and Measurement Concepts}
-\label{sec:temporal_fundamentals}
+Hardware subsystems are shared and not fully partitionable. Execution units contend for caches, memory controllers, and shared frequency or power budgets, and these interactions alter the relation between observed activity and actual power consumption. Such interference reduces the ability of any metric to isolate per workload effects and increases attribution uncertainty. A defensible model must incorporate these limitations when relating activity signals to domain level energy.
 
-% This section merges conceptual timing theory and measurement logic.
-% It MUST NOT state empirical update intervals or sensor behaviours (Chapter 2).
+\section{Temporal and Measurement Foundations}
+\label{sec:temporal_concepts}
 
-%--------------------------------------------------------------------
-\subsection{Sampling versus Event-Time}
-\label{subsec:sampling_event_time}
+Attribution depends not only on which quantities are measured but also on when they are measured. Telemetry sources observe system behaviour at different times, with different implicit meanings, and with no inherent coordination. A clear temporal framework is therefore required to interpret workload activity and relate it to the energy observed at the node.
 
-% Placeholder (0.4–0.6 page):
-% - Conceptually contrast periodic sampling with event-driven changes.
-% - Describe mismatch: system changes between samples.
-% - DO NOT describe specific telemetry source behaviour (Chapter 2).
+\subsection*{Observation Windows}
 
-%--------------------------------------------------------------------
-\subsection{Clock Models}
+Attribution operates on observation windows. A window integrates power and activity over a chosen duration and provides the temporal unit within which energy is assigned to workloads. All attribution reasoning occurs within these windows, so their boundaries determine which activity contributes to the measured energy and how temporal ambiguity affects attribution accuracy.
+
+\subsection{Sampling vs Event-Time Perspectives}
+\label{subsec:sampling_eventtime}
+
+Sampling records system state at fixed intervals, independent of when the underlying activity changes. Event time reflects the moment when the activity occurs or when a telemetry source updates its value. These perspectives rarely coincide. If a workload is active between two samples, the sampled values do not reveal when within the interval the activity occurred. Misalignment between when work happens and when it is observed creates ambiguity about how activity should be mapped into the observation window.
+
+\subsection{Clock Models and Temporal Ordering}
 \label{subsec:clock_models}
 
-% Placeholder (0.4–0.6 page):
-% - Explain realtime vs monotonic clocks conceptually.
-% - Describe why monotonic clocks are preferred for temporal ordering.
-% - DO NOT mention Tycho's clock.Mono implementation.
+Attribution requires a consistent ordering of events and measurements. Realtime clocks track wall clock time but may jump when synchronised, which breaks temporal ordering. Monotonic clocks advance continuously and therefore provide a stable basis for placing events on a time axis. A coherent attribution model relies on such ordering to determine which activity belongs to which observation window and to avoid artefacts caused by clock adjustments.
 
-%--------------------------------------------------------------------
 \subsection{Heterogeneous Metric Sources}
 \label{subsec:heterogeneous_sources}
 
-% Placeholder (0.4 page):
-% - Describe categories conceptually:
-%     * hardware counters
-%     * OS counters
-%     * device-level telemetry
-%     * external interfaces
-% - DO NOT repeat characteristics from Chapter 2; only conceptual classification.
+Telemetry originates from sources with different update cycles and semantics. Hardware counters accumulate events continuously and reveal activity only when read. Operating system accounting updates periodically according to scheduler behaviour. Device telemetry and external power interfaces publish measurements based on internal schedules. These sources do not share cadence, precision, or timestamp meaning. Their values represent different kinds of temporal information, and none can be assumed to align with the others.
 
-%--------------------------------------------------------------------
-\subsection{Delay, Jitter, and Asynchrony}
+\subsection{Delay, Jitter, and Temporal Uncertainty}
 \label{subsec:delay_jitter}
 
-% Placeholder (0.4–0.5 page):
-% - Define conceptual timing phenomena:
-%     * sampling delay
-%     * update delay
-%     * jitter
-% - Explain high-level implications for reconstructing behaviour.
-% - DO NOT give real-world values, update intervals, or empirical examples.
+Measurements do not appear at the moment the underlying behaviour occurs. Observation delay arises when a metric is read after the activity has taken place. Publication delay arises when a telemetry source exposes an updated value only after internal processing. Jitter denotes variations in these delays. Because different sources exhibit different forms of delay, the temporal relation between activity and observed energy is uncertain. This uncertainty limits the precision with which activity can be linked to energy within an observation window.
 
-%--------------------------------------------------------------------
-\subsection{Observation Windows and Temporal Alignment}
-\label{subsec:observation_windows}
+\subsection{Temporal Alignment of Asynchronous Signals}
+\label{subsec:observation_alignment}
 
-% Placeholder (0.5–0.7 page):
-% - Introduce conceptual observation windows for:
-%     * integrating power over time
-%     * aligning heterogeneous data
-% - Explain alignment challenges conceptually.
-% - NO formulas, NO implementation-level detail.
+Attribution requires heterogeneous signals to be interpreted within the same observation window even though they arrive at different times and represent different temporal semantics. Some values describe cumulative changes, others instantaneous states, and others discrete events. A temporal alignment model must reconcile these signals without assuming true synchronisation. The goal is not to remove temporal uncertainty but to structure it so that attribution remains coherent and consistent with the measured energy.
 
-%====================================================================
-\section{Power and Utilisation Metrics (Conceptual View)}
-\label{sec:metrics_types}
+\section{Conceptual Attribution Frameworks}
+\label{sec:attribution_frameworks}
 
-% This section MUST remain conceptual and independent of technologies.
-% The detailed behaviour of RAPL, NVML, etc. is Chapter 2.
+Because hardware exposes only aggregate energy, several modelling philosophies can be used to distribute this energy across workloads. These frameworks differ in how they relate activity metrics to energy and in how they treat uncertainty. None yields a unique solution, since the same measurements can support multiple plausible decompositions. Instead, each framework reflects a particular set of priorities, such as stability, fairness, or explanatory power, and provides a structured interpretation of the same underlying observations.
 
-%--------------------------------------------------------------------
-\subsection{CPU Activity and Utilisation}
-\label{subsec:cpu_utilisation}
+\subsection{Proportional Attribution}
+\label{subsec:proportional}
 
-% Placeholder (0.3–0.4 page):
-% - Conceptually describe CPU utilisation as fraction of time runnable/active.
-% - Explain its use as a coarse proxy for work.
-% - DO NOT discuss scheduler-specific metrics or kernel counters.
+Proportional attribution assigns energy to workloads in proportion to an observed activity metric, such as CPU time or memory access volume. Its appeal lies in its simplicity and interpretability. However, different metrics emphasise different forms of behaviour, and proportionality with respect to one metric does not imply proportionality with respect to another. The choice of metric therefore has direct consequences for the resulting attribution.
 
-%--------------------------------------------------------------------
-\subsection{Power Domains and Subsystem Behaviour}
-\label{subsec:power_domains}
-
-% Placeholder (0.6–0.8 page):
-% - Introduce the concept of hardware power domains (CPU, memory, GPU, SoC).
-% - Explain that each domain behaves differently and responds to different workloads.
-% - DO NOT reference RAPL domain names or MIG partitioning (Chapter 2).
-
-%--------------------------------------------------------------------
-\subsection{External Measurements}
-\label{subsec:external_measurements}
-
-% Placeholder (0.3–0.4 page):
-% - Conceptually describe the idea of external power interfaces.
-% - Emphasise that they provide whole-system measurements.
-% - DO NOT mention Redfish or its behaviour (Chapter 2).
-
-%====================================================================
-\section{Attribution Models and Philosophies}
-\label{sec:attribution_models}
-
-% This section introduces conceptual frameworks used in the literature.
-% It MUST NOT describe Tycho's design or implementation.
-
-%--------------------------------------------------------------------
-\subsection{Container-Centric Attribution}
-\label{subsec:container_centric}
-
-% Placeholder (0.4 page):
-% - Describe proportional assignment of dynamic power to container activity.
-% - Conceptual advantages: interpretability, simplicity.
-% - Conceptual limitations: ignores static power and shared costs.
-
-%--------------------------------------------------------------------
 \subsection{Shared-Cost Attribution}
 \label{subsec:shared_cost}
 
-% Placeholder (0.4–0.5 page):
-% - Describe sharing approaches where system-level power is divided among active workloads.
-% - Discuss conceptual trade-offs between fairness and accuracy.
+Shared-cost attribution distributes some portion of the dynamic energy uniformly or proportionally across all active workloads, independent of their individual activity levels. This approach emphasises stability and fairness and is often used when activity metrics are incomplete or unreliable. Its limitation is that it may obscure relationships between workload behaviour and energy consumption, since unexplained costs are not tied to specific activity.
 
-%--------------------------------------------------------------------
-\subsection{Residual Modelling}
-\label{subsec:residual_modelling}
+\subsection{Residual and Unattributed Energy}
+\label{subsec:residual_energy}
 
-% Placeholder (0.4 page):
-% - Introduce idea of modelling background or unassignable power as a residual term.
-% - Explain conceptual necessity when workloads do not explain all power.
+Some energy cannot be explained by available metrics or by direct workload activity. Subsystems without meaningful utilisation signals, background services, and asynchronous events contribute to a residual component. Treating this component explicitly preserves conservation and avoids distorting the energy assigned to observable activity. Residual energy also delineates the boundary between explainable and unexplained behaviour within an attribution model.
 
-%--------------------------------------------------------------------
-\subsection{Process Idle versus CPU Idle}
-\label{subsec:idle_difference}
+\subsection{Model-Based or Hybrid Attribution}
+\label{subsec:model_based}
 
-% Placeholder (0.4 page):
-% - Conceptually distinguish process idle (app not running) from hardware idle (C-state).
-% - Explain why this complicates attribution models.
-% - DO NOT cite empirical idle-state behaviour (Chapter 2).
+Model-based or hybrid attribution combines several activity signals into an explicit model of energy consumption. Such a model may weight metrics from different domains, encode domain-specific relationships, or blend proportional and shared-cost components. It does not attempt to establish strict causality, but it treats the mapping from activity to energy as a structured function rather than a single proportional rule. The quality of the resulting attribution depends on how well the model captures the relevant relationships and on how stable these relationships remain across workloads and system states.
 
-%--------------------------------------------------------------------
-\subsection{Unaccounted Energy and Model Limitations}
-\label{subsec:unaccounted_energy}
+\subsection{Causal or Explanatory Attribution}
+\label{subsec:causal_attribution}
 
-% Placeholder (0.4 page):
-% - Describe conceptual sources of unaccounted energy:
-%     * background daemons
-%     * subsystem activity outside model
-%     * asynchronous events
-% - Emphasise that attribution is inherently approximate.
+Causal or explanatory attribution attempts to relate changes in workload activity to changes in power consumption. It seeks to model relationships between metrics and energy rather than applying proportionality directly. This approach can capture more nuanced behaviour, but its accuracy depends on metric fidelity and on the stability of the relationship between activity and power. Limited observability and shared subsystem interactions restrict the strength of causal inferences.
 
-%====================================================================
-\section{Domain Challenges}
-\label{sec:domain_challenges}
+\subsection*{Link to System Requirements}
 
-% This section summarises general conceptual difficulties faced by any
-% attribution system. Empirical expressions of these difficulties belong to Chapter 2.
+These frameworks illustrate the range of assumptions an attribution model may adopt. They highlight the need for transparent modelling choices, consistent interpretation of metrics, explicit treatment of residual components, and temporal coherence when relating activity to energy. In practice, their behaviour is further constrained by shared hardware, domain interactions, and temporal misalignment, which shape how any chosen framework behaves under real workloads. These combined effects are examined in \S~\ref{sec:interactions} and motivate the system requirements developed in \S~\ref{sec:conceptual_requirements}.
 
-%--------------------------------------------------------------------
-\subsection{Asynchronous Metric Sources}
-\label{subsec:async_sources}
+\section{Interactions and Complications}
+\label{sec:interactions}
 
-% Placeholder (0.3–0.4 page):
-% - Conceptually describe the challenge of combining asynchronous streams.
+The principles and temporal concepts introduced above interact in ways that make workload-level attribution fundamentally approximate. These interactions arise from shared hardware, limited observability, asynchronous measurements, and the structure of workloads themselves.
 
-%--------------------------------------------------------------------
-\subsection{Uneven Temporal Granularity}
-\label{subsec:uneven_granularity}
+\subsection*{Combined Effects of Shared Hardware and Temporal Misalignment}
 
-% Placeholder (0.3–0.4 page):
-% - Describe varying update/refresh characteristics conceptually.
+Shared subsystems create interference that couples the activity of different workloads. Contention for caches, memory controllers, or shared power and frequency budgets alters the relation between observed activity and actual energy consumption. Temporal misalignment compounds this effect. When activity and power are observed at different times and with different delays, the ambiguity introduced by interference cannot be resolved by sampling alone. The combined effect limits the extent to which per workload contributions can be isolated.
 
-%--------------------------------------------------------------------
-\subsection{Lifecycle Volatility}
-\label{subsec:lifecycle_challenges}
+\subsection*{Cross-Domain Interactions}
 
-% Placeholder (0.3–0.4 page):
-% - Emphasise that processes and containers may appear/disappear rapidly.
+Hardware domains are not independent. Changes in compute activity can influence memory behaviour or power states, and accelerators may shift platform level consumption. These interactions mean that energy attributed to one domain may reflect behaviour originating in another. Attribution must therefore operate under the constraint that domain boundaries provide structure but not complete separation.
 
-%--------------------------------------------------------------------
-\subsection{Short-Lived Execution Units}
-\label{subsec:short_lived_units}
+\subsection*{Attribution as an Inverse Problem}
 
-% Placeholder (0.3 page):
-% - Describe conceptual difficulty of capturing units that exist for less than a window.
+Because only aggregate energy is measured, attribution requires inferring per workload contributions from incomplete and asynchronous observations. This inference is an inverse problem with multiple admissible solutions. Limited metric fidelity, shared hardware behaviour, and temporal uncertainty restrict how precisely activity can be mapped to energy. A coherent attribution model acknowledges these limitations and structures them explicitly rather than treating them as noise.
 
-%--------------------------------------------------------------------
-\subsection{Multi-Domain Power Paths}
-\label{subsec:multi_domain_powerpaths}
+\section{Conceptual Challenges and System Requirements}
+\label{sec:conceptual_requirements}
 
-% Placeholder (0.3–0.4 page):
-% - Conceptually explain that power flows span multiple subsystems.
+The challenges identified above arise from shared hardware behaviour, asynchronous and heterogeneous measurements, limited metric fidelity, and volatile workload lifecycles. Any attribution system must address these challenges within a coherent conceptual framework. The requirements formulated in this section follow directly from the principles and temporal foundations established earlier and specify the conditions that an attribution model shall satisfy.
 
-%--------------------------------------------------------------------
-\subsection{Measurement Uncertainty and Noise}
-\label{subsec:noise_uncertainty}
+\subsection{Requirement: Temporal Coherence}
+\label{subsec:req_temporal}
 
-% Placeholder (0.4 page):
-% - Describe conceptual uncertainty from noise, variability, and filtering.
+The system \textit{must} maintain coherent temporal structure across all telemetry sources. Measurements that arrive with differing delays, cadences, or timestamp semantics \textit{shall} be placed on a consistent time axis and related correctly to the boundaries of the observation window. The system \textit{should} tolerate irregular update patterns without introducing artefacts, and it \textit{may} employ temporal reconstruction provided that ordering and conservation are preserved.
 
-%====================================================================
+\subsection{Requirement: Domain-Level Consistency}
+\label{subsec:req_domain_consistency}
+
+The system \textit{must} decompose node-level energy into meaningful hardware domains before workload-level assignment. Each domain \textit{shall} be treated using internally consistent rules, and the system \textit{must not} combine unrelated forms of activity into a single attribution pathway. When direct observability is incomplete, the system \textit{should} incorporate explicit residual modelling, and it \textit{may} use domain specific strategies when justified by domain characteristics.
+
+\subsection{Requirement: Cross-Domain Reconciliation}
+\label{subsec:req_cross_domain}
+
+The system \textit{must} reconcile energy information from different hardware domains in a coherent manner. When domain-level signals disagree, the reconciliation strategy \textit{shall} be explicit and internally consistent rather than relying on implicit priority rules. The system \textit{should} expose when domains provide conflicting indications about energy usage and clarify how such conflicts influence per workload assignments. Any reconciliation \textit{must not} violate conservation across domains or undermine the stability of workload-level attribution.
+
+\subsection{Requirement: Consistent Metric Interpretation}
+\label{subsec:req_metric_consistency}
+
+The system \textit{must} interpret activity metrics in a stable and coherent manner. Metrics that differ in semantics, resolution, or precision \textit{shall} not be combined without clear conceptual justification. The system \textit{must not} allow the meaning of a metric to vary across time or domains. It \textit{should} treat metric limitations explicitly, and it \textit{may} disregard metrics whose quality does not support meaningful attribution.
+
+\subsection{Requirement: Transparent Modelling Assumptions}
+\label{subsec:req_transparency}
+
+All assumptions used to relate activity to energy \textit{must} be explicit. The basis on which energy is distributed \textit{shall} be interpretable, including the choice of attribution framework, the handling of idle and residual energy, and any fallback behaviour in the presence of incomplete metrics. The system \textit{should} separate measured quantities from inferred quantities to avoid ambiguity, and it \textit{may} expose configurable modelling options provided they do not violate consistency or conservation.
+
+\subsection{Requirement: Lifecycle-Robust Attribution}
+\label{subsec:req_lifecycle}
+
+The system \textit{must} remain consistent under workload churn. Execution units that appear or terminate within an observation window \textit{shall} be tracked in a way that avoids both loss of energy and double counting. Workload identities \textit{must} remain stable even when their underlying execution units change. The system \textit{should} support overlapping lifecycles and transient units without degrading attribution quality, and it \textit{may} use buffering or reconciliation strategies when necessary.
+
+\subsection{Requirement: Uncertainty-Aware Attribution}
+\label{subsec:req_uncertainty}
+
+The system \textit{should} acknowledge uncertainty arising from limited observability, shared hardware behaviour, and temporal misalignment. It \textit{shall} avoid implying precision that the measurements do not support. Where feasible, it \textit{should} represent unexplained energy explicitly rather than absorbing it into unrelated workloads. Any handling of uncertainty \textit{must not} violate conservation or temporal ordering.
+
+\subsection*{Link to Architectural Considerations}
+
+These requirements imply that an attribution system must provide mechanisms for temporal alignment, domain level reasoning, stable metric interpretation, explicit residual handling, and robust tracking of workload identities. They form the basis for the architectural design presented in \chapref{ch:architecture}.
+
 \section{Summary}
-\label{subsec:summary_ch3}
+\label{sec:summary_ch3}
 
-% Placeholder (0.4–0.5 page):
-% - Summarise the conceptual challenges and abstractions.
-% - State explicitly that Chapter 4 builds on these foundations to introduce
-%   an accuracy-first architecture without relying on any of the empirical
-%   details from Chapter 2.
-
-
-\chapter{THIS IS JUST A PLACEHOLDER FOR WIP sections}
+This chapter introduced the conceptual foundations of workload-level energy attribution. It defined workloads and execution units, presented the principles that govern how aggregate energy can be decomposed, and developed the temporal and measurement concepts required to interpret heterogeneous telemetry. It also showed how shared hardware behaviour, metric limitations, and asynchronous observations interact to make attribution inherently approximate. These considerations led to a set of system requirements that any attribution model must satisfy. The next chapter builds on these requirements and introduces an architecture designed to meet them.
