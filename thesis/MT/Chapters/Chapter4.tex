@@ -1,2 +1,1366 @@
-\chapter{Architecure}
+\chapter{System Architecture}
 \label{ch:architecture}
+
+\section{Guiding Principles}
+\label{subsec:guiding_principles}
+
+Tycho’s architecture is shaped by a small set of foundational principles that govern how measurements are interpreted, combined and ultimately attributed. These principles are architectural in nature: they articulate \emph{how} the system must reason about observations, not \emph{how} it is implemented. They establish the conceptual baseline that the subsequent sections refine in detail.
+
+\begin{itemize}[leftmargin=1.2em]
+    \item \textbf{Accuracy-first temporal coherence.}
+    Architectural decisions prioritise the reconstruction of temporally coherent views of system behaviour. Observations are treated as samples of an underlying physical process, and the architecture is designed to preserve their temporal meaning rather than force periodic alignment.
+
+    \item \textbf{Domain-aware interpretation.}
+    Metric sources differ in semantics and cadence. The architecture respects these differences and avoids imposing artificial synchrony or uniform sampling behaviour across heterogeneous domains.
+
+    \item \textbf{Transparency of assumptions.}
+    All modelling assumptions must be explicit, inspectable and externally visible. The architecture prohibits implicit corrections or hidden inference steps that would obscure how measurements lead to attribution results.
+
+    \item \textbf{Uncertainty as a first-class concept.}
+    Missing, stale or delayed information is treated as uncertainty rather than error. Architectural components convey and preserve uncertainty so that later stages may interpret it correctly.
+
+    \item \textbf{Separation of observation, timing and attribution.}
+    Measurement collection, temporal interpretation and energy attribution form distinct architectural layers. This separation prevents cross-coupling, clarifies responsibilities and ensures that improvements in one layer do not implicitly alter the behaviour of others.
+\end{itemize}
+\section{Traceability to Requirements}
+\label{subsec:req_traceability}
+
+The architectural structure introduced in this chapter provides a direct response to the requirements established in \S~\ref{sec:conceptual_requirements}. Each requirement class corresponds to specific architectural mechanisms, ensuring that the system design follows from formal constraints rather than implementation convenience.
+
+\textbf{Requirement: Temporal Coherence.}
+Satisfied through event-time reconstruction, independent collector timelines, and window-based temporal alignment.
+
+\textbf{Requirement: Domain-Level Consistency.}
+Addressed by per-domain interpretation layers, domain-aware handling of metric semantics, and explicit decomposition of node-level signals.
+
+\textbf{Requirement: Cross-Domain Reconciliation.}
+Supported by a unified temporal model, window-level aggregation boundaries, and explicit reconciliation logic across domains during analysis.
+
+\textbf{Requirement: Consistent Metric Interpretation.}
+Ensured by separating observation from interpretation, enforcing stable metric semantics within each domain, and isolating heterogeneous metrics into dedicated processing paths.
+
+\textbf{Requirement: Transparent Modelling Assumptions.}
+Realised through explicit modelling steps, external visibility of assumptions, and separation between measured and inferred quantities.
+
+\textbf{Requirement: Lifecycle-Robust Attribution.}
+Enabled by metadata freshness guarantees, stable process–container mapping, and attribution rules that remain valid under workload churn.
+
+\textbf{Requirement: Uncertainty-Aware Attribution.}
+Supported by explicit treatment of stale or missing data, uncertainty propagation in window evaluation, and preservation of unexplained residuals.
+
+
+\section{High-Level Architecture}
+\label{sec:high_level_architecture}
+
+% OVERALL LENGTH FOR SECTION:
+%   ~2 to 3 pages total, depending on diagram size.
+%   This section provides the reader with a complete mental map of Tycho
+%   before any detailed timing or analysis discussion. After reading this,
+%   the reader should know which subsystems exist and how they talk to each
+%   other, without yet understanding the mathematical details.
+
+
+% ----------------------------------------------------------------------
+\subsection{Subsystem Overview}
+\label{subsec:subsystem_overview}
+
+% LENGTH:
+%   ~1 page of text plus one prominent figure (landscape if needed).
+
+% PURPOSE:
+%   Introduce the main logical subsystems of Tycho and their responsibilities
+%   at a conceptual level. This overview should establish the "cast of
+%   characters" that reappears throughout the chapter: collectors, timing
+%   engine, buffers, calibration, analysis, metadata, exporter.
+
+% MUST INCLUDE:
+%   - A short introductory paragraph stating that Tycho is decomposed into
+%     a small number of cooperating subsystems, each with a clearly defined
+%     responsibility and interface.
+%   - A high-level description (1 short paragraph or 2--3 sentences each)
+%     of the following subsystems:
+%       * Metric collectors
+%         - Group all hardware and software collectors here:
+%           RAPL, GPU/NVML, Redfish, eBPF, metadata sources.
+%         - Focus on their conceptual role: they observe different domains,
+%           provide timestamped samples and quality indicators.
+%         - Do not describe specific polling intervals or APIs.
+%       * Timing engine
+%         - Responsible for maintaining event-time aligned views of all
+%           metric sources.
+%         - Builds and manages analysis windows without assuming global
+%           periodicity.
+%       * Buffering and storage layer
+%         - Conceptual description of ring buffers as finite history stores
+%           for metric samples.
+%         - Explain the idea of configurable history windows without going
+%           into data structure detail.
+%       * Calibration framework
+%         - High-level statement: supports delay estimation, baseline
+%           estimation, quality assessment of collectors.
+%         - Mention that calibration updates constraints for later analysis.
+%       * Metadata subsystem
+%         - Provides mappings from processes, cgroups and containers to
+%           Kubernetes objects.
+%         - Handles lifecycle changes and short-lived workloads.
+%       * Analysis engine
+%         - Consumes temporally aligned, buffered metrics and metadata.
+%         - Produces per-window, per-container energy estimates.
+%       * Exporter
+%         - Translates analysis results into Prometheus compatible metrics.
+%         - Mention only conceptually, no exposition of labels or formats.
+%   - An explicit statement that this decomposition is driven by the
+%     requirements in Ch.~3 (temporal coherence, domain consistency, and
+%     lifecycle robustness).
+
+% MAY INCLUDE (OPTIONAL):
+%   - A short remark that certain subsystems (for example collectors and
+%     exporter) can be reused or adapted independently of the core timing
+%     and analysis logic.
+%   - One sentence that relates this layout to classical measurement system
+%     architectures (sensors, acquisition, processing, reporting), but keep
+%     strictly high-level.
+
+% MUST NOT INCLUDE:
+%   - Any description of module names, packages, or Go implementation.
+%   - Any explicit timing numbers or calibration experiment descriptions.
+%   - Any Kepler comparison; that comes later in the timing section.
+
+% DIAGRAM:
+%   - One top-level system architecture diagram.
+%   - Recommended structure:
+%       * Use boxes for subsystems: "Collectors", "Timing Engine",
+%         "Buffers", "Calibration", "Metadata Subsystem", "Analysis Engine",
+%         "Exporter".
+%       * Arrows show main data flows:
+%           Collectors -> Buffers -> Timing Engine -> Analysis Engine
+%           Metadata Subsystem -> Analysis Engine
+%           Calibration ↔ Collectors and Timing Engine (bi-directional
+%           arrows to indicate that calibration both consumes and informs
+%           these components)
+%           Analysis Engine -> Exporter
+%       * Place external environment elements clearly outside:
+%           Node hardware, Kubernetes API server, Prometheus scraping.
+%       * Do not show per-collector details or internal buffer layout.
+%   - The caption should emphasise that the figure reflects logical
+%     responsibilities, not concrete deployment or code.
+
+% FORMULAE:
+%   - None in this subsection.
+
+% NOTES:
+%   - This is the reader's first visual contact with Tycho as a system.
+%     Aim for simplicity and clarity. The detailed timing and maths will
+%     follow later, so avoid crowding this figure with technical detail.
+
+
+% ----------------------------------------------------------------------
+\subsection{Dataflow and Control Flow}
+\label{subsec:dataflow_control}
+
+% LENGTH:
+%   ~1 to 1.5 pages of text plus one diagram. This section refines the
+%   previous overview by explaining how information moves through the system
+%   over time, without yet going into event-time mathematics.
+
+% PURPOSE:
+%   Describe how data samples, metadata and control signals traverse the
+%   subsystems during normal operation. Clarify which parts of the system
+%   are passive (buffers, storage) and which actively trigger processing
+%   (timing engine, calibration, analysis).
+
+% MUST INCLUDE:
+%   - A conceptual description of:
+%       * How metric samples flow:
+%         Collectors produce samples (with timestamps and, where available,
+%         freshness indicators) and append them to subsystem-specific
+%         buffers.
+%       * How metadata flows:
+%         Metadata collectors periodically refresh container, pod and
+%         process mappings, which are stored in a cache used by the
+%         analysis engine.
+%       * How control flow operates:
+%         - Timing engine decides when an "analysis window" is ready based
+%           on buffer content and freshness.
+%         - When a window is ready, the timing engine initiates analysis
+%           for that time interval and domain set.
+%         - The analysis engine pulls the necessary samples and metadata
+%           from buffers and metadata cache.
+%         - Exporter is triggered whenever new analysis results are
+%           produced, not when samples are collected.
+%   - Clarification of the separation between:
+%       * Collector driven activity (polling, event reception).
+%       * Timing driven activity (deciding when windows are complete).
+%       * Analysis driven activity (performing attribution for a completed
+%         window).
+%   - A clear explanation that Tycho is designed so that collectors do not
+%     wait for each other or synchronise their sampling; synchronisation
+%     happens only at the level of analysis windows.
+
+% MAY INCLUDE (OPTIONAL):
+%   - Short mention of feedback paths:
+%       * Calibration may adjust collector frequency or timing engine
+%         thresholds conceptually, but avoid implementation detail.
+%       * Error reporting or health signals flowing from collectors to a
+%         supervisory component, if you decide to include it conceptually.
+%   - A brief note that this design makes it easier to add new metric
+%     sources, because the core control flow does not change.
+
+% MUST NOT INCLUDE:
+%   - Specifics of concurrency, goroutines, channels, locks or queues.
+%   - Any explicit description of memory layout or buffer indices.
+%   - Detailed timing diagrams; these belong in the dedicated timing section.
+
+% DIAGRAM:
+%   - A refined dataflow and control flow diagram.
+%   - Recommended structure:
+%       * Represent collectors as a vertical layer on the left emitting
+%         streams of "samples".
+%       * Show arrows to per-source buffers.
+%       * From buffers, show arrows into a central "Timing Engine and
+%         Window Manager" block.
+%       * From that block, arrows to an "Analysis Engine" block, and from
+%         there to an "Exporter" and eventually Prometheus.
+%       * Include metadata as a separate flow:
+%           Metadata collectors -> Metadata cache -> Analysis Engine.
+%       * Use different arrow styles or labels to distinguish:
+%           "data sample", "metadata", and "control/trigger".
+%   - The caption should explicitly state that the figure distinguishes
+%     dataflow (what is moved) from control flow (what initiates processing).
+
+% FORMULAE:
+%   - None. Keep this section purely diagrammatic and descriptive; actual
+%     mathematical treatment follows in the timing and analysis sections.
+
+% NOTES:
+%   - This section should make the later detailed sections easier to read.
+%     When you later discuss analysis windows or temporal alignment, you
+%     should be able to refer back to the control flow introduced here.
+
+
+% ----------------------------------------------------------------------
+\section{Temporal Model and Timing Engine}
+\label{sec:timing_engine}
+
+% OVERALL LENGTH:
+%   ~4 to 6 pages including diagrams — this is one of the two “core”
+%   sections of Chapter 4. The level of detail should be conceptual but
+%   rigorous. Formulas belong here. Timing diagrams belong here.
+
+
+% ----------------------------------------------------------------------
+\subsection{Event-Time Abstraction}
+\label{subsec:event_time}
+
+% LENGTH:
+%   ~1 page including one small illustrative figure (optional).
+
+% PURPOSE:
+%   Introduce the conceptual foundation for Tycho’s temporal reasoning.
+%   Establish the distinction between:
+%     - event time (when the observed physical change occurred)
+%     - poll time (when the system managed to read it)
+%   This abstraction is the prerequisite for analysis windows and temporal
+%   alignment.
+
+% MUST INCLUDE:
+%   - A clear statement that hardware and OS metrics describe phenomena
+%     occurring in physical time, but are *observed* at poll times that may
+%     drift, jitter, or delay.
+%   - A definition of:
+%       *Event time* as the canonical temporal reference used by Tycho.
+%       *Poll time* as an acquisition artefact to be corrected.
+%   - An explanation of Tycho’s monotonic time origin:
+%       - Reference to a single monotonically increasing counter (e.g. Go
+%         monotonic time) used to timestamp all observations.
+%       - This ensures cross-domain consistency.
+%   - Explanation of how collectors contribute timestamps:
+%       - If the source provides its own timestamp or freshness field
+%         (e.g. Redfish), Tycho interprets it as event time.
+%       - Otherwise, event time is approximated by poll time ± expected
+%         delay as learned by calibration.
+%   - A conceptual diagram (optional, small):
+%       * A horizontal axis labelled “physical time”.
+%       * Arrows showing “poll event” vs “actual measurement interval”.
+%       * Emphasise that these differ but relate.
+
+% MAY INCLUDE (OPTIONAL):
+%   - A short bullet list summarising the consequences of adopting an
+%     event-time model (e.g. resolution is governed by physical changes, not
+%     by polling).
+
+% MUST NOT INCLUDE:
+%   - Implementation specifics (e.g. time.Now(), CLOCK_MONOTONIC).
+%   - Any analysis-window maths (saved for the next subsections).
+
+% FORMULAE:
+%   - None required yet, but you may include the conceptual relation:
+%       event\_time = poll\_time - delay
+%     without specifying how delay is estimated.
+
+% DIAGRAM:
+%   - Optional, small (not the main timing diagram).
+
+
+% ----------------------------------------------------------------------
+\subsection{Independent Collector Timelines}
+\label{subsec:independent_timelines}
+
+% LENGTH:
+%   ~1 to 1.5 pages including the first major timing diagram.
+
+% PURPOSE:
+%   Explain why Tycho decouples collectors temporally and how this supports
+%   temporal coherence and domain consistency.
+
+% MUST INCLUDE:
+%   - A rationale for independent collector schedules:
+%       * Different domains evolve at different temporal scales.
+%       * Enforcing a global poll tick embeds arbitrary sampling artefacts.
+%       * Independent schedules allow domain-appropriate resolution.
+%   - Conceptual description of per-source timing behaviour:
+%       * RAPL: cumulative counters; effectively continuous.
+%       * NVML: instantaneous values; phase-aware sampling.
+%       * Redfish: slow periodic updates, explicit freshness.
+%       * eBPF: event-driven, variable density.
+%   - Explanation that collectors operate on their own local time axes, but
+%     all samples receive timestamps in the global monotonic reference.
+%   - Discussion of jitter and delay:
+%       * Each collector has inherent jitter or acquisition delay.
+%       * Calibration estimates typical delay ranges or bounds.
+%       * Tycho tolerates differences rather than attempting tight sync.
+
+% MUST NOT INCLUDE:
+%   - Collector internals (polling loops, mutexes, syscalls).
+%   - Specific numeric defaults (saved for implementation chapter).
+
+% DIAGRAM (IMPORTANT):
+%   - Multi-line timeline plot.
+%       * X-axis: global monotonic time.
+%       * Several horizontal lines representing collectors.
+%       * Short vertical ticks on each line indicating sample arrival times.
+%       * Different spacings for each collector (e.g. GPU denser, Redfish sparse).
+%       * Visual jitter (non-uniform intervals) encouraged.
+%   - Purpose: to convey the heterogeneity and independence of timelines.
+
+% FORMULAE:
+%   - None yet.
+
+
+% ----------------------------------------------------------------------
+\subsection{Window Construction and Alignment}
+\label{subsec:window_construction}
+
+% LENGTH:
+%   ~1.5 to 2 pages, including formulas and an alignment diagram.
+
+% PURPOSE:
+%   Define how Tycho constructs “analysis windows” from decoupled metric
+%   streams, ensuring temporal coherence without forced synchronisation.
+
+% MUST INCLUDE:
+%   - A high-level definition of an analysis window W:
+%       * A half-open interval [t_start, t_end).
+%       * Chosen based on event-time availability (e.g. triggered by Redfish
+%         freshness or periodic timer depending on configuration).
+%   - Explanation of window validity criteria:
+%       * Window must contain at least one fresh metric sample from each
+%         required domain.
+%       * Samples must not exceed staleness thresholds.
+%       * Missing samples → window marked incomplete or attributed with
+%         uncertainty.
+%   - Discussion of window boundaries:
+%       * Windows need not align with collector poll boundaries.
+%       * Windows are conceptual analysis units, not sampling units.
+%   - Introduction of interval averaging for cumulative counters:
+%       * RAPL example: power = Δenergy / Δtime.
+%       * This requires selecting the correct “bracketing” samples.
+%   - Introduction of interval attribution for instantaneous values:
+%       * NVML example: instantaneous reading represents a point estimate
+%         that must be interpreted across the window.
+%   - A generic averaging formula:
+%       \[
+%           \bar{P}_d(W)
+%           =
+%           \frac{1}{|W|}
+%           \int_{t \in W} P_d(t)\,\mathrm{d}t,
+%       \]
+%       and a discrete reconstruction using samples \(s_i\):
+%       \[
+%           \bar{P}_d(W)
+%           \approx
+%           \frac{1}{|W|}
+%           \sum_i P_d(s_i)\,\Delta t_i.
+%       \]
+%     You should not specify the exact discrete scheme (implementation
+%     detail), but explain the principle.
+
+% DIAGRAM:
+%   - A window alignment figure.
+%       * Horizontal axis = time.
+%       * Draw two or three collectors’ sample ticks.
+%       * Highlight a window [t_start, t_end).
+%       * Indicate selected samples contributing to the window.
+%       * Show skipped or stale samples visually.
+
+% MUST NOT INCLUDE:
+%   - Full reconstruction logic (leave details for the analysis section).
+%   - Actual buffer layouts or index selection.
+
+
+% ----------------------------------------------------------------------
+\subsection{Comparison to Kepler Timing Model}
+\label{subsec:kepler_comparison}
+
+% LENGTH:
+%   ~1 page including a figure.
+
+% PURPOSE:
+%   To conceptually contrast Tycho’s event-time-driven model with Kepler’s
+%   fixed-interval poll-time model, without criticising Kepler or diving
+%   into implementation detail.
+
+% MUST INCLUDE:
+%   - A short narrative comparing:
+%       * Kepler’s synchronous polling model (e.g., 3-second fixed tick).
+%       * Tycho’s independent, domain-aware event-time model.
+%   - Explanation that Kepler implicitly approximates event-time behaviour
+%     using periodic snapshots, which may under-sample or miss short-lived
+%     phenomena.
+%   - Explanation that Tycho reconstructs windows from domain-appropriate
+%     samples and therefore achieves higher temporal fidelity.
+
+% MUST NOT INCLUDE:
+%   - Criticism of Kepler’s code or design choices.
+%   - Any Go/implementation details.
+%   - Any explicit numbers (e.g. “3 seconds”) unless they appear in the
+%     upstream documentation.
+
+% DIAGRAM:
+%   - Side-by-side conceptual timing diagrams:
+%       * Left: Kepler-style model with long, uniform sampling bars.
+%       * Right: Tycho model with many smaller sampling bars and irregular
+%         spacing.
+%       * Indicate visually how Kepler may skip dynamics.
+
+% FORMULAE:
+%   - None. This is illustrative, not mathematical.
+
+
+% ----------------------------------------------------------------------
+\subsection{Handling Staleness, Jitter, and Delay}
+\label{subsec:staleness_jitter_delay}
+
+% LENGTH:
+%   ~0.75 to 1 page.
+
+% PURPOSE:
+%   Formalise how Tycho reasons about imperfect observations. This ties
+%   directly into the requirements for uncertainty-aware attribution and
+%   lifecycle robustness.
+
+% MUST INCLUDE:
+%   - Definitions:
+%       * Staleness: age of a sample relative to window boundaries.
+%       * Jitter: deviation of actual poll times from intended intervals.
+%       * Delay: difference between event time and poll time.
+%   - Explain that Tycho establishes thresholds for each phenomenon (exact
+%     numeric values belong in implementation chapter, not here).
+%   - Describe conceptually:
+%       * How stale samples cause windows to be flagged incomplete.
+%       * How jitter affects interpolation but not window formation.
+%       * How delay is estimated (conceptually) through calibration and
+%         applied when interpreting timestamps.
+%   - Clarify that incomplete windows propagate uncertainty forward into the
+%     analysis stage.
+
+% MAY INCLUDE (OPTIONAL):
+%   - A small schematic overlay on a timeline showing stale vs fresh sample.
+%   - A link forward to the analysis section where uncertainty appears as
+%     an explicit modelling element.
+
+% MUST NOT INCLUDE:
+%   - Any specifics of calibration algorithms.
+%   - Collector details or retry logic.
+
+% DIAGRAM:
+%   - Optional, small: highlight stale and fresh samples on a timeline.
+
+% FORMULAE:
+%   - Optional conceptual inequality:
+%       sample\_age = t_window_start - t_sample > staleness\_threshold.
+%     But avoid encoding the threshold itself.
+
+% NOTES:
+%   - This section completes the conceptual basis for analysis windows and
+%     prepares the reader for the mathematical attribution model.
+
+
+
+% ----------------------------------------------------------------------
+\section{Metric Sources as Temporal Actors}
+\label{sec:metric_sources}
+
+% OVERALL LENGTH:
+%   ~3–4 pages including one diagram (NVML phase-aware sketch).
+%   This section is conceptual and emphasises *temporal characteristics* of
+%   each metric source, not technical APIs or implementation detail.
+%
+% PURPOSE:
+%   Present each domain not as a collector implementation but as a *temporal
+%   signal* with characteristic behaviour, constraints, and uncertainties.
+%   This sets up the attribution logic in later sections (especially domain
+%   consistency and uncertainty handling).
+
+
+% ----------------------------------------------------------------------
+\subsection{CPU/RAPL Domains}
+\label{subsec:rapl_temporal}
+
+% LENGTH:
+%   ~0.75 page.
+
+% PURPOSE:
+%   Characterise RAPL as a cumulative energy domain with effectively
+%   continuous behaviour, explaining how this shapes its integration into
+%   Tycho’s event-time model.
+
+% MUST INCLUDE:
+%   - Conceptual description of RAPL domains relevant to energy modelling:
+%       * package, core, uncore, dram (depending on hardware availability).
+%   - Explanation that RAPL exposes *cumulative energy counters* that are
+%     monotonically increasing with wraparound.
+%   - Emphasise temporal implications:
+%       * These counters reflect energy consumed over time, not instantaneous
+%         power.
+%       * Event-time behaviour is reconstructed by differencing consecutive
+%         samples.
+%       * The temporal resolution is limited only by sampling rate and by
+%         variability in hardware update intervals.
+%   - State clearly:
+%       * No sysfs paths.
+%       * No discussion of actual polling code.
+%   - Mention wraparound conceptually:
+%       * Wraparound must be detectable and corrected in the analysis model
+%         (details appear in the implementation chapter, not here).
+
+% MAY INCLUDE:
+%   - Short illustrative formula:
+%       \[
+%           \Delta E = E(t_2) - E(t_1), \qquad
+%           \bar{P} \approx \Delta E / (t_2 - t_1).
+%       \]
+%     Keep it conceptual; detailed discrete handling belongs later.
+
+% MUST NOT INCLUDE:
+%   - Any numeric update rates.
+%   - Implementation mechanics (paths, syscalls).
+%   - Hardware-specific quirks except at a conceptual level.
+
+
+% ----------------------------------------------------------------------
+\subsection{GPU/NVML Domains}
+\label{subsec:nvml_temporal}
+
+% LENGTH:
+%   ~1 to 1.25 pages including one diagram.
+
+% PURPOSE:
+%   Present GPU power as a temporally rich domain with distinct properties
+%   relative to CPU/RAPL, especially:
+%       * instantaneous vs averaged signals,
+%       * phase-aware sampling,
+%       * domain-internal averaging performed by NVML.
+
+% MUST INCLUDE:
+%   - Explanation of two kinds of NVML-reported power:
+%       * The commonly used *averaged* power metric (e.g. `nvmlDeviceGetPowerUsage`)
+%         which is internally averaged over tens of milliseconds.
+%       * The *instantaneous* or *sensor-level* NVML FIELD used by Tycho,
+%         representing a more direct sample of current power draw.
+%   - Rationale:
+%       * The instantaneous metric provides more accurate temporal structure,
+%         crucial for Tycho’s event-time model.
+%       * Existing research often relies on the averaged metric, which obscures
+%         fast changes; Tycho’s architecture explicitly avoids this limitation.
+%   - Description of phase-aware sampling:
+%       * NVML internally updates power at discrete but undocumented intervals.
+%       * Tycho aligns sampling with NVML’s phase characteristics to reduce
+%         aliasing and improve temporal coherence.
+%   - Conceptual explanation of delay:
+%       * NVML reports reflect a small delay relative to actual physical
+%         events; calibration helps quantify this.
+%   - Mention that GPU load, memory, and other utilisation signals may have
+%     different temporal patterns, but details belong in the implementation
+%     chapter.
+
+% DIAGRAM (IMPORTANT):
+%   - A schematic showing:
+%       * Underlying GPU instantaneous power as a continuous curve.
+%       * NVML internal update points.
+%       * Tycho’s phase-aware sampling markers aligned with these points.
+%     Do not include numerical values.
+
+% MUST NOT INCLUDE:
+%   - API names beyond generic references ("averaged" vs "instantaneous").
+%   - Numeric defaults or specific sampling intervals.
+%   - GPU architecture or kernel driver details (implementation chapter).
+
+% MAY INCLUDE:
+%   - A sentence noting that Tycho’s design intentionally treats GPU and CPU
+%     domains asymmetrically due to their different temporal behaviours.
+
+
+% ----------------------------------------------------------------------
+\subsection{Redfish/BMC Power Source}
+\label{subsec:redfish_temporal}
+
+% LENGTH:
+%   ~0.5 page.
+
+% PURPOSE:
+%   Present Redfish power readings as coarse but authoritative signals,
+%   explaining their role in Tycho’s event-time model and as potential
+%   triggers for window formation.
+
+% MUST INCLUDE:
+%   - Description of Redfish as a low-frequency, aggregated node-level power
+%     source.
+%   - Emphasise:
+%       * Long and variable sample intervals (hundreds of milliseconds to
+%         seconds).
+%       * Availability of *freshness indicators* (e.g. timestamps or update
+%         counters), enabling Tycho to interpret event times more accurately
+%         than relying on poll time alone.
+%   - Explain its architectural role:
+%       * Acts as the authoritative “total node power” reference.
+%       * May serve as the trigger for window completion in some modes.
+%   - Conceptual temporal implications:
+%       * Redfish readings often span windows and therefore define natural
+%         analysis boundaries.
+%       * Their low frequency introduces uncertainty that must be handled
+%         explicitly in attribution.
+
+% MUST NOT INCLUDE:
+%   - JSON paths, HTTP details, schema structures.
+%   - Vendor-specific differences (implementation chapter).
+
+
+% ----------------------------------------------------------------------
+\subsection{eBPF and Software Counters}
+\label{subsec:ebpf_temporal}
+
+% LENGTH:
+%   ~0.75 page.
+
+% PURPOSE:
+%   Characterise software-side utilisation metrics (CPU time, IO counts,
+%   scheduler events, cgroup stats) as temporally diverse signals:
+%       * some cumulative,
+%       * some event-driven,
+%       * some quasi-instantaneous.
+
+% MUST INCLUDE:
+%   - eBPF as event-driven:
+%       * Metrics recorded exactly at the moment events occur.
+%       * Intrinsic high temporal resolution.
+%       * Non-uniform density, reflecting workload behaviour.
+%   - Cgroup and /proc counters:
+%       * Cumulative counters updated by kernel mechanisms.
+%       * Polling resolution determines effective temporal resolution.
+%   - Integration into Tycho’s temporal model:
+%       * All samples receive global monotonic timestamps.
+%       * Event-driven metrics require different aggregation logic than
+%         cumulative counters or instantaneous hardware readings.
+%   - Abstract temporal implications:
+%       * eBPF may contribute many events within a single analysis window.
+%       * Cgroup stats may contribute only a few samples.
+
+% MUST NOT INCLUDE:
+%   - Implementation specifics (maps, programs, syscalls).
+%   - Kernel tick behaviour beyond a conceptual remark.
+
+% MAY INCLUDE:
+%   - One sentence linking this to the requirement for domain-level
+%     consistency.
+
+
+% ----------------------------------------------------------------------
+\subsection{Conceptual Limitations and Uncertainty Sources}
+\label{subsec:uncertainty_sources}
+
+% LENGTH:
+%   ~0.75 page.
+
+% PURPOSE:
+%   Summarise cross-domain temporal mismatch and inherent sampling
+%   uncertainty. This closes the section by motivating the modelling
+%   techniques introduced in the next chapter subsection.
+
+% MUST INCLUDE:
+%   - Identification of uncertainty sources:
+%       * Temporal mismatch between domains (fast GPU, slow Redfish).
+%       * Internal sensor averaging (NVML averaged metric).
+%       * Jitter in software counters.
+%       * Acquisition delays.
+%       * Missing samples.
+%   - Explain that these are not “errors” but natural constraints of
+%     multi-source measurement systems.
+%   - Clarify that Tycho’s architecture does not attempt perfect
+%     synchronisation; instead it:
+%       * constructs windows that respect each domain’s timing,
+%       * propagates uncertainty forward to the analysis stage.
+
+% MUST NOT INCLUDE:
+%   - Numerical error bounds.
+%   - Details of uncertainty quantification (belongs in analysis chapter).
+
+% MAY INCLUDE:
+%   - A forward reference: “The analysis engine (Section~\S\ref{sec:analysis_model})
+%     incorporates these uncertainties by …”
+%     Keep this brief.
+
+% DIAGRAM:
+%   - None required; the section is integrative and conceptual.
+
+
+
+
+% ----------------------------------------------------------------------
+\section{Analysis and Attribution Model}
+\label{sec:analysis_model}
+
+% OVERALL LENGTH:
+%   ~3 pages for the placeholder structure in its current vague state.
+%   This section MUST remain deliberately non-committal because the actual
+%   analysis architecture has not been designed yet. The purpose of this
+%   placeholder is to define *what kinds of content belong here*, not how
+%   they will ultimately be realised.
+
+% GUIDING NOTE:
+%   Every subsection must avoid implying a specific algorithmic choice.
+%   The text here should describe the *space of responsibilities* and the
+%   *conceptual relationships* that the analysis model will eventually need
+%   to address. No assumptions about regression models, ratio models,
+%   interpolation schemes, fairness models, or uncertainty propagation may
+%   be embedded in the placeholder until the real architecture is defined.
+
+
+% ----------------------------------------------------------------------
+\subsection{Problem Definition}
+\label{subsec:analysis_problem_definition}
+
+% LENGTH:
+%   ~0.5 page.
+
+% MUST INCLUDE (conceptually):
+%   - A broad definition of the attribution task: given per-domain metric
+%     samples organised into analysis windows (constructed by the timing
+%     engine), the analysis phase must reconstruct estimates of:
+%         * window-level domain energies,
+%         * their temporal alignment,
+%         * and their assignment to workloads.
+%   - Clarification that this involves:
+%         * combining heterogeneous signals,
+%         * interpreting incomplete or uncertain data,
+%         * and generating per-container or per-pod energy estimates.
+%   - Emphasise that the analysis engine is a *model* that interprets
+%     measurements, not a mere aggregator.
+
+% MUST NOT INCLUDE:
+%   - Any specific modelling approach (e.g. ratio models, regressions).
+%   - Any concrete algorithmic steps or formulas other than purely symbolic.
+
+
+% ----------------------------------------------------------------------
+\subsection{Energy Reconstruction Across Domains}
+\label{subsec:energy_reconstruction}
+
+% LENGTH:
+%   ~0.75 page.
+
+% MUST INCLUDE (conceptually):
+%   - Statement that the analysis model must combine CPU, GPU, uncore,
+%     memory, and total-node power (e.g. Redfish) into a coherent picture
+%     of energy consumption in each window.
+%   - A generic decomposition identity (symbolic, not algorithmic):
+%       \[
+%           P_{\text{total}}(t)
+%           =
+%           P_{\text{cpu}}(t)
+%           +
+%           P_{\text{gpu}}(t)
+%           +
+%           P_{\text{uncore}}(t)
+%           +
+%           P_{\text{other}}(t)
+%           + \varepsilon(t),
+%       \]
+%     where \(\varepsilon(t)\) symbolises modelling uncertainty.
+%   - Explanation that this decomposition is conceptual only: the exact
+%     interpretation, estimation steps, and domain interactions will be
+%     defined later when the actual architecture is available.
+%   - Mention that samples may arrive at different temporal resolutions, so
+%     reconstruction must interpret them within analysis windows.
+
+% MUST NOT INCLUDE:
+%   - Any discussion of how “other” or “uncore” will be computed.
+%   - Any concrete rules for combining domains (e.g. prioritisation,
+%     proportionality, ratios, filtering).
+
+
+% ----------------------------------------------------------------------
+\subsection{Container-Level Attribution}
+\label{subsec:container_attribution}
+
+% LENGTH:
+%   ~1 page.
+
+% MUST INCLUDE (conceptually):
+%   - High-level role of utilisation metrics, metadata, and domain energies:
+%       * utilisation data describes workload behaviour,
+%       * metadata maps processes and cgroups to containers,
+%       * domain windows describe where energy originates,
+%     and attribution must relate these.
+%   - State that the analysis model must eventually produce per-container
+%     energy estimates for each window.
+%   - Clarify that:
+%       * attribution may depend on utilisation patterns,
+%       * attribution must support partial and uncertain data,
+%       * attribution must remain stable under short-lived containers.
+
+% DIAGRAM PLACEHOLDER:
+%   - A conceptual attribution-flow diagram:
+%       * Inputs: domain-window energies, utilisation metrics, metadata.
+%       * Outputs: per-container energy contributions.
+%       * No arrows showing mathematical rules — only conceptual flows.
+%     The final diagram will be drawn once the architecture is fixed.
+
+% MUST NOT INCLUDE:
+%   - Any allocation rules (e.g. proportional, residual-split, regression).
+%   - Any equations mapping utilisation to energy.
+
+
+% ----------------------------------------------------------------------
+\subsection{Residual Power Attribution}
+\label{subsec:residual_power}
+
+% LENGTH:
+%   ~0.5 page.
+
+% MUST INCLUDE (conceptually):
+%   - Statement that some portion of node-level power may not be explained
+%     directly by CPU or GPU domains.
+%   - Clarification that the analysis model must provide a *conceptual*
+%     mechanism to:
+%         * quantify residual energy,
+%         * distribute it meaningfully or mark it as uncertainty,
+%     but without specifying how this will be done.
+%   - Acknowledgement that residual handling is central to transparency and
+%     must make implicit assumptions explicit.
+
+% MUST NOT INCLUDE:
+%   - Any specific strategy for distributing residual energy.
+%   - Any mathematical formulas for residual modelling.
+
+
+% ----------------------------------------------------------------------
+\subsection{Requirements Satisfaction}
+\label{subsec:analysis_requirements}
+
+% LENGTH:
+%   ~0.5 page.
+
+% MUST INCLUDE:
+%   - A *forward-looking* statement that the analysis engine, once designed
+%     and implemented, must satisfy the requirements in Ch.~3, especially:
+%         * temporal coherence,
+%         * domain-level consistency,
+%         * transparency of assumptions,
+%         * lifecycle robustness,
+%         * uncertainty awareness.
+%   - Indicate that these requirements constrain the future design of:
+%         * how windows are interpreted,
+%         * how uncertainty is propagated,
+%         * how attribution is stabilised for container churn,
+%         * and how assumptions must be externally visible.
+%   - Emphasise that this subsection is not a proof — it merely establishes
+%     the criteria by which the final analysis design will later be judged.
+
+% MUST NOT INCLUDE:
+%   - Any premature claims about how the analysis will satisfy requirements.
+%   - Any commitments to specific algorithms or models.
+
+
+
+% ----------------------------------------------------------------------
+\section{Calibration Framework (Conceptual)}
+\label{sec:calibration_framework}
+
+% OVERALL LENGTH:
+%   ~1.5 to 2 pages. This section remains conceptual and intentionally
+%   light on detail. Its purpose is to explain *why calibration exists* in
+%   Tycho, *what kinds of quantities must be calibrated*, and *how*
+%   calibration conceptually influences timing and analysis.
+%
+%   Absolutely no specific calibration algorithms, scripts, or procedures
+%   should appear here — those belong to the implementation chapter.
+
+
+% ----------------------------------------------------------------------
+\subsection{Calibration Objectives}
+\label{subsec:calibration_objectives}
+
+% LENGTH:
+%   ~0.5 page.
+
+% PURPOSE:
+%   Define the conceptual goals of calibration without describing how any of
+%   them are achieved. This subsection motivates why calibration is a core
+%   architectural component.
+
+% MUST INCLUDE (conceptually):
+%   - A statement that Tycho treats calibration as an integral architectural
+%     element supporting the timing engine and analysis model.
+%   - High-level enumeration of calibration objectives:
+%       * Delay estimation:
+%           Understanding systematic lag between event time and poll time
+%           for each collector domain.
+%       * Idle baseline identification:
+%           Estimating the idle power or idle-domain behaviour needed to
+%           interpret load-dependent measurements.
+%       * Validation of collector timing characteristics:
+%           Checking whether collectors behave as expected (e.g., update
+%           intervals, jitter bounds).
+%   - Emphasise that calibration outputs *constraints* or *metadata* that
+%     inform the timing and analysis phases, not direct energy estimates.
+
+% MAY INCLUDE:
+%   - A brief remark that calibration must be repeatable and must not assume
+%     stable hardware behaviour over long time periods.
+
+% MUST NOT INCLUDE:
+%   - Any actual calibration experiments, scripts, Python tools, or metrics.
+%   - Specific numeric thresholds or default values.
+
+
+% ----------------------------------------------------------------------
+\subsection{Calibration Procedures}
+\label{subsec:calibration_procedures}
+
+% LENGTH:
+%   ~0.5 to 0.75 page.
+
+% PURPOSE:
+%   Describe the *conceptual structure* of calibration routines without
+%   committing to specific algorithms or processes. This establishes the
+%   architectural hooks where calibration interacts with the timing engine.
+
+% MUST INCLUDE (conceptually):
+%   - A high-level description that calibration is carried out through
+%     controlled measurements or observation phases, but:
+%       * exact measurement methods,
+%       * stress tools,
+%       * sampling schedules,
+%       are left unspecified.
+%   - Clarification that calibration interacts with the timing engine by:
+%       * informing expected update intervals,
+%       * providing approximate delay distributions,
+%       * identifying jitter characteristics,
+%       * establishing confidence bounds used to assess sample freshness.
+%   - A conceptual explanation that calibration may need to run:
+%       * during system startup,
+%       * periodically or conditionally,
+%       * or when hardware/collector behaviour changes.
+%   - Emphasise that calibration modifies *interpretation*, not *data*.
+
+% MAY INCLUDE:
+%   - Placeholder sentence indicating that the concrete structure of
+%     calibration logic (e.g., separation into phases or routines) will be
+%     defined once the analysis architecture is finalised.
+
+% MUST NOT INCLUDE:
+%   - Any procedural instructions (e.g., “run X for Y seconds”).
+%   - Any discussion of tooling (stress-ng, gpu-burn, scripts, etc.).
+%   - Any diagrams, unless extremely conceptual (e.g., “calibration outputs
+%     feed into timing engine inputs”) — but omit for now.
+
+
+% ----------------------------------------------------------------------
+\subsection{Integration with Attribution}
+\label{subsec:calibration_integration}
+
+% LENGTH:
+%   ~0.5 page.
+
+% PURPOSE:
+%   Explain, in purely conceptual terms, how calibration results constrain
+%   and inform the analysis model, without specifying the model itself.
+
+% MUST INCLUDE (conceptually):
+%   - Statement that calibration provides domain-specific metadata that the
+%     analysis engine must respect:
+%       * estimated delay bounds,
+%       * expected update frequency ranges,
+%       * idle baseline interpretations,
+%       * uncertainty indicators.
+%   - Clarification that such calibration outputs influence:
+%       * which samples are considered valid or stale,
+%       * how windows are aligned,
+%       * how domain energies are reconstructed,
+%       * how uncertainty is propagated.
+%   - Emphasise that calibration enhances transparency: assumptions about
+%     timing and domain behaviour are explicitly documented, not hidden in
+%     inference logic.
+
+% MAY INCLUDE (OPTIONAL):
+%   - A forward reference noting that the final analysis architecture will
+%     detail how these calibration-derived constraints enter formal models.
+
+% MUST NOT INCLUDE:
+%   - Any specific way that calibrated values affect formulas.
+%   - Any commitment to particular uncertainty propagation methods.
+%   - Any mention of per-domain weighting schemes or decision thresholds.
+
+
+
+
+% ----------------------------------------------------------------------
+\section{Metadata and Lifecycle Integration}
+\label{sec:metadata_integration}
+
+% OVERALL LENGTH:
+%   ~1.5 to 2 pages. This section provides the conceptual foundation for how
+%   Tycho handles container identities, pod lifecycles, and the mapping
+%   between processes, cgroups, and Kubernetes objects.
+%
+% PURPOSE:
+%   - Explain *why* metadata is essential for attribution.
+%   - Describe metadata as a *temporal signal* with its own lifecycle,
+%     freshness requirements, and uncertainties.
+%   - Show how metadata interacts with timing and analysis without touching
+%     implementation specifics.
+
+
+% ----------------------------------------------------------------------
+\subsection{Role of Metadata Freshness}
+\label{subsec:metadata_freshness}
+
+% LENGTH:
+%   ~0.5 to 0.75 page.
+
+% PURPOSE:
+%   Establish metadata as a time-sensitive component of the architecture,
+%   not merely a static lookup table.
+
+% MUST INCLUDE (conceptually):
+%   - Clarify that metadata describes the relationship between:
+%       * processes,
+%       * cgroups,
+%       * containers,
+%       * pods,
+%       * workloads (deployments, jobs, etc.).
+%   - Emphasise that container metadata changes over time:
+%       * Pods start, restart, terminate.
+%       * PIDs appear and disappear.
+%       * Cgroup hierarchies evolve dynamically.
+%   - Explain why stale metadata is problematic:
+%       * Incorrect or outdated mappings produce inaccurate attribution.
+%       * Fast-changing workloads (e.g., batch jobs, ephemeral sidecars)
+%         require metadata with predictable freshness.
+%   - Motivation for a local metadata cache:
+%       * Sampling metadata directly from Kubernetes APIs or cgroup
+%         hierarchies on each analysis window would be too slow or
+%         inconsistent.
+%       * A local cache provides a temporally stable snapshot with known
+%         age bounds.
+
+% MAY INCLUDE:
+%   - A conceptual note that metadata has its own lifecycle which must
+%     integrate with the timing model (e.g., metadata update times also
+%     occur in event time).
+
+% MUST NOT INCLUDE:
+%   - Any API paths, structs, or polling intervals.
+%   - Details of how metadata is stored internally.
+
+
+% ----------------------------------------------------------------------
+\subsection{Mapping Processes to Containers}
+\label{subsec:process_container_mapping}
+
+% LENGTH:
+%   ~0.5 to 0.75 page.
+
+% PURPOSE:
+%   Describe the conceptual relationship between raw OS-level processes and
+%   higher-level Kubernetes workload identities. This establishes the
+%   foundation for how utilisation metrics eventually contribute to
+%   attribution.
+
+% MUST INCLUDE (conceptually):
+%   - A clear high-level description of the mapping ladder:
+%       process → cgroup → container → pod → workload identity.
+%   - Explain that utilisation metrics (CPU time, IO events, GPU context
+%     activity, etc.) are recorded at process or cgroup granularity, but
+%     attribution must occur at container or pod granularity.
+%   - Statement that the mapping is *conceptual* and must be:
+%       * correct over time,
+%       * consistent with container lifecycle events,
+%       * robust to short-lived processes.
+%   - Mention that mapping must handle:
+%       * multi-process containers,
+%       * nested cgroups,
+%       * reused PIDs,
+%       * containers that terminate between metadata refreshes.
+
+% MUST NOT INCLUDE:
+%   - Implementation detail of how PIDs or cgroups are enumerated.
+%   - Any discussion of container runtimes or kubelet internals.
+%   - Specific naming conventions, file paths, or label formats.
+
+% MAY INCLUDE:
+%   - A short high-level conceptual figure (optional for now):
+%       * Boxes representing processes → containers → pods.
+%       * Arrows showing mapping direction.
+%     Keep this diagram simple and entirely conceptual.
+
+
+% ----------------------------------------------------------------------
+\subsection{Handling Churn and Missing Metadata}
+\label{subsec:metadata_churn}
+
+% LENGTH:
+%   ~0.5 page.
+
+% PURPOSE:
+%   Describe how Tycho conceptually maintains stable attribution semantics
+%   when workloads appear, disappear, or fail unexpectedly. This subsection
+%   is crucial for satisfying lifecycle-robustness and uncertainty-awareness
+%   requirements from Ch.~3.
+
+% MUST INCLUDE (conceptually):
+%   - Explanation of *churn*:
+%       * Short-lived containers (milliseconds to seconds).
+%       * Frequent pod terminations or restarts.
+%       * Workloads with unpredictable behaviour (batch jobs, CI runners).
+%   - Explain the problem:
+%       * Containers may terminate before utilisation data is processed.
+%       * Metadata may be incomplete at the moment a window must be
+%         analysed.
+%       * Some metadata may never be observed (e.g., very short-lived pods).
+%   - High-level strategies (without committing to specific mechanisms):
+%       * Use metadata validity intervals: metadata is considered valid only
+%         within a bounded time from its last refresh.
+%       * If metadata is missing or stale, attribution must introduce:
+%           - uncertainty markers, or
+%           - fallback interpretations.
+%       * Terminated containers must still be attributed for their active
+%         windows, even if they no longer exist at analysis time.
+
+% MUST NOT INCLUDE:
+%   - Details of eviction strategies in the cache.
+%   - Any specific fallback rule for missing metadata.
+%   - Mention of implementation specifics like TTLs or update frequencies.
+
+% MAY INCLUDE:
+%   - A forward reference: this behaviour influences attribution uncertainty
+%     handled in Section~\S\ref{sec:analysis_model}.
+
+
+% ----------------------------------------------------------------------
+\section{Architectural Trade-Offs and Alternatives Considered}
+\label{sec:tradeoffs}
+
+% OVERALL LENGTH:
+%   ~1.5 to 2 pages. This section is intentionally reflective and conceptual.
+%   Its purpose is not to provide implementation details, but to document
+%   *design-space exploration* and *architectural rationale*.  
+%
+%   Each subsection describes:
+%     - which broad alternatives exist,
+%     - why they were considered,
+%     - why Tycho does not adopt them (or adopts parts of them),
+%     without committing to specific implementation mechanics.
+
+
+% ----------------------------------------------------------------------
+\subsection{Alternative Timing Designs}
+\label{subsec:alternative_timing}
+
+% LENGTH:
+%   ~0.5 to 0.75 page.
+
+% PURPOSE:
+%   Clearly position Tycho’s independent, event-time-driven timing model
+%   against simpler alternatives, especially tick-synchronised polling.
+
+% MUST INCLUDE (conceptually):
+%   - Description of the two dominant timing paradigms:
+%       * Tick-synchronised polling:
+%           - A single global polling interval.
+%           - All domains sampled at the same moment.
+%           - Simplicity and uniformity as benefits.
+%       * Independent domain-aware polling:
+%           - Each domain sampled at its own suitable frequency.
+*           - Asynchrony is expected and preserved.
+%   - High-level comparison:
+%       * Tick-based model is simple but disregards domain-specific temporal
+%         characteristics and introduces aliasing or under-sampling.
+%       * Independent model respects domain behaviour but increases system
+%         complexity.
+%   - State explicitly that Tycho adopts independent polling because it
+%     satisfies Ch.~3 requirements for temporal coherence and domain-level
+%     consistency.
+
+% MUST NOT INCLUDE:
+%   - Numeric intervals, polling code, scheduling mechanisms.
+%   - Direct references to Kepler internals (those belong elsewhere).
+
+% MAY INCLUDE:
+%   - A conceptual diagram (optional): two timelines, one aligned on ticks,
+%     one irregular. Keep it very abstract.
+
+
+% ----------------------------------------------------------------------
+\subsection{Alternative Attribution Strategies}
+\label{subsec:alternative_attribution}
+
+% LENGTH:
+%   ~0.5 to 0.75 page.
+
+% PURPOSE:
+%   Acknowledge the existence of multiple broad modelling philosophies for
+%   energy attribution, and clarify why Tycho’s future analysis model must
+%   adhere to the conceptual requirements instead of adopting a simplistic
+%   approach.
+
+% MUST INCLUDE (conceptually):
+%   - High-level overview of possible attribution paradigms:
+%       * Direct regression models:
+%           - Fit resource utilisation to power.
+%           - Require stable training sets and assume stationary workloads.
+%       * Static analytical models:
+%           - Predefined power coefficients.
+%           - Simple but brittle; do not capture dynamic behaviour.
+%       * Ratio-based or proportional models:
+%           - Divide energy by utilisation proportions.
+%           - Fast but sensitive to noise and unsuitable for multi-domain
+%             temporal mismatches.
+%   - State that these approaches were considered conceptually but present
+%     challenges relative to Tycho’s requirements:
+%       * They often hide modelling assumptions.
+%       * They may require artificially synchronised metrics.
+%       * They may be sensitive to incomplete windows and uncertain data.
+%   - Emphasise that the final Tycho analysis design will be driven by the
+%     architectural requirements (transparency, uncertainty, lifecycle
+%     robustness), which limits reliance on the above simplistic methods.
+
+% MUST NOT INCLUDE:
+%   - Any specific commitment to Tycho’s own method.
+%   - Any preliminary equations for Tycho’s analysis model.
+%   - Criticism of existing tools beyond conceptual limitations.
+
+
+% ----------------------------------------------------------------------
+\subsection{Complexity vs Accuracy Considerations}
+\label{subsec:complexity_accuracy}
+
+% LENGTH:
+%   ~0.5 page.
+
+% PURPOSE:
+%   Provide a conceptual justification for Tycho’s architectural decisions
+%   by discussing the trade-off between system complexity and measurement
+%   accuracy.
+
+% MUST INCLUDE (conceptually):
+%   - Acknowledge that:
+%       * Independent collectors,
+%       * Event-time reconstruction,
+%       * Window-based attribution,
+%       * Calibration, and
+%       * Metadata lifecycle handling
+%     each introduce architectural complexity.
+%   - Explain why accuracy cannot be achieved with simpler designs:
+%       * Fixed-frequency polling under-samples critical domains.
+%       * Simplistic attribution hides uncertainty.
+%       * Ignoring metadata freshness yields incorrect workload identities.
+%   - Emphasise the architectural stance:
+%       * Complexity is tolerated where it meaningfully improves model
+%         transparency and temporal fidelity.
+%       * Abstraction boundaries (collectors, timing, analysis) help confine
+%         complexity so that individual components remain understandable and
+%         maintainable.
+%   - Reiterate linkage to Ch.~3:
+%       * Accuracy and transparency are mandatory requirements, therefore
+%         architectural complexity is justified and bounded.
+
+% MUST NOT INCLUDE:
+%   - Any implementation detail describing how complexity is handled (e.g.,
+%     concurrency primitives, memory optimisation).
+%   - Specific numeric performance comparisons (those belong in evaluation).
+
+% MAY INCLUDE:
+%   - A single brief example illustrating that small increases in
+%     architectural sophistication (e.g., recognising NVML phase behaviour)
+%     yield disproportionately large accuracy improvements, but keep it very
+%     abstract.
+
+
+
+% ----------------------------------------------------------------------
+\section{Summary}
+\label{sec:summary_ch4}
+
+% LENGTH:
+%   ~0.5 page. This should be compact and high-level.
+%
+% PURPOSE:
+%   - Provide a concise synthesis of the architectural principles and
+%     subsystem roles described in the chapter.
+%   - Reinforce the formal link between the requirements in Ch.~3 and the
+%     design choices presented here.
+%   - Prepare the reader for the transition to the concrete implementation
+%     details in Ch.~5 without repeating them.
+
+
+% MUST INCLUDE (conceptually):
+%   - A brief restatement that Tycho’s architecture is shaped directly by
+%     the requirements established in Chapter~3:
+%       * temporal coherence,
+%       * domain-level consistency,
+%       * transparent modelling assumptions,
+%       * lifecycle robustness,
+%       * uncertainty awareness.
+%   - A short summary of the major architectural elements introduced:
+%       * independent, domain-aware metric collectors,
+%       * the event-time-based timing engine and window model,
+%       * conceptual structure of the analysis and attribution model,
+%       * calibration as a supporting subsystem informing timing and
+%         interpretation,
+%       * metadata freshness and mapping requirements for workload identity.
+%   - Emphasise that this chapter defined **what** Tycho must do and **why**
+%     it must do it in this way, but not **how** it is implemented.
+
+% MAY INCLUDE:
+%   - One sentence noting that several subsystems (e.g., collectors, metadata,
+%     exporter) will be discussed again in Ch.~5 from an implementation
+%     viewpoint.
+%   - A remark that the detailed analysis model will be finalised and
+%     justified in Ch.~5 once its architectural constraints are fully
+%     resolved.
+
+% MUST NOT INCLUDE:
+%   - Any technical / implementation detail.
+%   - Any new architectural concepts not already introduced.
+%   - Any evaluative statements (evaluation belongs in a later chapter).
+
+% POINTER TO NEXT CHAPTER:
+%   - Conclude with a short forward reference along the lines of:
+%       “The following chapter describes the concrete implementation of these
+%        architectural components, including the collectors, timing engine,
+%        metadata subsystem, calibration routines, and the initial analysis
+%        mechanisms.”
+%     Keep this phrasing high-level and free of specifics.
+
