@@ -48,452 +48,427 @@ Enabled by metadata freshness guarantees, stable process–container mapping, an
 \textbf{Requirement: Uncertainty-Aware Attribution.}
 Supported by explicit treatment of stale or missing data, uncertainty propagation in window evaluation, and preservation of unexplained residuals.
 
-
 \section{High-Level Architecture}
 \label{sec:high_level_architecture}
 
-% OVERALL LENGTH FOR SECTION:
-%   ~2 to 3 pages total, depending on diagram size.
-%   This section provides the reader with a complete mental map of Tycho
-%   before any detailed timing or analysis discussion. After reading this,
-%   the reader should know which subsystems exist and how they talk to each
-%   other, without yet understanding the mathematical details.
-
-
-% ----------------------------------------------------------------------
 \subsection{Subsystem Overview}
 \label{subsec:subsystem_overview}
 
-% LENGTH:
-%   ~1 page of text plus one prominent figure (landscape if needed).
+Tycho is organised into a small set of subsystems, each with a distinct responsibility. The following overview introduces these subsystems without yet describing their interactions.
 
-% PURPOSE:
-%   Introduce the main logical subsystems of Tycho and their responsibilities
-%   at a conceptual level. This overview should establish the "cast of
-%   characters" that reappears throughout the chapter: collectors, timing
-%   engine, buffers, calibration, analysis, metadata, exporter.
+\textbf{Timing engine.}
+Defines the temporal reference used throughout the system and provides the notion of analysis windows. It is responsible for deciding when a window is complete and ready to be evaluated.
 
-% MUST INCLUDE:
-%   - A short introductory paragraph stating that Tycho is decomposed into
-%     a small number of cooperating subsystems, each with a clearly defined
-%     responsibility and interface.
-%   - A high-level description (1 short paragraph or 2--3 sentences each)
-%     of the following subsystems:
-%       * Metric collectors
-%         - Group all hardware and software collectors here:
-%           RAPL, GPU/NVML, Redfish, eBPF, metadata sources.
-%         - Focus on their conceptual role: they observe different domains,
-%           provide timestamped samples and quality indicators.
-%         - Do not describe specific polling intervals or APIs.
-%       * Timing engine
-%         - Responsible for maintaining event-time aligned views of all
-%           metric sources.
-%         - Builds and manages analysis windows without assuming global
-%           periodicity.
-%       * Buffering and storage layer
-%         - Conceptual description of ring buffers as finite history stores
-%           for metric samples.
-%         - Explain the idea of configurable history windows without going
-%           into data structure detail.
-%       * Calibration framework
-%         - High-level statement: supports delay estimation, baseline
-%           estimation, quality assessment of collectors.
-%         - Mention that calibration updates constraints for later analysis.
-%       * Metadata subsystem
-%         - Provides mappings from processes, cgroups and containers to
-%           Kubernetes objects.
-%         - Handles lifecycle changes and short-lived workloads.
-%       * Analysis engine
-%         - Consumes temporally aligned, buffered metrics and metadata.
-%         - Produces per-window, per-container energy estimates.
-%       * Exporter
-%         - Translates analysis results into Prometheus compatible metrics.
-%         - Mention only conceptually, no exposition of labels or formats.
-%   - An explicit statement that this decomposition is driven by the
-%     requirements in Ch.~3 (temporal coherence, domain consistency, and
-%     lifecycle robustness).
+\textbf{Metric collectors.}
+Acquire observations from hardware and software sources and attach timestamps in the global temporal reference. They expose their output as streams of samples without coordinating with each other.
 
-% MAY INCLUDE (OPTIONAL):
-%   - A short remark that certain subsystems (for example collectors and
-%     exporter) can be reused or adapted independently of the core timing
-%     and analysis logic.
-%   - One sentence that relates this layout to classical measurement system
-%     architectures (sensors, acquisition, processing, reporting), but keep
-%     strictly high-level.
+\textbf{Metadata subsystem.}
+Maintains the mapping between operating-system level entities and workload identities. It tracks relationships between processes, cgroups, containers and pods over time.
 
-% MUST NOT INCLUDE:
-%   - Any description of module names, packages, or Go implementation.
-%   - Any explicit timing numbers or calibration experiment descriptions.
-%   - Any Kepler comparison; that comes later in the timing section.
+\textbf{Buffering and storage layer.}
+Stores recent observations in bounded histories so that samples relevant to a given window can be retrieved efficiently. It treats metric streams and metadata as read-mostly records.
 
-% DIAGRAM:
-%   - One top-level system architecture diagram.
-%   - Recommended structure:
-%       * Use boxes for subsystems: "Collectors", "Timing Engine",
-%         "Buffers", "Calibration", "Metadata Subsystem", "Analysis Engine",
-%         "Exporter".
-%       * Arrows show main data flows:
-%           Collectors -> Buffers -> Timing Engine -> Analysis Engine
-%           Metadata Subsystem -> Analysis Engine
-%           Calibration ↔ Collectors and Timing Engine (bi-directional
-%           arrows to indicate that calibration both consumes and informs
-%           these components)
-%           Analysis Engine -> Exporter
-%       * Place external environment elements clearly outside:
-%           Node hardware, Kubernetes API server, Prometheus scraping.
-%       * Do not show per-collector details or internal buffer layout.
-%   - The caption should emphasise that the figure reflects logical
-%     responsibilities, not concrete deployment or code.
+\textbf{Analysis engine.}
+Interprets temporally aligned observations and metadata to produce energy estimates for each analysis window. It forms the logical bridge between measurement and attribution.
 
-% FORMULAE:
-%   - None in this subsection.
+\textbf{Calibration framework.}
+Derives auxiliary information about typical delays, update patterns and idle behaviour. It produces constraints and characterisations that other subsystems rely on for interpretation.
 
-% NOTES:
-%   - This is the reader's first visual contact with Tycho as a system.
-%     Aim for simplicity and clarity. The detailed timing and maths will
-%     follow later, so avoid crowding this figure with technical detail.
+\textbf{Exporter.}
+Exposes the results of the analysis engine to external monitoring systems as metrics ready for scraping and downstream processing.
 
-
-% ----------------------------------------------------------------------
 \subsection{Dataflow and Control Flow}
 \label{subsec:dataflow_control}
 
-% LENGTH:
-%   ~1 to 1.5 pages of text plus one diagram. This section refines the
-%   previous overview by explaining how information moves through the system
-%   over time, without yet going into event-time mathematics.
+Before Tycho enters normal operation, external calibration scripts determine approximate delay characteristics for all relevant metric sources. At startup, Tycho’s internal calibration component derives suitable polling frequencies for metric collectors and metadata acquisition, providing the initial operating parameters for the system.
 
-% PURPOSE:
-%   Describe how data samples, metadata and control signals traverse the
-%   subsystems during normal operation. Clarify which parts of the system
-%   are passive (buffers, storage) and which actively trigger processing
-%   (timing engine, calibration, analysis).
+During runtime, control flow originates in the timing engine. It triggers each collector according to its calibrated polling frequency, but collectors operate independently: they sample their respective domains without synchronising with each other, and each sample is appended to the appropriate buffer together with its timestamp and quality indicators. In parallel, metadata acquisition proceeds on its own schedule, refreshing the mappings between processes, cgroups and workload identities in the metadata cache.
 
-% MUST INCLUDE:
-%   - A conceptual description of:
-%       * How metric samples flow:
-%         Collectors produce samples (with timestamps and, where available,
-%         freshness indicators) and append them to subsystem-specific
-%         buffers.
-%       * How metadata flows:
-%         Metadata collectors periodically refresh container, pod and
-%         process mappings, which are stored in a cache used by the
-%         analysis engine.
-%       * How control flow operates:
-%         - Timing engine decides when an "analysis window" is ready based
-%           on buffer content and freshness.
-%         - When a window is ready, the timing engine initiates analysis
-%           for that time interval and domain set.
-%         - The analysis engine pulls the necessary samples and metadata
-%           from buffers and metadata cache.
-%         - Exporter is triggered whenever new analysis results are
-%           produced, not when samples are collected.
-%   - Clarification of the separation between:
-%       * Collector driven activity (polling, event reception).
-%       * Timing driven activity (deciding when windows are complete).
-%       * Analysis driven activity (performing attribution for a completed
-%         window).
-%   - A clear explanation that Tycho is designed so that collectors do not
-%     wait for each other or synchronise their sampling; synchronisation
-%     happens only at the level of analysis windows.
+The timing engine also governs when analysis occurs. At regular intervals—constituting fixed-length analysis windows—it initiates a new evaluation cycle irrespective of how many samples have been collected. Each cycle begins by estimating idle behaviour for the relevant hardware domains based on the buffered observations. The analysis engine then interprets the buffered metric samples, the metadata cache and the idle characterisations, taking calibrated delays into account when reconstructing the temporal structure of the window. It produces per-window energy estimates for all domains and workloads.
 
-% MAY INCLUDE (OPTIONAL):
-%   - Short mention of feedback paths:
-%       * Calibration may adjust collector frequency or timing engine
-%         thresholds conceptually, but avoid implementation detail.
-%       * Error reporting or health signals flowing from collectors to a
-%         supervisory component, if you decide to include it conceptually.
-%   - A brief note that this design makes it easier to add new metric
-%     sources, because the core control flow does not change.
+Once analysis completes, the exporter publishes the resulting metrics in a form suitable for ingestion by external monitoring systems. Calibration remains active in the background throughout the system’s lifetime: it observes collector behaviour and derived quantities over longer time spans and refines its characterisations when needed, informing both the timing and analysis components without altering any collected data.
 
-% MUST NOT INCLUDE:
-%   - Specifics of concurrency, goroutines, channels, locks or queues.
-%   - Any explicit description of memory layout or buffer indices.
-%   - Detailed timing diagrams; these belong in the dedicated timing section.
+% \begin{figure}[t]
+%     \centering
+%     % TODO: Insert dataflow and control flow diagram here.
+%     \caption{Dataflow and control flow in Tycho. Metric sources feed collectors and the metadata subsystem, which populate the buffering layer and metadata cache. The timing engine inspects buffered data to decide when an analysis window is ready, after which the analysis engine performs attribution and the exporter publishes the resulting metrics. Calibration observes the overall behaviour and feeds auxiliary timing information back into the timing and analysis components.}
+%     \label{fig:dataflow_control}
+% \end{figure}
 
-% DIAGRAM:
-%   - A refined dataflow and control flow diagram.
-%   - Recommended structure:
-%       * Represent collectors as a vertical layer on the left emitting
-%         streams of "samples".
-%       * Show arrows to per-source buffers.
-%       * From buffers, show arrows into a central "Timing Engine and
-%         Window Manager" block.
-%       * From that block, arrows to an "Analysis Engine" block, and from
-%         there to an "Exporter" and eventually Prometheus.
-%       * Include metadata as a separate flow:
-%           Metadata collectors -> Metadata cache -> Analysis Engine.
-%       * Use different arrow styles or labels to distinguish:
-%           "data sample", "metadata", and "control/trigger".
-%   - The caption should explicitly state that the figure distinguishes
-%     dataflow (what is moved) from control flow (what initiates processing).
+\begin{figure}[t]
+    \centering
+    \begin{tikzpicture}[
+        node distance=1.8cm and 2.3cm,
+        box/.style={draw, rounded corners, align=center, minimum width=2.8cm, minimum height=1cm},
+        ext/.style={draw, dashed, rounded corners, align=center, minimum width=2.8cm, minimum height=1cm},
+        data/.style={-Stealth},
+        control/.style={-Stealth, dashed}
+    ]
 
-% FORMULAE:
-%   - None. Keep this section purely diagrammatic and descriptive; actual
-%     mathematical treatment follows in the timing and analysis sections.
+    % External sources
+    \node[ext] (metric_sources) {Metric\\Sources};
+    \node[ext, below=of metric_sources] (meta_sources) {Orchestration \&\\Process Info};
 
-% NOTES:
-%   - This section should make the later detailed sections easier to read.
-%     When you later discuss analysis windows or temporal alignment, you
-%     should be able to refer back to the control flow introduced here.
+    % Internal components
+    \node[box, right=of metric_sources] (collectors) {Metric\\Collectors};
+    \node[box, right=of meta_sources] (metadata) {Metadata\\Subsystem};
+
+    \node[box, right=of collectors] (buffers) {Buffering\\Layer};
+    \node[box, right=of metadata] (metacache) {Metadata\\Cache};
+
+    \node[box, above right=1.0cm and 2.2cm of buffers] (timing) {Timing\\Engine};
+    \node[box, below right=1.0cm and 2.2cm of buffers] (analysis) {Analysis\\Engine};
+
+    \node[box, right=of analysis] (exporter) {Exporter};
+    \node[ext, right=of exporter] (prometheus) {Monitoring\\System};
+
+    \node[box, above=of timing] (calibration) {Calibration};
+
+    % Data flow
+    \draw[data] (metric_sources) -- (collectors);
+    \draw[data] (collectors) -- (buffers);
+
+    \draw[data] (meta_sources) -- (metadata);
+    \draw[data] (metadata) -- (metacache);
+
+    \draw[data] (buffers) |- (analysis);
+    \draw[data] (metacache) -- (analysis);
+
+    \draw[data] (analysis) -- (exporter);
+    \draw[data] (exporter) -- (prometheus);
+
+    % Control / auxiliary flow
+    \draw[control] (timing) -| (collectors);
+    \draw[control] (timing) |- (analysis);
+
+    \draw[control] (calibration) -- (timing);
+    \draw[control] (calibration) -| (collectors);
+    \draw[control] (calibration) |- (analysis);
+
+    \draw[control] (buffers) -- (timing);
+    % optional: timing inspects buffer contents conceptually
+
+    \end{tikzpicture}
+    \caption{Dataflow and control flow in Tycho. Metric sources feed collectors and the metadata subsystem, which populate the buffering layer and metadata cache. The timing engine inspects buffered data to define analysis windows and trigger evaluation. The analysis engine performs attribution for each window and the exporter publishes the resulting metrics. Calibration observes long-term behaviour and feeds auxiliary information back into timing and analysis.}
+    \label{fig:dataflow_control}
+\end{figure}
 
 
 % ----------------------------------------------------------------------
 \section{Temporal Model and Timing Engine}
 \label{sec:timing_engine}
 
-% OVERALL LENGTH:
-%   ~4 to 6 pages including diagrams — this is one of the two “core”
-%   sections of Chapter 4. The level of detail should be conceptual but
-%   rigorous. Formulas belong here. Timing diagrams belong here.
-
+Tycho’s temporal architecture provides a coherent framework for relating heterogeneous metric streams to fixed-duration analysis windows. It establishes a common time base, defines how collectors operate, and specifies how windows are formed and interpreted. The model is intentionally simple: collectors run independently, timestamps reflect poll time, and all temporal reasoning occurs during analysis.
 
 % ----------------------------------------------------------------------
-\subsection{Event-Time Abstraction}
+\subsection{Event-Time Model and Timestamp Semantics}
 \label{subsec:event_time}
 
-% LENGTH:
-%   ~1 page including one small illustrative figure (optional).
+Tycho adopts a single monotonic time base for all temporal coordination. Collectors timestamp each sample at the moment of observation; these timestamps reflect poll time, not the physical instant at which the underlying hardware event occurred. Event time is therefore a modelling construct used by the analysis engine when interpreting delay, freshness and update behaviour.
 
-% PURPOSE:
-%   Introduce the conceptual foundation for Tycho’s temporal reasoning.
-%   Establish the distinction between:
-%     - event time (when the observed physical change occurred)
-%     - poll time (when the system managed to read it)
-%   This abstraction is the prerequisite for analysis windows and temporal
-%   alignment.
+This separation keeps collectors lightweight and domain-agnostic. Each collector reports only what it directly observes; the analysis engine later interprets these timestamps in context, using calibration-derived delay characteristics to approximate underlying temporal structure.
 
-% MUST INCLUDE:
-%   - A clear statement that hardware and OS metrics describe phenomena
-%     occurring in physical time, but are *observed* at poll times that may
-%     drift, jitter, or delay.
-%   - A definition of:
-%       *Event time* as the canonical temporal reference used by Tycho.
-%       *Poll time* as an acquisition artefact to be corrected.
-%   - An explanation of Tycho’s monotonic time origin:
-%       - Reference to a single monotonically increasing counter (e.g. Go
-%         monotonic time) used to timestamp all observations.
-%       - This ensures cross-domain consistency.
-%   - Explanation of how collectors contribute timestamps:
-%       - If the source provides its own timestamp or freshness field
-%         (e.g. Redfish), Tycho interprets it as event time.
-%       - Otherwise, event time is approximated by poll time ± expected
-%         delay as learned by calibration.
-%   - A conceptual diagram (optional, small):
-%       * A horizontal axis labelled “physical time”.
-%       * Arrows showing “poll event” vs “actual measurement interval”.
-%       * Emphasise that these differ but relate.
+% \medskip
+% \noindent\textbf{Diagram placeholder:}  
+% A minimal schematic showing a single timeline with ``poll time'' markers and an overlay illustrating conceptual ``event time'' offsets.
 
-% MAY INCLUDE (OPTIONAL):
-%   - A short bullet list summarising the consequences of adopting an
-%     event-time model (e.g. resolution is governed by physical changes, not
-%     by polling).
+\begin{figure}[t]
+    \centering
+    \begin{tikzpicture}[
+        >=Stealth,
+        scale=1,
+        every node/.style={font=\small}
+    ]
 
-% MUST NOT INCLUDE:
-%   - Implementation specifics (e.g. time.Now(), CLOCK_MONOTONIC).
-%   - Any analysis-window maths (saved for the next subsections).
+    % Time axis
+    \draw[->] (0,0) -- (10,0) node[anchor=west] {time};
 
-% FORMULAE:
-%   - None required yet, but you may include the conceptual relation:
-%       event\_time = poll\_time - delay
-%     without specifying how delay is estimated.
+    % Poll events
+    \foreach \x/\label in {2/$\text{poll}_1$, 6/$\text{poll}_2$} {
+        \draw[thick] (\x,0.15) -- (\x,-0.15);
+        \node[above] at (\x,0.15) {\label};
+    }
 
-% DIAGRAM:
-%   - Optional, small (not the main timing diagram).
+    % Underlying measurement intervals (conceptual event time)
+    \draw[very thick, gray] (0.5,0.6) -- (2,0.6);
+    \draw[very thick, gray] (4.2,0.6) -- (6,0.6);
+
+    \node[above, gray] at (1.25,0.6) {physical change};
+    \node[above, gray] at (5.1,0.6) {physical change};
+
+    % Delay arrows
+    \draw[->, gray] (2,0.5) -- (2,0.15);
+    \draw[->, gray] (6,0.5) -- (6,0.15);
+
+    \node[below] at (2,-0.15) {timestamp};
+    \node[below] at (6,-0.15) {timestamp};
+
+    \end{tikzpicture}
+    \caption{Conceptual relation between physical behaviour (event time) and observations recorded at poll time. Tycho records poll-time timestamps and interprets them as approximations of underlying event-time behaviour in the analysis phase.}
+    \label{fig:event_time_schematic}
+\end{figure}
 
 
 % ----------------------------------------------------------------------
-\subsection{Independent Collector Timelines}
+\subsection{Independent Collector Schedules}
 \label{subsec:independent_timelines}
 
-% LENGTH:
-%   ~1 to 1.5 pages including the first major timing diagram.
+Tycho employs independent, domain-aware sampling schedules. During startup the timing engine configures one schedule per collector, after which each collector operates autonomously on its own periodic trigger. No global poll loop exists and collectors do not synchronise with one another. They push samples only when a new observation is available.
 
-% PURPOSE:
-%   Explain why Tycho decouples collectors temporally and how this supports
-%   temporal coherence and domain consistency.
+This decoupling avoids artificial temporal alignment and preserves each domain’s intrinsic update behaviour. Collector timestamps are placed directly on the global monotonic time axis, allowing later reconstruction without imposing shared cadence or shared sampling semantics.
 
-% MUST INCLUDE:
-%   - A rationale for independent collector schedules:
-%       * Different domains evolve at different temporal scales.
-%       * Enforcing a global poll tick embeds arbitrary sampling artefacts.
-%       * Independent schedules allow domain-appropriate resolution.
-%   - Conceptual description of per-source timing behaviour:
-%       * RAPL: cumulative counters; effectively continuous.
-%       * NVML: instantaneous values; phase-aware sampling.
-%       * Redfish: slow periodic updates, explicit freshness.
-%       * eBPF: event-driven, variable density.
-%   - Explanation that collectors operate on their own local time axes, but
-%     all samples receive timestamps in the global monotonic reference.
-%   - Discussion of jitter and delay:
-%       * Each collector has inherent jitter or acquisition delay.
-%       * Calibration estimates typical delay ranges or bounds.
-%       * Tycho tolerates differences rather than attempting tight sync.
+% \medskip
+% \noindent\textbf{Diagram placeholder:}  
+% Horizontal multi-track timeline showing heterogeneous sample arrival patterns across domains, without alignment.
+\begin{figure}[t]
+    \centering
+    \begin{tikzpicture}[
+        >=Stealth,
+        scale=1,
+        every node/.style={font=\small}
+    ]
 
-% MUST NOT INCLUDE:
-%   - Collector internals (polling loops, mutexes, syscalls).
-%   - Specific numeric defaults (saved for implementation chapter).
+    % Global time axis
+    \draw[->] (0,0) -- (11,0) node[anchor=west] {time};
 
-% DIAGRAM (IMPORTANT):
-%   - Multi-line timeline plot.
-%       * X-axis: global monotonic time.
-%       * Several horizontal lines representing collectors.
-%       * Short vertical ticks on each line indicating sample arrival times.
-%       * Different spacings for each collector (e.g. GPU denser, Redfish sparse).
-%       * Visual jitter (non-uniform intervals) encouraged.
-%   - Purpose: to convey the heterogeneity and independence of timelines.
+    % Collector lines
+    \node[left] at (0,1.5) {Collector A};
+    \draw (0,1.5) -- (10.5,1.5);
 
-% FORMULAE:
-%   - None yet.
+    \node[left] at (0,2.5) {Collector B};
+    \draw (0,2.5) -- (10.5,2.5);
 
+    \node[left] at (0,3.5) {Collector C};
+    \draw (0,3.5) -- (10.5,3.5);
+
+    % Ticks for A (irregular)
+    \foreach \x in {1.0, 3.2, 4.5, 7.1, 9.8} {
+        \draw[thick] (\x,1.3) -- (\x,1.7);
+    }
+
+    % Ticks for B (denser)
+    \foreach \x in {0.8, 1.6, 2.4, 3.3, 4.0, 5.2, 6.1, 7.0, 8.0, 9.0} {
+        \draw[thick] (\x,2.3) -- (\x,2.7);
+    }
+
+    % Ticks for C (sparse)
+    \foreach \x in {2.0, 5.5, 9.2} {
+        \draw[thick] (\x,3.3) -- (\x,3.7);
+    }
+
+    \end{tikzpicture}
+    \caption{Independent sampling schedules for different collectors on a shared time axis. Each collector operates on its own cadence without synchronisation, and samples are later aligned only at the level of analysis windows.}
+    \label{fig:independent_timelines}
+\end{figure}
 
 % ----------------------------------------------------------------------
-\subsection{Window Construction and Alignment}
+\subsection{Window Construction and Analysis Triggering}
 \label{subsec:window_construction}
 
-% LENGTH:
-%   ~1.5 to 2 pages, including formulas and an alignment diagram.
+Analysis proceeds in fixed-duration windows defined solely by periodic triggers from the timing engine. If the triggers occur at monotonic times \(T_0, T_1, T_2, \dots\), window \(W_i\) is the half-open interval \([T_i, T_{i+1})\). Window duration is nominally constant but may drift slightly, which is acceptable for attribution.
 
-% PURPOSE:
-%   Define how Tycho constructs “analysis windows” from decoupled metric
-%   streams, ensuring temporal coherence without forced synchronisation.
+When a window closes, the analysis engine performs two conceptual phases:
 
-% MUST INCLUDE:
-%   - A high-level definition of an analysis window W:
-%       * A half-open interval [t_start, t_end).
-%       * Chosen based on event-time availability (e.g. triggered by Redfish
-%         freshness or periodic timer depending on configuration).
-%   - Explanation of window validity criteria:
-%       * Window must contain at least one fresh metric sample from each
-%         required domain.
-%       * Samples must not exceed staleness thresholds.
-%       * Missing samples → window marked incomplete or attributed with
-%         uncertainty.
-%   - Discussion of window boundaries:
-%       * Windows need not align with collector poll boundaries.
-%       * Windows are conceptual analysis units, not sampling units.
-%   - Introduction of interval averaging for cumulative counters:
-%       * RAPL example: power = Δenergy / Δtime.
-%       * This requires selecting the correct “bracketing” samples.
-%   - Introduction of interval attribution for instantaneous values:
-%       * NVML example: instantaneous reading represents a point estimate
-%         that must be interpreted across the window.
-%   - A generic averaging formula:
-%       \[
-%           \bar{P}_d(W)
-%           =
-%           \frac{1}{|W|}
-%           \int_{t \in W} P_d(t)\,\mathrm{d}t,
-%       \]
-%       and a discrete reconstruction using samples \(s_i\):
-%       \[
-%           \bar{P}_d(W)
-%           \approx
-%           \frac{1}{|W|}
-%           \sum_i P_d(s_i)\,\Delta t_i.
-%       \]
-%     You should not specify the exact discrete scheme (implementation
-%     detail), but explain the principle.
+\begin{enumerate}[label=(\roman*)]
+\item \emph{idle characterisation}, using long-term buffered history across all relevant domains, and  
+\item \emph{window reconstruction and attribution}, using all samples whose timestamps precede \(T_{i+1}\).
+\end{enumerate}
 
-% DIAGRAM:
-%   - A window alignment figure.
-%       * Horizontal axis = time.
-%       * Draw two or three collectors’ sample ticks.
-%       * Highlight a window [t_start, t_end).
-%       * Indicate selected samples contributing to the window.
-%       * Show skipped or stale samples visually.
+Only energy for the current window is attributed and exported, but additional historical samples inform delay interpretation, idle estimation and interpolation.
 
-% MUST NOT INCLUDE:
-%   - Full reconstruction logic (leave details for the analysis section).
-%   - Actual buffer layouts or index selection.
+Tycho treats domains asymmetrically: CPU and software metrics are always required; GPU and Redfish domains contribute when available. Samples too old to fall within the current window do not contribute directly but may still inform background characterisation. Windows remain valid even when optional domains are absent.
+
+A sample is considered stale relative to a window when its poll timestamp predates \(T_i\) by more than a domain-specific tolerance. Stale samples are ignored for direct reconstruction but do not invalidate the window.
+
+% \medskip
+% \noindent\textbf{Diagram placeholder:}  
+% A window diagram showing:  
+% \begin{itemize}[nosep]
+% \item window boundaries at \(T_i\) and \(T_{i+1}\),  
+% \item sample points from independent collectors,  
+% \item which samples contribute to the window,  
+% \item which samples are stale or outside the window.  
+% \end{itemize}
+
+\begin{figure}[t]
+    \centering
+    \begin{tikzpicture}[
+        >=Stealth,
+        scale=1,
+        every node/.style={font=\small}
+    ]
+
+    % Time axis
+    \draw[->] (0,0) -- (11,0) node[anchor=west] {time};
+
+    % Window boundaries
+    \draw[very thick] (3,0.2) -- (3,-0.2);
+    \draw[very thick] (8,0.2) -- (8,-0.2);
+    \node[below] at (3,-0.2) {$T_i$};
+    \node[below] at (8,-0.2) {$T_{i+1}$};
+
+    % Window highlight
+    \draw[fill=gray!10, draw=none] (3,0.3) rectangle (8,4.1);
+    \node[above] at (5.5,4.1) {Window $W_i = [T_i, T_{i+1})$};
+
+    % Collector lines
+    \node[left] at (0,1) {Collector A};
+    \draw (0,1) -- (10.5,1);
+
+    \node[left] at (0,2) {Collector B};
+    \draw (0,2) -- (10.5,2);
+
+    \node[left] at (0,3) {Collector C};
+    \draw (0,3) -- (10.5,3);
+
+    % Samples for A
+    \foreach \x/\style in {1/gray, 3.5/black, 6.2/black, 9/gray} {
+        \draw[thick,\style] (\x,0.8) -- (\x,1.2);
+    }
+
+    % Samples for B
+    \foreach \x/\style in {2.5/gray, 3.2/black, 4.1/black, 7.9/black, 9.5/gray} {
+        \draw[thick,\style] (\x,1.8) -- (\x,2.2);
+    }
+
+    % Samples for C
+    \foreach \x/\style in {2/gray, 5.0/black, 8.5/gray} {
+        \draw[thick,\style] (\x,2.8) -- (\x,3.2);
+    }
+
+    \node[gray] at (1.0,0.4) {outside window};
+    \node[gray] at (9.3,0.4) {outside window};
+
+    \end{tikzpicture}
+    \caption{Analysis window $W_i$ defined by two successive analysis trigger times. Samples inside the window contribute directly to reconstruction, while samples outside may still inform background characterisation but are not attributed to $W_i$.}
+    \label{fig:window_alignment}
+\end{figure}
+
+
+\begin{figure}[t]
+    \centering
+    \begin{tikzpicture}[
+        >=Stealth,
+        scale=1,
+        every node/.style={font=\small}
+    ]
+
+    % Kepler (left)
+    \node[font=\normalsize] at (5,4.2) {Kepler};
+
+    % Time axis Kepler
+    \draw[->] (0,3.5) -- (10,3.5) node[anchor=west] {time};
+
+    % Kepler poll intervals
+    \foreach \x in {1,3,5,7,9} {
+        \draw[very thick] (\x,3.3) -- (\x,3.7);
+        \draw[fill=gray!20, draw=none] (\x-1,3.0) rectangle (\x,3.1);
+    }
+    \node[below] at (1,3.0) {poll \& attribution};
+
+    % Redfish track (slow)
+    \node[left] at (0,2.6) {Redfish};
+    \draw (0,2.6) -- (10,2.6);
+    \foreach \x in {2,8} {
+        \draw[thick] (\x,2.4) -- (\x,2.8);
+    }
+
+    % Export ticks (different cadence)
+    \node[left] at (0,2.0) {Export};
+    \draw (0,2.0) -- (10,2.0);
+    \foreach \x in {2.5, 6.5} {
+        \draw[thick] (\x,1.8) -- (\x,2.2);
+    }
+
+    % Tycho (right)
+    \node[font=\normalsize] at (5,1.3) {Tycho};
+
+    % Time axis Tycho
+    \draw[->] (0,0.6) -- (10,0.6) node[anchor=west] {time};
+
+    % Tycho windows
+    \foreach \x in {1.5,3.5,5.5,7.5,9.5} {
+        \draw[very thick] (\x,0.8) -- (\x,0.4);
+    }
+    \foreach \x in {1.5,3.5,5.5,7.5} {
+        \draw[fill=gray!10, draw=none] (\x,0.9) rectangle (\x+2,1.0);
+    }
+    \node[above] at (2.5,1.0) {analysis windows};
+
+    % Export after each window
+    \node[left] at (0,-0.1) {Export};
+    \draw (0,-0.1) -- (10,-0.1);
+    \foreach \x in {1.5,3.5,5.5,7.5,9.5} {
+        \draw[thick] (\x,-0.3) -- (\x,0.1);
+    }
+
+    \end{tikzpicture}
+    \caption{Conceptual comparison between Kepler and Tycho timing. Kepler uses a synchronous polling interval for most domains and reuses slower Redfish readings across multiple intervals; export may occur on a different cadence. Tycho employs independent collectors and defines attribution strictly in terms of analysis windows, with export immediately following each window.}
+    \label{fig:tycho_kepler_timing}
+\end{figure}
+
+
+\begin{figure}[t]
+    \centering
+    \begin{tikzpicture}[
+        >=Stealth,
+        scale=1,
+        every node/.style={font=\small}
+    ]
+
+    % Time axis
+    \draw[->] (0,0) -- (11,0) node[anchor=west] {time};
+
+    % Underlying continuous power (conceptual)
+    \draw[gray] plot[smooth] coordinates {
+        (0.5,0.6)
+        (1.5,1.2)
+        (2.5,0.8)
+        (3.5,1.6)
+        (4.5,1.0)
+        (5.5,1.8)
+        (6.5,1.1)
+        (7.5,1.5)
+        (8.5,0.9)
+        (9.5,1.3)
+    };
+    \node[gray] at (2.2,1.9) {instantaneous GPU power};
+
+    % NVML internal update points
+    \foreach \x in {1.0,3.0,5.0,7.0,9.0} {
+        \draw[very thick] (\x,0.2) -- (\x,0.5);
+    }
+    \node[below] at (1.0,0.2) {NVML updates};
+
+    % Tycho sampling aligned to NVML phase
+    \foreach \x in {1.0,3.0,5.0,7.0,9.0} {
+        \draw[fill=black] (\x,0.5) circle (0.06);
+    }
+    \node[above] at (7.0,0.7) {Tycho phase-aware samples};
+
+    \end{tikzpicture}
+    \caption{Conceptual view of GPU power as a continuous signal, periodically updated internal NVML values, and Tycho’s phase-aware sampling aligned to these updates. No specific update interval or magnitude is implied.}
+    \label{fig:nvml_phase_sampling}
+\end{figure}
+
 
 
 % ----------------------------------------------------------------------
 \subsection{Comparison to Kepler Timing Model}
 \label{subsec:kepler_comparison}
 
-% LENGTH:
-%   ~1 page including a figure.
+Kepler employs a synchronous timing model in which all metric domains (except Redfish) are sampled in a single periodic poll cycle. A fixed-length polling interval defines both the sampling cadence and the logical unit of attribution. Redfish updates occur at a much slower pace and the most recent Redfish value is reused across multiple intervals. Export occurs at a separate cadence, which may not match the attribution interval.
 
-% PURPOSE:
-%   To conceptually contrast Tycho’s event-time-driven model with Kepler’s
-%   fixed-interval poll-time model, without criticising Kepler or diving
-%   into implementation detail.
+Tycho diverges fundamentally: collectors run independently, windows are defined by analysis triggers rather than poll cycles, the model permits heterogeneous update patterns, and export occurs immediately after each attribution step. This structure enables finer temporal resolution, avoids dependence on synchronous poll-time alignment, and eliminates inconsistencies between data collection and publishing intervals.
 
-% MUST INCLUDE:
-%   - A short narrative comparing:
-%       * Kepler’s synchronous polling model (e.g., 3-second fixed tick).
-%       * Tycho’s independent, domain-aware event-time model.
-%   - Explanation that Kepler implicitly approximates event-time behaviour
-%     using periodic snapshots, which may under-sample or miss short-lived
-%     phenomena.
-%   - Explanation that Tycho reconstructs windows from domain-appropriate
-%     samples and therefore achieves higher temporal fidelity.
+\medskip
+\noindent\textbf{Diagram placeholder: Tycho vs.\ Kepler timing}  
+Side-by-side schematic:  
+\begin{itemize}[nosep]
+\item Kepler: uniform sample bars, single poll loop, slow Redfish track.  
+\item Tycho: independent sample tracks and window-based attribution with immediate export.  
+\end{itemize}
 
-% MUST NOT INCLUDE:
-%   - Criticism of Kepler’s code or design choices.
-%   - Any Go/implementation details.
-%   - Any explicit numbers (e.g. “3 seconds”) unless they appear in the
-%     upstream documentation.
-
-% DIAGRAM:
-%   - Side-by-side conceptual timing diagrams:
-%       * Left: Kepler-style model with long, uniform sampling bars.
-%       * Right: Tycho model with many smaller sampling bars and irregular
-%         spacing.
-%       * Indicate visually how Kepler may skip dynamics.
-
-% FORMULAE:
-%   - None. This is illustrative, not mathematical.
-
-
-% ----------------------------------------------------------------------
-\subsection{Handling Staleness, Jitter, and Delay}
-\label{subsec:staleness_jitter_delay}
-
-% LENGTH:
-%   ~0.75 to 1 page.
-
-% PURPOSE:
-%   Formalise how Tycho reasons about imperfect observations. This ties
-%   directly into the requirements for uncertainty-aware attribution and
-%   lifecycle robustness.
-
-% MUST INCLUDE:
-%   - Definitions:
-%       * Staleness: age of a sample relative to window boundaries.
-%       * Jitter: deviation of actual poll times from intended intervals.
-%       * Delay: difference between event time and poll time.
-%   - Explain that Tycho establishes thresholds for each phenomenon (exact
-%     numeric values belong in implementation chapter, not here).
-%   - Describe conceptually:
-%       * How stale samples cause windows to be flagged incomplete.
-%       * How jitter affects interpolation but not window formation.
-%       * How delay is estimated (conceptually) through calibration and
-%         applied when interpreting timestamps.
-%   - Clarify that incomplete windows propagate uncertainty forward into the
-%     analysis stage.
-
-% MAY INCLUDE (OPTIONAL):
-%   - A small schematic overlay on a timeline showing stale vs fresh sample.
-%   - A link forward to the analysis section where uncertainty appears as
-%     an explicit modelling element.
-
-% MUST NOT INCLUDE:
-%   - Any specifics of calibration algorithms.
-%   - Collector details or retry logic.
-
-% DIAGRAM:
-%   - Optional, small: highlight stale and fresh samples on a timeline.
-
-% FORMULAE:
-%   - Optional conceptual inequality:
-%       sample\_age = t_window_start - t_sample > staleness\_threshold.
-%     But avoid encoding the threshold itself.
-
-% NOTES:
-%   - This section completes the conceptual basis for analysis windows and
-%     prepares the reader for the mathematical attribution model.
 
 
 
