@@ -88,73 +88,13 @@ The timing engine also governs when analysis occurs. At regular intervals—cons
 
 Once analysis completes, the exporter publishes the resulting metrics in a form suitable for ingestion by external monitoring systems. Calibration remains active in the background throughout the system’s lifetime: it observes collector behaviour and derived quantities over longer time spans and refines its characterisations when needed, informing both the timing and analysis components without altering any collected data.
 
-% \begin{figure}[t]
-%     \centering
-%     % TODO: Insert dataflow and control flow diagram here.
-%     \caption{Dataflow and control flow in Tycho. Metric sources feed collectors and the metadata subsystem, which populate the buffering layer and metadata cache. The timing engine inspects buffered data to decide when an analysis window is ready, after which the analysis engine performs attribution and the exporter publishes the resulting metrics. Calibration observes the overall behaviour and feeds auxiliary timing information back into the timing and analysis components.}
-%     \label{fig:dataflow_control}
-% \end{figure}
-
-\begin{figure}[t]
+\begin{figure}[H]
     \centering
-    \begin{tikzpicture}[
-        node distance=1.8cm and 2.3cm,
-        box/.style={draw, rounded corners, align=center, minimum width=2.8cm, minimum height=1cm},
-        ext/.style={draw, dashed, rounded corners, align=center, minimum width=2.8cm, minimum height=1cm},
-        data/.style={-Stealth},
-        control/.style={-Stealth, dashed}
-    ]
-
-    % External sources
-    \node[ext] (metric_sources) {Metric\\Sources};
-    \node[ext, below=of metric_sources] (meta_sources) {Orchestration \&\\Process Info};
-
-    % Internal components
-    \node[box, right=of metric_sources] (collectors) {Metric\\Collectors};
-    \node[box, right=of meta_sources] (metadata) {Metadata\\Subsystem};
-
-    \node[box, right=of collectors] (buffers) {Buffering\\Layer};
-    \node[box, right=of metadata] (metacache) {Metadata\\Cache};
-
-    \node[box, above right=1.0cm and 2.2cm of buffers] (timing) {Timing\\Engine};
-    \node[box, below right=1.0cm and 2.2cm of buffers] (analysis) {Analysis\\Engine};
-
-    \node[box, right=of analysis] (exporter) {Exporter};
-    \node[ext, right=of exporter] (prometheus) {Monitoring\\System};
-
-    \node[box, above=of timing] (calibration) {Calibration};
-
-    % Data flow
-    \draw[data] (metric_sources) -- (collectors);
-    \draw[data] (collectors) -- (buffers);
-
-    \draw[data] (meta_sources) -- (metadata);
-    \draw[data] (metadata) -- (metacache);
-
-    \draw[data] (buffers) |- (analysis);
-    \draw[data] (metacache) -- (analysis);
-
-    \draw[data] (analysis) -- (exporter);
-    \draw[data] (exporter) -- (prometheus);
-
-    % Control / auxiliary flow
-    \draw[control] (timing) -| (collectors);
-    \draw[control] (timing) |- (analysis);
-
-    \draw[control] (calibration) -- (timing);
-    \draw[control] (calibration) -| (collectors);
-    \draw[control] (calibration) |- (analysis);
-
-    \draw[control] (buffers) -- (timing);
-    % optional: timing inspects buffer contents conceptually
-
-    \end{tikzpicture}
-    \caption{Dataflow and control flow in Tycho. Metric sources feed collectors and the metadata subsystem, which populate the buffering layer and metadata cache. The timing engine inspects buffered data to define analysis windows and trigger evaluation. The analysis engine performs attribution for each window and the exporter publishes the resulting metrics. Calibration observes long-term behaviour and feeds auxiliary information back into timing and analysis.}
-    \label{fig:dataflow_control}
+    \includegraphics[width=0.9\textwidth]{Figures/drawio/tycho_architecture_high.png}
+    \caption[Subsystem Architecure, Dataflow and Control Flow]{Subsystem Architecure, Dataflow and Control Flow}
+    \label{vt1_fig:tycho_architecture_high}
 \end{figure}
 
-
-% ----------------------------------------------------------------------
 \section{Temporal Model and Timing Engine}
 \label{sec:timing_engine}
 
@@ -167,48 +107,6 @@ Tycho’s temporal architecture provides a coherent framework for relating heter
 Tycho adopts a single monotonic time base for all temporal coordination. Collectors timestamp each sample at the moment of observation; these timestamps reflect poll time, not the physical instant at which the underlying hardware event occurred. Event time is therefore a modelling construct used by the analysis engine when interpreting delay, freshness and update behaviour.
 
 This separation keeps collectors lightweight and domain-agnostic. Each collector reports only what it directly observes; the analysis engine later interprets these timestamps in context, using calibration-derived delay characteristics to approximate underlying temporal structure.
-
-% \medskip
-% \noindent\textbf{Diagram placeholder:}  
-% A minimal schematic showing a single timeline with ``poll time'' markers and an overlay illustrating conceptual ``event time'' offsets.
-
-\begin{figure}[t]
-    \centering
-    \begin{tikzpicture}[
-        >=Stealth,
-        scale=1,
-        every node/.style={font=\small}
-    ]
-
-    % Time axis
-    \draw[->] (0,0) -- (10,0) node[anchor=west] {time};
-
-    % Poll events
-    \foreach \x/\label in {2/$\text{poll}_1$, 6/$\text{poll}_2$} {
-        \draw[thick] (\x,0.15) -- (\x,-0.15);
-        \node[above] at (\x,0.15) {\label};
-    }
-
-    % Underlying measurement intervals (conceptual event time)
-    \draw[very thick, gray] (0.5,0.6) -- (2,0.6);
-    \draw[very thick, gray] (4.2,0.6) -- (6,0.6);
-
-    \node[above, gray] at (1.25,0.6) {physical change};
-    \node[above, gray] at (5.1,0.6) {physical change};
-
-    % Delay arrows
-    \draw[->, gray] (2,0.5) -- (2,0.15);
-    \draw[->, gray] (6,0.5) -- (6,0.15);
-
-    \node[below] at (2,-0.15) {timestamp};
-    \node[below] at (6,-0.15) {timestamp};
-
-    \end{tikzpicture}
-    \caption{Conceptual relation between physical behaviour (event time) and observations recorded at poll time. Tycho records poll-time timestamps and interprets them as approximations of underlying event-time behaviour in the analysis phase.}
-    \label{fig:event_time_schematic}
-\end{figure}
-
-
 % ----------------------------------------------------------------------
 \subsection{Independent Collector Schedules}
 \label{subsec:independent_timelines}
@@ -216,50 +114,6 @@ This separation keeps collectors lightweight and domain-agnostic. Each collector
 Tycho employs independent, domain-aware sampling schedules. During startup the timing engine configures one schedule per collector, after which each collector operates autonomously on its own periodic trigger. No global poll loop exists and collectors do not synchronise with one another. They push samples only when a new observation is available.
 
 This decoupling avoids artificial temporal alignment and preserves each domain’s intrinsic update behaviour. Collector timestamps are placed directly on the global monotonic time axis, allowing later reconstruction without imposing shared cadence or shared sampling semantics.
-
-% \medskip
-% \noindent\textbf{Diagram placeholder:}  
-% Horizontal multi-track timeline showing heterogeneous sample arrival patterns across domains, without alignment.
-\begin{figure}[t]
-    \centering
-    \begin{tikzpicture}[
-        >=Stealth,
-        scale=1,
-        every node/.style={font=\small}
-    ]
-
-    % Global time axis
-    \draw[->] (0,0) -- (11,0) node[anchor=west] {time};
-
-    % Collector lines
-    \node[left] at (0,1.5) {Collector A};
-    \draw (0,1.5) -- (10.5,1.5);
-
-    \node[left] at (0,2.5) {Collector B};
-    \draw (0,2.5) -- (10.5,2.5);
-
-    \node[left] at (0,3.5) {Collector C};
-    \draw (0,3.5) -- (10.5,3.5);
-
-    % Ticks for A (irregular)
-    \foreach \x in {1.0, 3.2, 4.5, 7.1, 9.8} {
-        \draw[thick] (\x,1.3) -- (\x,1.7);
-    }
-
-    % Ticks for B (denser)
-    \foreach \x in {0.8, 1.6, 2.4, 3.3, 4.0, 5.2, 6.1, 7.0, 8.0, 9.0} {
-        \draw[thick] (\x,2.3) -- (\x,2.7);
-    }
-
-    % Ticks for C (sparse)
-    \foreach \x in {2.0, 5.5, 9.2} {
-        \draw[thick] (\x,3.3) -- (\x,3.7);
-    }
-
-    \end{tikzpicture}
-    \caption{Independent sampling schedules for different collectors on a shared time axis. Each collector operates on its own cadence without synchronisation, and samples are later aligned only at the level of analysis windows.}
-    \label{fig:independent_timelines}
-\end{figure}
 
 % ----------------------------------------------------------------------
 \subsection{Window Construction and Analysis Triggering}
@@ -276,22 +130,17 @@ When a window closes, the analysis engine performs two conceptual phases:
 
 Only energy for the current window is attributed and exported, but additional historical samples inform delay interpretation, idle estimation and interpolation.
 
-Tycho treats domains asymmetrically: CPU and software metrics are always required; GPU and Redfish domains contribute when available. Samples too old to fall within the current window do not contribute directly but may still inform background characterisation. Windows remain valid even when optional domains are absent.
+Tycho treats domains asymmetrically: CPU and software metrics are always required; GPU and Redfish domains contribute when available. Samples too old to fall within the current window do not contribute directly but may still inform background characterisation. Windows remain valid when optional domains are absent.
 
 A sample is considered stale relative to a window when its poll timestamp predates \(T_i\) by more than a domain-specific tolerance. Stale samples are ignored for direct reconstruction but do not invalidate the window.
 
-% \medskip
-% \noindent\textbf{Diagram placeholder:}  
-% A window diagram showing:  
-% \begin{itemize}[nosep]
-% \item window boundaries at \(T_i\) and \(T_{i+1}\),  
-% \item sample points from independent collectors,  
-% \item which samples contribute to the window,  
-% \item which samples are stale or outside the window.  
-% \end{itemize}
-
-\begin{figure}[t]
+\begin{figure}[H]
     \centering
+
+    % Define custom color
+    \definecolor{windowblue}{HTML}{BDC6FF}
+    \colorlet{windowblueA}{windowblue!40}
+
     \begin{tikzpicture}[
         >=Stealth,
         scale=1,
@@ -307,18 +156,18 @@ A sample is considered stale relative to a window when its poll timestamp predat
     \node[below] at (3,-0.2) {$T_i$};
     \node[below] at (8,-0.2) {$T_{i+1}$};
 
-    % Window highlight
-    \draw[fill=gray!10, draw=none] (3,0.3) rectangle (8,4.1);
-    \node[above] at (5.5,4.1) {Window $W_i = [T_i, T_{i+1})$};
+    % Window highlight with your color
+    \draw[fill=windowblueA, draw=none] (3,0.3) rectangle (8,4.1);
+    \node[below] at (5.5,4.1) {Window $W_i = [T_i, T_{i+1})$};
 
     % Collector lines
-    \node[left] at (0,1) {Collector A};
+    \node[left] at (0,1) {Collector C};
     \draw (0,1) -- (10.5,1);
 
     \node[left] at (0,2) {Collector B};
     \draw (0,2) -- (10.5,2);
 
-    \node[left] at (0,3) {Collector C};
+    \node[left] at (0,3) {Collector A};
     \draw (0,3) -- (10.5,3);
 
     % Samples for A
@@ -340,134 +189,50 @@ A sample is considered stale relative to a window when its poll timestamp predat
     \node[gray] at (9.3,0.4) {outside window};
 
     \end{tikzpicture}
-    \caption{Analysis window $W_i$ defined by two successive analysis trigger times. Samples inside the window contribute directly to reconstruction, while samples outside may still inform background characterisation but are not attributed to $W_i$.}
+
+    \caption{Analysis window $W_i$ in relation to collectors}
     \label{fig:window_alignment}
 \end{figure}
 
 
-\begin{figure}[t]
-    \centering
-    \begin{tikzpicture}[
-        >=Stealth,
-        scale=1,
-        every node/.style={font=\small}
-    ]
-
-    % Kepler (left)
-    \node[font=\normalsize] at (5,4.2) {Kepler};
-
-    % Time axis Kepler
-    \draw[->] (0,3.5) -- (10,3.5) node[anchor=west] {time};
-
-    % Kepler poll intervals
-    \foreach \x in {1,3,5,7,9} {
-        \draw[very thick] (\x,3.3) -- (\x,3.7);
-        \draw[fill=gray!20, draw=none] (\x-1,3.0) rectangle (\x,3.1);
-    }
-    \node[below] at (1,3.0) {poll \& attribution};
-
-    % Redfish track (slow)
-    \node[left] at (0,2.6) {Redfish};
-    \draw (0,2.6) -- (10,2.6);
-    \foreach \x in {2,8} {
-        \draw[thick] (\x,2.4) -- (\x,2.8);
-    }
-
-    % Export ticks (different cadence)
-    \node[left] at (0,2.0) {Export};
-    \draw (0,2.0) -- (10,2.0);
-    \foreach \x in {2.5, 6.5} {
-        \draw[thick] (\x,1.8) -- (\x,2.2);
-    }
-
-    % Tycho (right)
-    \node[font=\normalsize] at (5,1.3) {Tycho};
-
-    % Time axis Tycho
-    \draw[->] (0,0.6) -- (10,0.6) node[anchor=west] {time};
-
-    % Tycho windows
-    \foreach \x in {1.5,3.5,5.5,7.5,9.5} {
-        \draw[very thick] (\x,0.8) -- (\x,0.4);
-    }
-    \foreach \x in {1.5,3.5,5.5,7.5} {
-        \draw[fill=gray!10, draw=none] (\x,0.9) rectangle (\x+2,1.0);
-    }
-    \node[above] at (2.5,1.0) {analysis windows};
-
-    % Export after each window
-    \node[left] at (0,-0.1) {Export};
-    \draw (0,-0.1) -- (10,-0.1);
-    \foreach \x in {1.5,3.5,5.5,7.5,9.5} {
-        \draw[thick] (\x,-0.3) -- (\x,0.1);
-    }
-
-    \end{tikzpicture}
-    \caption{Conceptual comparison between Kepler and Tycho timing. Kepler uses a synchronous polling interval for most domains and reuses slower Redfish readings across multiple intervals; export may occur on a different cadence. Tycho employs independent collectors and defines attribution strictly in terms of analysis windows, with export immediately following each window.}
-    \label{fig:tycho_kepler_timing}
-\end{figure}
-
-
-\begin{figure}[t]
-    \centering
-    \begin{tikzpicture}[
-        >=Stealth,
-        scale=1,
-        every node/.style={font=\small}
-    ]
-
-    % Time axis
-    \draw[->] (0,0) -- (11,0) node[anchor=west] {time};
-
-    % Underlying continuous power (conceptual)
-    \draw[gray] plot[smooth] coordinates {
-        (0.5,0.6)
-        (1.5,1.2)
-        (2.5,0.8)
-        (3.5,1.6)
-        (4.5,1.0)
-        (5.5,1.8)
-        (6.5,1.1)
-        (7.5,1.5)
-        (8.5,0.9)
-        (9.5,1.3)
-    };
-    \node[gray] at (2.2,1.9) {instantaneous GPU power};
-
-    % NVML internal update points
-    \foreach \x in {1.0,3.0,5.0,7.0,9.0} {
-        \draw[very thick] (\x,0.2) -- (\x,0.5);
-    }
-    \node[below] at (1.0,0.2) {NVML updates};
-
-    % Tycho sampling aligned to NVML phase
-    \foreach \x in {1.0,3.0,5.0,7.0,9.0} {
-        \draw[fill=black] (\x,0.5) circle (0.06);
-    }
-    \node[above] at (7.0,0.7) {Tycho phase-aware samples};
-
-    \end{tikzpicture}
-    \caption{Conceptual view of GPU power as a continuous signal, periodically updated internal NVML values, and Tycho’s phase-aware sampling aligned to these updates. No specific update interval or magnitude is implied.}
-    \label{fig:nvml_phase_sampling}
-\end{figure}
-
-
-
-% ----------------------------------------------------------------------
 \subsection{Comparison to Kepler Timing Model}
 \label{subsec:kepler_comparison}
 
-Kepler employs a synchronous timing model in which all metric domains (except Redfish) are sampled in a single periodic poll cycle. A fixed-length polling interval defines both the sampling cadence and the logical unit of attribution. Redfish updates occur at a much slower pace and the most recent Redfish value is reused across multiple intervals. Export occurs at a separate cadence, which may not match the attribution interval.
+Kepler employs a synchronous timing model in which all metric domains (except Redfish) are sampled within a single periodic poll cycle (default: 3 seconds). This fixed-length interval defines both the sampling cadence and the logical unit of attribution. Redfish updates occur at a much slower rate (default: 60 seconds), and the most recent Redfish value is reused across multiple attribution intervals. Export occurs on a separate cadence, which may not align with the attribution window.
 
-Tycho diverges fundamentally: collectors run independently, windows are defined by analysis triggers rather than poll cycles, the model permits heterogeneous update patterns, and export occurs immediately after each attribution step. This structure enables finer temporal resolution, avoids dependence on synchronous poll-time alignment, and eliminates inconsistencies between data collection and publishing intervals.
+Tycho diverges fundamentally: collectors run independently, analysis windows are defined by attribution triggers rather than poll cycles, heterogeneous update patterns are supported natively, and export occurs immediately after each attribution step. This structure enables finer temporal resolution, avoids dependence on synchronous polling behaviour, and eliminates inconsistencies between data collection and publishing intervals.
 
-\medskip
-\noindent\textbf{Diagram placeholder: Tycho vs.\ Kepler timing}  
-Side-by-side schematic:  
-\begin{itemize}[nosep]
-\item Kepler: uniform sample bars, single poll loop, slow Redfish track.  
-\item Tycho: independent sample tracks and window-based attribution with immediate export.  
-\end{itemize}
+Figures~\ref{vt1_fig:tycho_timingDiagram} and \ref{vt1_fig:kepler_timingDiagram} illustrate the respective timing behaviour of Tycho and Kepler, highlighting their polling patterns, sampling semantics and analysis-window alignment. Figures~\ref{vt1_fig:tycho_timingDiagram_high} and \ref{vt1_fig:kepler_timingDiagram_high} provide a higher-level view to show the Prometheus export behaviour more clearly.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{1\textwidth}
+        \includegraphics[width=\textwidth]{Figures/drawio/tycho_timingDiagram.png}
+        \caption{Tycho Timing Model}
+        \label{vt1_fig:tycho_timingDiagram}
+    \end{subfigure}
+    \begin{subfigure}{1\textwidth}
+        \includegraphics[width=\textwidth]{Figures/drawio/kepler_timingDiagram.png}
+        \caption{Kepler Timing Model}
+        \label{vt1_fig:kepler_timingDiagram}
+    \end{subfigure}
+    \caption[Comparison between Tycho and KeplerTiming Model]{Comparison: Tycho and Kepler Timing Model}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.85\textwidth}
+        \includegraphics[width=\textwidth]{Figures/drawio/tycho_timingDiagram_high.png}
+        \caption{Tycho Prometheus Export Timing Model}
+        \label{vt1_fig:tycho_timingDiagram_high}
+    \end{subfigure}
+        \begin{subfigure}{0.85\textwidth}
+        \includegraphics[width=\textwidth]{Figures/drawio/kepler_timingDiagram_high.png}
+        \caption{Kepler Prometheus Export Timing Model}
+        \label{vt1_fig:kepler_timingDiagram_high}
+    \end{subfigure}
+    \caption[Comparison between Tycho and Kepler export behaviour]{Comparison: Tycho and Kepler export behaviour}
+\end{figure}
 
 
 

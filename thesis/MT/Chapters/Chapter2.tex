@@ -418,6 +418,18 @@ In contrast to generic system monitoring agents, Kepler’s architecture is tail
 
 Overall, Kepler’s architectural design reflects a trade-off between flexibility and granularity: while it can ingest diverse telemetry sources and attribute energy at container level, its accuracy is constrained by the timing and resolution of the underlying metrics, as well as the unified sampling cadence chosen for the collectors.
 
+Kepler updates all metrics within a single synchronous loop that triggers every sampling interval. 
+This design simplifies integration but enforces a uniform cadence across heterogeneous telemetry sources, 
+which contributes to the timing and alignment issues discussed in \S~\ref{subsec:kepler-limitations}. 
+The structure is shown in Figures~\ref{fig:kepler_timing_architecture}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{Figures/drawio/kepler_activityDiagram.png}
+    \caption[Kepler’s synchronous update loop]{Kepler’s synchronous update loop, where all collectors run at a unified sampling interval.}
+    \label{fig:kepler_timing_architecture}
+\end{figure}
+
 \subsubsection{Attribution Model}
 \label{subsec:kepler-attribution}
 
