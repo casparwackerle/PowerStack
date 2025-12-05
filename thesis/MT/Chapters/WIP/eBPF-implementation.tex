@@ -1,89 +1,72 @@
 \section{eBPF Collector Integration}
 \label{sec:ebpf-collector-architecture}
 
-\subsection{Scope and Motivation}
+\subsection{Purpose and Scope}
 \label{subsec:ebpf-collector-scope-motivation}
+The eBPF collector implements Tycho’s kernel level acquisition of CPU activity data.
+It attaches to selected kernel events, accumulates per process and per CPU utilisation metrics, and exposes these values to userspace through shared maps.
+The userspace component periodically retrieves these aggregates, converts them into per tick deltas, and forwards them to the analysis pipeline.
+This subsystem provides fine grained measurements of task execution, interrupt handling, idle behaviour, and selected performance counters, forming the software side input required for CPU level energy attribution.
 
-The kernel-level \code{eBPF} subsystem in Tycho provides the foundation for process-level energy attribution.  
-It captures CPU scheduling, interrupt, and performance-counter events directly inside the Linux kernel, translating them into continuous measurements of CPU ownership and activity.  
-All higher-level aggregation and modeling occur in userspace; this section therefore focuses exclusively on the in-kernel instrumentation and the data it exposes.
+\subsection{Kernel Instrumentation Overview}
+\label{subsec:ebpf_kernel_instrumentation}
 
-Kepler’s original \code{eBPF} design offered a coarse but functional basis for collecting CPU time and basic performance metrics.  
-Its \code{sched\_switch} tracepoint recorded process runtime, while hardware performance counters supplied instruction and cache data.  
-However, the sampling cadence and aggregation logic were controlled from userspace, producing irregular collection intervals and temporal misalignment with energy readings.  
-Kepler also treated all CPU time as a single undifferentiated category, omitting explicit representation of idle periods, interrupt handling, and kernel threads.  
-As a result, a portion of the processor’s activity (often significant under I/O-heavy workloads) remained unaccounted for in energy attribution.
+The eBPF subsystem consists of a set of kernel programs that record CPU activity in response to selected events.  
+These programs update per CPU and per process data structures that hold runtime, interrupt durations, idle time, page cache counters, and basic performance information.  
+All updates occur inside the kernel at the moment the corresponding events take place.
 
-Tycho addresses these limitations through a refined kernel-level design.  
-New tracepoints capture hard and soft interrupts, while extended per-CPU state tracking distinguishes between user processes, kernel threads, and idle execution.  
-Each CPU maintains resettable bins that accumulate idle and interrupt durations within well-defined time windows, providing temporally bounded activity summaries aligned with energy sampling intervals.  
-Cgroup identifiers are refreshed at every scheduling event to maintain accurate container attribution, even when processes migrate between control groups.  
-The result is a stable, low-overhead data source that describes CPU usage continuously and with sufficient granularity to support fine-grained energy partitioning in the subsequent analysis.
+Scheduler related programs track on CPU durations of tasks and refresh their associated metadata, including container identifiers and task classification flags.  
+Interrupt related programs account for time spent in hardware and deferred interrupts by recording entry and exit timestamps on each CPU.  
+Additional programs record page cache access and writeback activity for the active task.  
+Hardware performance counters are sampled through preconfigured performance monitoring units and appended to the task level aggregates.
 
-\subsection{Baseline and Architecture Overview}
-\label{subsec:ebpf-collector-overview}
+The kernel side implementation is entirely event driven and maintains its own accounting structures without assistance from userspace.  
+Userspace interacts with this subsystem only through periodic retrieval of the aggregated values.
 
-Kepler’s kernel instrumentation consisted of a compact set of \code{eBPF} programs that sampled process-level CPU activity and a few hardware performance metrics.
-The core tracepoint, \code{tp\_btf/sched\_switch}, captured context switches and estimated per-process runtime by measuring the on-CPU duration between successive events.
-Complementary probes monitored page cache access and writeback operations, providing coarse indicators of I/O intensity.
-Hardware performance counters (CPU cycles, instructions, and cache misses) were collected through \code{perf\_event\_array} readers, enabling approximate performance characterization at the task level.
+\subsection{Event Handling and Data Structures}
+\label{subsec:ebpf_event_handling}
 
-While effective for general profiling, this setup lacked the temporal resolution and system coverage required for precise energy correlation.
-The sampling process was driven entirely from userspace, leading to irregular collection intervals, and idle or interrupt time was never observed directly.
-Consequently, CPU utilization appeared complete only from a process perspective, leaving kernel and idle phases invisible to the measurement pipeline.
+The kernel programs update a small set of per CPU and per process data structures that hold all intermediate accounting information.  
+Each CPU maintains a local state that stores the timestamp of the last activity change, the identity of the active task, and counters for idle and interrupt time.  
+Per process aggregates reside in a bounded LRU map that holds accumulated runtime, performance counter deltas, page cache activity, and classification metadata.
 
-Tycho extends this architecture into a continuous kernel-side monitoring system.
-Each CPU maintains an independent state structure recording its current task, timestamp, and execution context.
-This allows uninterrupted accounting of CPU ownership, even between user-space scheduling events.
-New tracepoints for hard and soft interrupts measure service durations directly in the kernel, ensuring that all processor activity (user, kernel, or idle) is captured.
-Dedicated per-CPU bins accumulate these times within fixed analysis windows, which the userspace collector periodically reads and resets.
-Process-level metrics are stored in an LRU hash map, while hardware performance counters remain integrated via existing PMU readers.
+Scheduler events drive the recording of task level runtime.  
+When a task leaves the CPU, the program computes the elapsed duration since its previous activation and adds this value to the task entry in the process map.  
+At the same point, hardware performance counters for that task are sampled and the resulting deltas appended to its aggregates.  
+The incoming task is then installed as the active task for that CPU and its start timestamp recorded.
 
-In contrast to Kepler’s snapshot-based sampling, Tycho’s userspace collector consolidates all per-process and per-CPU deltas from the kernel maps once per polling interval into a single tick.
-This tick-based aggregation provides deterministic timing, reduces memory pressure, and guarantees temporal consistency across heterogeneous metric sources.
-Data therefore flows linearly from tracepoints to per-CPU maps and onward to the collector, forming a continuous and low-overhead measurement path that supports precise, time-aligned energy attribution.
+Interrupt events update the per CPU bins for hardware and deferred interrupts.  
+Entry handlers record a timestamp and exit handlers apply the difference to the local interrupt counters.  
+During periods where no task is running, the CPU state marks the idle condition and accumulates the corresponding time until the next activity change.
 
-\subsection{Kernel Programs and Data Flow}
-\label{subsec:ebpf-collector-programs}
+Page cache programs increment per process counters whenever the active task performs relevant cache or writeback operations.  
+These counters accumulate until the userspace collector retrieves and resets them.
 
-Tycho’s \code{eBPF} subsystem consists of a small set of tracepoints and helper maps that together maintain a continuous record of CPU activity.
-Each program updates per-CPU or per-task data structures in response to kernel events, ensuring that all processor time is accounted for across user, kernel, and idle contexts.
-The kernel side is event-driven and self-contained; aggregation into time-bounded ticks occurs later in userspace.
+All updates occur in per CPU or LRU maps to avoid cross core contention.  
+The kernel side stores only aggregate values and does not perform any aggregation across CPUs or processes; consolidation is deferred to userspace.
 
-\paragraph{Scheduler Switch}
-The central tracepoint, \code{tp\_btf/sched\_switch}, triggers whenever the scheduler replaces one task with another.
-It computes the elapsed on-CPU time of the outgoing process and updates its entry in the \code{processes} map, which stores cumulative runtime, hardware-counter deltas, and classification metadata such as \code{cgroup\_id}, \code{is\_kthread}, and command name.
-Hardware counters for instructions, cycles, and cache misses are read from preconfigured PMU readers at this moment, keeping utilization metrics temporally aligned with task execution.
-Each CPU also maintains a lightweight \code{cpu\_state} structure that records the last timestamp, currently active PID, and task type.
-When the idle task (PID~0) is scheduled, this structure accumulates idle time locally, allowing continuous accounting even between user-space collection intervals.
-At polling time, the userspace collector drains these maps atomically, computing per-process deltas since the previous read and bundling all results into a single tick that represents the complete scheduler activity for that interval.
+\subsection{Userspace Collector Logic}
+\label{subsec:ebpf_userspace_collector}
 
-\paragraph{Interrupt Handlers}
-To capture system activity outside user processes, Tycho introduces tracepoints for hard and soft interrupts.
-Pairs of entry and exit hooks (\code{irq\_handler\_{entry,exit}} and \code{softirq\_{entry,exit}}) measure the time spent in each category by recording timestamps in the per-CPU state and adding the resulting deltas to dedicated counters.
-These durations are aggregated in \code{cpu\_bins}, a resettable per-CPU array that also stores idle time.
-At each collection cycle, the userspace \code{bpfCollector} drains and resets these bins, incorporating their totals into the tick structure alongside the per-process deltas.
-This design maintains continuous coverage of kernel activity while preserving strict temporal alignment between CPU-state transitions and energy sampling.
+The userspace collector retrieves kernel aggregates at a fixed polling interval and converts them into per tick data structures for the analysis pipeline.  
+At each interval it performs batched lookups on the per process map and per CPU bins, extracting and deleting all entries in a single operation.  
+This yields the cumulative values recorded since the previous poll.
 
-\paragraph{Page-Cache Probes}
-Kepler’s original page-cache hooks (\code{fexit/mark\_page\_accessed} and \code{tp/writeback\_dirty\_folio}) are preserved.
-They increment per-process counters for cache hits and writeback operations, serving as indicators of I/O intensity rather than direct power consumption.
-These counters are read and reset as part of the same tick aggregation that handles scheduler and interrupt data.
+For each process entry, the collector computes deltas relative to the values reported in the previous tick and attaches the current container identifier and task classification flags exported by the kernel.  
+Per CPU bins for idle time and interrupt durations are read and reset during the same operation.  
+All values are appended to a single tick record that contains the full set of process level and CPU level aggregates observed during that interval.
 
-\paragraph{Supporting Maps and Flow}
-All high-frequency updates occur in per-CPU or LRU hash maps to avoid contention.
-\code{pid\_time\_map} tracks start timestamps for active threads, enabling precise runtime computation during context switches.
-\code{processes} holds per-task aggregates, while \code{cpu\_states} and \code{cpu\_bins} manage temporal accounting per core.
-PMU event readers for cycles, instructions, and cache misses remain shared with Kepler’s implementation.
-At runtime, data flows from tracepoints to these maps and is drained periodically by the userspace collector, which consolidates the deltas into a single per-tick record before storing it in the ring buffer.
-This batched extraction forms a deterministic, lock-free telemetry path from kernel to analysis, ensuring high-frequency accuracy without per-event synchronization overhead.
+The collector stores the resulting tick in Tycho’s ring buffer for later analysis and export.  
+Short lived tasks may appear only once if they terminate before the next polling interval, and processes that do not accumulate measurable activity between polls do not produce new entries.  
+The collector performs no reconstruction or inference and relies entirely on the values supplied by the kernel programs.
 
 \subsection{Collected Metrics}
-\label{subsec:ebpf-collector-metrics}
+\label{subsec:ebpf_exported_metrics}
 
-The kernel \code{eBPF} subsystem exports a defined set of metrics describing CPU usage at process and system levels.
-These values are aggregated in kernel maps and periodically retrieved by the userspace collector for time-aligned energy analysis.
-Table~\ref{tab:ebpf-collector-metrics} summarizes all metrics grouped by category.
+The kernel programs expose all accumulated values through per process and per CPU maps.  
+At each polling interval the userspace collector retrieves these aggregates and converts them into per tick deltas that enter the attribution pipeline.  
+The collected metrics cover time based activity, selected performance counters, and task classification information.  
+Table~\ref{tab:ebpf-collector-metrics} lists the complete set of metrics produced by the eBPF subsystem.
 
 \begin{table}[h]
     \centering
@@ -112,55 +95,205 @@ Table~\ref{tab:ebpf-collector-metrics} summarizes all metrics grouped by categor
     \caption{Metrics collected by the kernel \code{eBPF} subsystem.}
     \label{tab:ebpf-collector-metrics}
 \end{table}
+
+All counters are returned as cumulative values since the previous retrieval and are reset or replaced by fresh entries during the same operation.  
+The userspace collector attaches the resulting deltas to a single tick structure that enters Tycho’s analysis and export pipeline.
+
+\subsection{Performance, Overheads, and Stability}
+\label{subsec:ebpf_performance}
+
+The kernel programs are designed to operate with minimal overhead on all supported workloads.  
+All high frequency updates occur in per CPU maps, which avoids cross core contention and removes the need for locking inside the event handlers.  
+Per process aggregates are stored in a bounded LRU map that limits memory usage and evicts inactive entries automatically.  
+Each event handler performs only timestamp arithmetic and counter updates and does not allocate memory or invoke complex helper functions.
+
+Userspace polling employs batched lookup and deletion to minimise system call overhead and maintain constant retrieval cost regardless of the number of active tasks.  
+Performance monitoring units are preconfigured during collector initialisation and remain active for the lifetime of the program, which avoids repeated setup work during event handling.  
+The collector processes all kernel aggregates in a single pass per interval and writes the resulting tick directly into the ring buffer without additional synchronisation.
+
+The subsystem includes several safeguards to ensure stable operation across kernel versions.  
+CO RE based field resolution protects access to task structures with varying layouts, and all kernel programs use fixed size maps with explicit bounds to prevent overwrites.  
+Cgroup identifiers and task classification flags are exported directly from scheduler events to ensure consistent attribution.  
+The implementation handles idle threads and kernel threads explicitly and resets per CPU bins after each polling interval to avoid carryover between ticks.
+
+\subsection{Limitations}
+\label{subsec:ebpf_limitations}
+
+The eBPF subsystem exposes only the metrics supported by the attached kernel programs and hardware counters.  
+It does not record processor frequency changes or C state transitions, and these values are therefore not available to downstream analysis.  
+Hardware performance counters are sampled at task boundaries and may not reflect activity that occurs between consecutive events.
+
+Short lived processes may terminate before the next polling interval and can therefore appear only once or not at all in the collected data.  
+Tasks that accumulate no measurable activity between polls do not produce updates.  
+Under workloads with very high interrupt activity, per CPU bins may grow rapidly, although they remain bounded by the polling interval.
+
+All metrics depend on the availability of kernel events and may vary across kernel versions or configurations.  
+If a kernel does not provide certain tracepoints or PMU events, the corresponding metrics remain unavailable in the exported tick data.
+
+
+% \section{eBPF Collector Integration}
+% \label{sec:ebpf-collector-architecture}
+
+% \subsection{Scope and Motivation}
+% \label{subsec:ebpf-collector-scope-motivation}
+
+% The kernel-level \code{eBPF} subsystem in Tycho provides the foundation for process-level energy attribution.  
+% It captures CPU scheduling, interrupt, and performance-counter events directly inside the Linux kernel, translating them into continuous measurements of CPU ownership and activity.  
+% All higher-level aggregation and modeling occur in userspace; this section therefore focuses exclusively on the in-kernel instrumentation and the data it exposes.
+
+% Kepler’s original \code{eBPF} design offered a coarse but functional basis for collecting CPU time and basic performance metrics.  
+% Its \code{sched\_switch} tracepoint recorded process runtime, while hardware performance counters supplied instruction and cache data.  
+% However, the sampling cadence and aggregation logic were controlled from userspace, producing irregular collection intervals and temporal misalignment with energy readings.  
+% Kepler also treated all CPU time as a single undifferentiated category, omitting explicit representation of idle periods, interrupt handling, and kernel threads.  
+% As a result, a portion of the processor’s activity (often significant under I/O-heavy workloads) remained unaccounted for in energy attribution.
+
+% Tycho addresses these limitations through a refined kernel-level design.  
+% New tracepoints capture hard and soft interrupts, while extended per-CPU state tracking distinguishes between user processes, kernel threads, and idle execution.  
+% Each CPU maintains resettable bins that accumulate idle and interrupt durations within well-defined time windows, providing temporally bounded activity summaries aligned with energy sampling intervals.  
+% Cgroup identifiers are refreshed at every scheduling event to maintain accurate container attribution, even when processes migrate between control groups.  
+% The result is a stable, low-overhead data source that describes CPU usage continuously and with sufficient granularity to support fine-grained energy partitioning in the subsequent analysis.
+
+% \subsection{Baseline and Architecture Overview}
+% \label{subsec:ebpf-collector-overview}
+
+% Kepler’s kernel instrumentation consisted of a compact set of \code{eBPF} programs that sampled process-level CPU activity and a few hardware performance metrics.
+% The core tracepoint, \code{tp\_btf/sched\_switch}, captured context switches and estimated per-process runtime by measuring the on-CPU duration between successive events.
+% Complementary probes monitored page cache access and writeback operations, providing coarse indicators of I/O intensity.
+% Hardware performance counters (CPU cycles, instructions, and cache misses) were collected through \code{perf\_event\_array} readers, enabling approximate performance characterization at the task level.
+
+% While effective for general profiling, this setup lacked the temporal resolution and system coverage required for precise energy correlation.
+% The sampling process was driven entirely from userspace, leading to irregular collection intervals, and idle or interrupt time was never observed directly.
+% Consequently, CPU utilization appeared complete only from a process perspective, leaving kernel and idle phases invisible to the measurement pipeline.
+
+% Tycho extends this architecture into a continuous kernel-side monitoring system.
+% Each CPU maintains an independent state structure recording its current task, timestamp, and execution context.
+% This allows uninterrupted accounting of CPU ownership, even between user-space scheduling events.
+% New tracepoints for hard and soft interrupts measure service durations directly in the kernel, ensuring that all processor activity (user, kernel, or idle) is captured.
+% Dedicated per-CPU bins accumulate these times within fixed analysis windows, which the userspace collector periodically reads and resets.
+% Process-level metrics are stored in an LRU hash map, while hardware performance counters remain integrated via existing PMU readers.
+
+% In contrast to Kepler’s snapshot-based sampling, Tycho’s userspace collector consolidates all per-process and per-CPU deltas from the kernel maps once per polling interval into a single tick.
+% This tick-based aggregation provides deterministic timing, reduces memory pressure, and guarantees temporal consistency across heterogeneous metric sources.
+% Data therefore flows linearly from tracepoints to per-CPU maps and onward to the collector, forming a continuous and low-overhead measurement path that supports precise, time-aligned energy attribution.
+
+% \subsection{Kernel Programs and Data Flow}
+% \label{subsec:ebpf-collector-programs}
+
+% Tycho’s \code{eBPF} subsystem consists of a small set of tracepoints and helper maps that together maintain a continuous record of CPU activity.
+% Each program updates per-CPU or per-task data structures in response to kernel events, ensuring that all processor time is accounted for across user, kernel, and idle contexts.
+% The kernel side is event-driven and self-contained; aggregation into time-bounded ticks occurs later in userspace.
+
+% \paragraph{Scheduler Switch}
+% The central tracepoint, \code{tp\_btf/sched\_switch}, triggers whenever the scheduler replaces one task with another.
+% It computes the elapsed on-CPU time of the outgoing process and updates its entry in the \code{processes} map, which stores cumulative runtime, hardware-counter deltas, and classification metadata such as \code{cgroup\_id}, \code{is\_kthread}, and command name.
+% Hardware counters for instructions, cycles, and cache misses are read from preconfigured PMU readers at this moment, keeping utilization metrics temporally aligned with task execution.
+% Each CPU also maintains a lightweight \code{cpu\_state} structure that records the last timestamp, currently active PID, and task type.
+% When the idle task (PID~0) is scheduled, this structure accumulates idle time locally, allowing continuous accounting even between user-space collection intervals.
+% At polling time, the userspace collector drains these maps atomically, computing per-process deltas since the previous read and bundling all results into a single tick that represents the complete scheduler activity for that interval.
+
+% \paragraph{Interrupt Handlers}
+% To capture system activity outside user processes, Tycho introduces tracepoints for hard and soft interrupts.
+% Pairs of entry and exit hooks (\code{irq\_handler\_{entry,exit}} and \code{softirq\_{entry,exit}}) measure the time spent in each category by recording timestamps in the per-CPU state and adding the resulting deltas to dedicated counters.
+% These durations are aggregated in \code{cpu\_bins}, a resettable per-CPU array that also stores idle time.
+% At each collection cycle, the userspace \code{bpfCollector} drains and resets these bins, incorporating their totals into the tick structure alongside the per-process deltas.
+% This design maintains continuous coverage of kernel activity while preserving strict temporal alignment between CPU-state transitions and energy sampling.
+
+% \paragraph{Page-Cache Probes}
+% Kepler’s original page-cache hooks (\code{fexit/mark\_page\_accessed} and \code{tp/writeback\_dirty\_folio}) are preserved.
+% They increment per-process counters for cache hits and writeback operations, serving as indicators of I/O intensity rather than direct power consumption.
+% These counters are read and reset as part of the same tick aggregation that handles scheduler and interrupt data.
+
+% \paragraph{Supporting Maps and Flow}
+% All high-frequency updates occur in per-CPU or LRU hash maps to avoid contention.
+% \code{pid\_time\_map} tracks start timestamps for active threads, enabling precise runtime computation during context switches.
+% \code{processes} holds per-task aggregates, while \code{cpu\_states} and \code{cpu\_bins} manage temporal accounting per core.
+% PMU event readers for cycles, instructions, and cache misses remain shared with Kepler’s implementation.
+% At runtime, data flows from tracepoints to these maps and is drained periodically by the userspace collector, which consolidates the deltas into a single per-tick record before storing it in the ring buffer.
+% This batched extraction forms a deterministic, lock-free telemetry path from kernel to analysis, ensuring high-frequency accuracy without per-event synchronization overhead.
+
+% \subsection{Collected Metrics}
+% \label{subsec:ebpf-collector-metrics}
+
+% The kernel \code{eBPF} subsystem exports a defined set of metrics describing CPU usage at process and system levels.
+% These values are aggregated in kernel maps and periodically retrieved by the userspace collector for time-aligned energy analysis.
+% Table~\ref{tab:ebpf-collector-metrics} summarizes all metrics grouped by category.
+
+% \begin{table}[h]
+%     \centering
+%     \begin{tabular}{p{3cm} p{3.4cm} p{6.2cm}}
+%     \toprule
+%     \textbf{Metric} & \textbf{Source hook} & \textbf{Description} \\
+%     \midrule
+%     \multicolumn{3}{l}{\textit{Time-based metrics}} \\[4pt]
+%     Process runtime & \code{tp\_btf/sched\_switch} & Per process. Elapsed on-CPU time accumulated at context switches. \\
+%     Idle time & Derived from \code{sched\_switch} & Per node. Aggregated idle time across CPUs. \\
+%     IRQ time & \code{irq\_handler\_{\{entry,exit\}}} & Per node. Aggregated duration spent in hardware interrupt handlers. \\
+%     SoftIRQ time & \code{softirq\_{\{entry,exit\}}} & Per node. Aggregated duration spent in deferred kernel work. \\[4pt]
     
-\smallskip
-\noindent
-All metrics are aggregated once per polling interval into a single userspace tick that contains per-process and per-CPU deltas. This tick-based representation replaces the former per-sample storage model, ensuring temporal consistency across metrics while retaining the semantics listed above.
+%     \multicolumn{3}{l}{\textit{Hardware-based metrics}} \\[4pt]
+%     CPU cycles & PMU (\code{perf\_event\_array}) & Per process. Retired CPU cycle count during task execution. \\
+%     Instructions & PMU (\code{perf\_event\_array}) & Per process. Retired instruction count. \\
+%     Cache misses & PMU (\code{perf\_event\_array}) & Per process. Last-level cache misses; indicator of memory intensity. \\[4pt]
+    
+%     \multicolumn{3}{l}{\textit{Classification and enrichment metrics}} \\[4pt]
+%     Cgroup ID & \code{sched\_switch} & Per process. Control group identifier for container attribution. \\
+%     Kernel thread flag & \code{sched\_switch} & Per process. Marks kernel threads executing in system context. \\
+%     Page cache hits & \code{mark\_page\_accessed} & Per process. Read or write access to cached pages; proxy for I/O activity. \\
+%     IRQ vectors & \code{softirq\_entry} & Per process. Frequency of specific soft interrupt vectors. \\
+%     \bottomrule
+%     \end{tabular}
+%     \caption{Metrics collected by the kernel \code{eBPF} subsystem.}
+%     \label{tab:ebpf-collector-metrics}
+% \end{table}
+    
+% \smallskip
+% \noindent
+% All metrics are aggregated once per polling interval into a single userspace tick that contains per-process and per-CPU deltas. This tick-based representation replaces the former per-sample storage model, ensuring temporal consistency across metrics while retaining the semantics listed above.
 
-\medskip
-Together these metrics form a coherent description of CPU activity.
-Time-based data quantify ownership of processing resources, hardware counters capture execution intensity, and classification attributes link activity to its origin.
-This dataset serves as the kernel-level foundation for energy attribution and higher-level modeling in userspace.
+% \medskip
+% Together these metrics form a coherent description of CPU activity.
+% Time-based data quantify ownership of processing resources, hardware counters capture execution intensity, and classification attributes link activity to its origin.
+% This dataset serves as the kernel-level foundation for energy attribution and higher-level modeling in userspace.
 
-\subsection{Integration with Energy Measurements}
-\label{subsec:ebpf-collector-integration-energy}
+% \subsection{Integration with Energy Measurements}
+% \label{subsec:ebpf-collector-integration-energy}
 
-The data exported from the kernel define how CPU resources are distributed among processes, kernel threads, interrupts, and idle periods during each observation window.
-When combined with energy readings obtained over the same interval, these temporal shares provide the basis for proportional energy partitioning.
-Instead of relying on statistical inference or coarse utilization averages, Tycho attributes energy according to directly measured CPU ownership.
+% The data exported from the kernel define how CPU resources are distributed among processes, kernel threads, interrupts, and idle periods during each observation window.
+% When combined with energy readings obtained over the same interval, these temporal shares provide the basis for proportional energy partitioning.
+% Instead of relying on statistical inference or coarse utilization averages, Tycho attributes energy according to directly measured CPU ownership.
 
-Each collection tick consolidates all per-process runtime and performance-counter deltas together with per-CPU idle and interrupt bins.
-The sum of these components represents the total active time observed by the processor during that tick, matching the energy sample boundaries defined by the timing engine.
-This strict temporal alignment ensures that every joule of measured energy can be traced to a specific class of activity—user workload, kernel service, or idle baseline.
-Through this mechanism, the \code{eBPF} subsystem provides the precise temporal structure required for fine-grained, container-level energy attribution in the subsequent analysis stages.
+% Each collection tick consolidates all per-process runtime and performance-counter deltas together with per-CPU idle and interrupt bins.
+% The sum of these components represents the total active time observed by the processor during that tick, matching the energy sample boundaries defined by the timing engine.
+% This strict temporal alignment ensures that every joule of measured energy can be traced to a specific class of activity—user workload, kernel service, or idle baseline.
+% Through this mechanism, the \code{eBPF} subsystem provides the precise temporal structure required for fine-grained, container-level energy attribution in the subsequent analysis stages.
 
-\subsection{Efficiency and Robustness}
-\label{subsec:ebpf-collector-efficiency}
+% \subsection{Efficiency and Robustness}
+% \label{subsec:ebpf-collector-efficiency}
 
-The kernel instrumentation is designed to operate continuously with negligible system impact while ensuring correctness across kernel versions.
-All high-frequency data reside in per-CPU maps, eliminating cross-core contention and locking.
-Each processor updates only its local entries in \code{cpu\_states} and \code{cpu\_bins}, while per-task data are stored in a bounded LRU hash that automatically removes inactive entries.
-Arithmetic within tracepoints is deliberately minimal (timestamp subtraction and counter increments only) so that the added latency per event remains near the measurement noise floor.
+% The kernel instrumentation is designed to operate continuously with negligible system impact while ensuring correctness across kernel versions.
+% All high-frequency data reside in per-CPU maps, eliminating cross-core contention and locking.
+% Each processor updates only its local entries in \code{cpu\_states} and \code{cpu\_bins}, while per-task data are stored in a bounded LRU hash that automatically removes inactive entries.
+% Arithmetic within tracepoints is deliberately minimal (timestamp subtraction and counter increments only) so that the added latency per event remains near the measurement noise floor.
 
-Userspace retrieval employs batched \code{BatchLookupAndDelete} operations, reducing system-call overhead and maintaining constant latency regardless of map size.
-Hardware counters are accessed through pre-opened \code{perf\_event\_array} readers managed by the kernel, avoiding repeated setup costs.
-Each polling interval consolidates the collected deltas into a single userspace tick, ensuring deterministic timing and consistent aggregation across all CPUs.
-This architecture allows the subsystem to record thousands of context switches per second while keeping CPU overhead low.
+% Userspace retrieval employs batched \code{BatchLookupAndDelete} operations, reducing system-call overhead and maintaining constant latency regardless of map size.
+% Hardware counters are accessed through pre-opened \code{perf\_event\_array} readers managed by the kernel, avoiding repeated setup costs.
+% Each polling interval consolidates the collected deltas into a single userspace tick, ensuring deterministic timing and consistent aggregation across all CPUs.
+% This architecture allows the subsystem to record thousands of context switches per second while keeping CPU overhead low.
 
-Correctness is maintained through several safeguards.
-CO-RE (Compile Once, Run Everywhere) field resolution protects the program from kernel-version differences in \code{task\_struct} layouts.
-Cgroup identifiers are refreshed only for the newly scheduled task, ensuring accurate container labeling even when group membership changes.
-The idle task (PID 0) and kernel threads are handled explicitly to prevent user-space misattribution, and the resettable bin design enforces strict temporal separation between collection ticks.
-Together, these measures yield a stable and version-tolerant tracing layer that can run indefinitely without producing inconsistent or overlapping tick data.
+% Correctness is maintained through several safeguards.
+% CO-RE (Compile Once, Run Everywhere) field resolution protects the program from kernel-version differences in \code{task\_struct} layouts.
+% Cgroup identifiers are refreshed only for the newly scheduled task, ensuring accurate container labeling even when group membership changes.
+% The idle task (PID 0) and kernel threads are handled explicitly to prevent user-space misattribution, and the resettable bin design enforces strict temporal separation between collection ticks.
+% Together, these measures yield a stable and version-tolerant tracing layer that can run indefinitely without producing inconsistent or overlapping tick data.
 
-\subsection{Limitations and Future Work}
-\label{subsec:ebpf-collector-limitations}
+% \subsection{Limitations and Future Work}
+% \label{subsec:ebpf-collector-limitations}
 
-Although the extended \code{eBPF} subsystem provides comprehensive temporal coverage of CPU activity, several limitations remain.
-Its precision is ultimately bounded by the granularity of available energy telemetry, as energy readings must be averaged over fixed collection intervals to remain stable.
-Within shorter ticks, power fluctuations introduce noise that limits the accuracy of direct attribution.
+% Although the extended \code{eBPF} subsystem provides comprehensive temporal coverage of CPU activity, several limitations remain.
+% Its precision is ultimately bounded by the granularity of available energy telemetry, as energy readings must be averaged over fixed collection intervals to remain stable.
+% Within shorter ticks, power fluctuations introduce noise that limits the accuracy of direct attribution.
 
-The current implementation also omits processor C-state and frequency information.
-While idle and active time are distinguished, variations in power state and dynamic frequency scaling are not yet represented in the collected data.
-Including tracepoints such as \code{power:cpu\_idle} and \code{power:cpu\_frequency} would enable finer correlation between CPU state transitions and power usage.
-Additionally, very short-lived processes may terminate and be removed from the LRU map before the next tick is collected, leading to a slight underrepresentation of transient workloads.
+% The current implementation also omits processor C-state and frequency information.
+% While idle and active time are distinguished, variations in power state and dynamic frequency scaling are not yet represented in the collected data.
+% Including tracepoints such as \code{power:cpu\_idle} and \code{power:cpu\_frequency} would enable finer correlation between CPU state transitions and power usage.
+% Additionally, very short-lived processes may terminate and be removed from the LRU map before the next tick is collected, leading to a slight underrepresentation of transient workloads.

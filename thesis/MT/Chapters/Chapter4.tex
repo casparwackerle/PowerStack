@@ -252,50 +252,52 @@ Figures~\ref{vt1_fig:tycho_timingDiagram} and \ref{vt1_fig:kepler_timingDiagram}
 %   This sets up the attribution logic in later sections (especially domain
 %   consistency and uncertainty handling).
 
-
 % ----------------------------------------------------------------------
-\subsection{CPU/RAPL Domains}
+\subsection{eBPF and Software Counters}
+\label{subsec:ebpf_temporal}
+
+The eBPF and software counter domain represents Tycho’s event-driven view of CPU activity.
+Unlike hardware domains that report values at fixed sampling times, this domain emits utilisation information at the moment execution changes occur.
+These events form a temporally dense and workload dependent signal that describes how the processor is shared between user tasks, kernel work, interrupt handling, and idle execution.
+All higher level aggregation occurs in userspace and is decoupled from the event timing itself.
+
+The domain contributes three classes of metrics with distinct temporal behaviour.
+\begin{itemize}
+    \item Event driven metrics capture transitions in processor ownership. They reflect the precise time when a task begins or ends its use of CPU resources and therefore provide exact temporal boundaries for attribution windows.
+    \item Cumulative counters accumulate durations or activity over time and expose their values whenever the collector retrieves them. The effective resolution of these counters is defined by the polling interval rather than by internal update frequency.
+    \item Quasi-instantaneous counters represent hardware performance information sampled at activity boundaries. Although they are observed at discrete points, their semantics remain tied to the execution periods they describe.
+\end{itemize}
+
+Two architectural properties follow from this structure.
+Event driven updates introduce no domain delay and therefore require no delay calibration.
+They also permit the collector to operate with an arbitrary polling cadence because temporal alignment is already guaranteed by the event timestamps.
+In Tycho the default interval matches the RAPL window for convenience rather than correctness.
+In addition, each event carries the current container context, which ensures that attribution remains correct when workloads migrate across control groups.
+
+Within Tycho’s temporal model this domain occupies a special role.
+It passively accumulates fine grained ownership information and exposes it at window boundaries without influencing the timing of these windows.
+Its signals also form a complete temporal partition of CPU activity within each analysis interval, which supports proportional attribution and reduces uncertainty in downstream energy modelling.
+At the architectural level, this domain therefore defines the most precise and temporally coherent view of processor utilisation available to the system.
+
+\subsection{RAPL Domains}
 \label{subsec:rapl_temporal}
 
-% LENGTH:
-%   ~0.75 page.
+RAPL provides cumulative energy readings for a set of logical CPU related domains such as package, cores, uncore, and memory.  
+Each domain exposes a monotonically increasing counter that reflects the total energy consumed since a hardware defined reference point.  
+These counters advance independently of Tycho’s sampling schedule and represent the continuous energy behaviour of the processor.
 
-% PURPOSE:
-%   Characterise RAPL as a cumulative energy domain with effectively
-%   continuous behaviour, explaining how this shapes its integration into
-%   Tycho’s event-time model.
+Within Tycho these cumulative counters are observed at fixed tick boundaries.  
+At each tick the system records the current value for all available domains, and the energy associated with that interval follows from the difference between consecutive readings.  
+The counters therefore describe energy over time rather than instantaneous power, and the temporal resolution is defined entirely by the tick interval.  
+Because the hardware updates its counters significantly more frequently than Tycho samples them, the measurements behave as effectively continuous at the chosen time scale.
 
-% MUST INCLUDE:
-%   - Conceptual description of RAPL domains relevant to energy modelling:
-%       * package, core, uncore, dram (depending on hardware availability).
-%   - Explanation that RAPL exposes *cumulative energy counters* that are
-%     monotonically increasing with wraparound.
-%   - Emphasise temporal implications:
-%       * These counters reflect energy consumed over time, not instantaneous
-%         power.
-%       * Event-time behaviour is reconstructed by differencing consecutive
-%         samples.
-%       * The temporal resolution is limited only by sampling rate and by
-%         variability in hardware update intervals.
-%   - State clearly:
-%       * No sysfs paths.
-%       * No discussion of actual polling code.
-%   - Mention wraparound conceptually:
-%       * Wraparound must be detectable and corrected in the analysis model
-%         (details appear in the implementation chapter, not here).
+RAPL sampling is synchronised with Tycho’s timing engine so that each interval has exactly one cumulative reading per domain.  
+No delay calibration is required, since the counters already incorporate any internal update behaviour and can be treated as representative for the entire interval.  
+At this level RAPL acts as a stable and low noise source of CPU adjacent energy.
 
-% MAY INCLUDE:
-%   - Short illustrative formula:
-%       \[
-%           \Delta E = E(t_2) - E(t_1), \qquad
-%           \bar{P} \approx \Delta E / (t_2 - t_1).
-%       \]
-%     Keep it conceptual; detailed discrete handling belongs later.
-
-% MUST NOT INCLUDE:
-%   - Any numeric update rates.
-%   - Implementation mechanics (paths, syscalls).
-%   - Hardware-specific quirks except at a conceptual level.
+The domain structure of RAPL aligns with Tycho’s requirement for domain level consistency.  
+Per socket counters for package, core, uncore, and memory related domains form a coherent decomposition of CPU energy that remains stable across intervals.  
+This decomposition is preserved throughout the attribution process and provides a reliable baseline against which software side utilisation signals can be related.
 
 
 % ----------------------------------------------------------------------
@@ -355,74 +357,26 @@ Figures~\ref{vt1_fig:tycho_timingDiagram} and \ref{vt1_fig:kepler_timingDiagram}
 \subsection{Redfish/BMC Power Source}
 \label{subsec:redfish_temporal}
 
-% LENGTH:
-%   ~0.5 page.
+Redfish provides an out-of-band view of total node power through the server’s management controller.  
+In contrast to the high-frequency in-band domains, Redfish publishes power updates at coarse and irregular intervals that depend on the behaviour of the underlying BMC.  
+These values represent instantaneous chassis power rather than cumulative energy and therefore require temporal interpretation when used within Tycho’s event-time model.
 
-% PURPOSE:
-%   Present Redfish power readings as coarse but authoritative signals,
-%   explaining their role in Tycho’s event-time model and as potential
-%   triggers for window formation.
+Tycho samples Redfish strictly at tick boundaries using its monotonic timebase.  
+Because BMC updates are asynchronous, many polls return repeated values, and new measurements may appear only after multiple tick intervals.  
+Each observation is therefore associated with a freshness value that expresses the temporal distance between the hardware-reported update time and the sampling moment.  
+At the architectural level, freshness conveys the uncertainty arising from slow or irregular publication cycles and enables the analysis component to reason about the temporal accuracy of each reading.
 
-% MUST INCLUDE:
-%   - Description of Redfish as a low-frequency, aggregated node-level power
-%     source.
-%   - Emphasise:
-%       * Long and variable sample intervals (hundreds of milliseconds to
-%         seconds).
-%       * Availability of *freshness indicators* (e.g. timestamps or update
-%         counters), enabling Tycho to interpret event times more accurately
-%         than relying on poll time alone.
-%   - Explain its architectural role:
-%       * Acts as the authoritative “total node power” reference.
-%       * May serve as the trigger for window completion in some modes.
-%   - Conceptual temporal implications:
-%       * Redfish readings often span windows and therefore define natural
-%         analysis boundaries.
-%       * Their low frequency introduces uncertainty that must be handled
-%         explicitly in attribution.
+The coarse and irregular nature of Redfish introduces continuity requirements that differ from those of the in-band collectors.  
+When no new value appears for an extended period, Tycho emits an explicit continuation of the last power value to maintain a complete and chronologically consistent power timeline.  
+These continuation samples carry the same timestamping and freshness semantics as true updates but do not indicate new power information.  
+This mechanism ensures that the global power series remains well defined even when the BMC publishes infrequently.
 
-% MUST NOT INCLUDE:
-%   - JSON paths, HTTP details, schema structures.
-%   - Vendor-specific differences (implementation chapter).
+Redfish serves as Tycho’s authoritative source for total node power.  
+Although its temporal resolution is limited, the measurements provide a stable reference against which CPU-related energy and software-side utilisation signals can be interpreted.  
+Within Tycho’s domain model, Redfish therefore acts as a coarse but essential power source whose irregular behaviour is accommodated through timestamping, freshness annotation, and controlled sampling rather than through high-frequency polling or delay correction.
 
 
-% ----------------------------------------------------------------------
-\subsection{eBPF and Software Counters}
-\label{subsec:ebpf_temporal}
 
-% LENGTH:
-%   ~0.75 page.
-
-% PURPOSE:
-%   Characterise software-side utilisation metrics (CPU time, IO counts,
-%   scheduler events, cgroup stats) as temporally diverse signals:
-%       * some cumulative,
-%       * some event-driven,
-%       * some quasi-instantaneous.
-
-% MUST INCLUDE:
-%   - eBPF as event-driven:
-%       * Metrics recorded exactly at the moment events occur.
-%       * Intrinsic high temporal resolution.
-%       * Non-uniform density, reflecting workload behaviour.
-%   - Cgroup and /proc counters:
-%       * Cumulative counters updated by kernel mechanisms.
-%       * Polling resolution determines effective temporal resolution.
-%   - Integration into Tycho’s temporal model:
-%       * All samples receive global monotonic timestamps.
-%       * Event-driven metrics require different aggregation logic than
-%         cumulative counters or instantaneous hardware readings.
-%   - Abstract temporal implications:
-%       * eBPF may contribute many events within a single analysis window.
-%       * Cgroup stats may contribute only a few samples.
-
-% MUST NOT INCLUDE:
-%   - Implementation specifics (maps, programs, syscalls).
-%   - Kernel tick behaviour beyond a conceptual remark.
-
-% MAY INCLUDE:
-%   - One sentence linking this to the requirement for domain-level
-%     consistency.
 
 
 % ----------------------------------------------------------------------
