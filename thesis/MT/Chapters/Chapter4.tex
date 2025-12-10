@@ -380,42 +380,108 @@ Within Tycho’s domain model, Redfish therefore acts as a coarse but essential 
 
 
 % ----------------------------------------------------------------------
-\subsection{Conceptual Limitations and Uncertainty Sources}
-\label{subsec:uncertainty_sources}
+\subsection{GPU Subsystem Architecture}
+\label{subsec:gpu_architecture}
 
-% LENGTH:
-%   ~0.75 page.
+Accelerators form a significant share of the power consumption of modern compute
+nodes.  Tycho therefore integrates GPU telemetry into the same unified temporal
+framework that governs RAPL, Redfish, and eBPF sources.  NVIDIA devices expose
+energy-relevant information only at discrete publish moments inside the driver,
+so GPU sampling cannot rely on periodic polling alone.  Instead, Tycho aligns
+sampling with the device's internal update behaviour and publishes at most one
+\code{GpuTick} for each confirmed hardware update.  All GPU ticks share the
+global monotonic timebase that underpins Tycho's event-time model
+(\S~\ref{sec:tycho_timing_engine}).
 
-% PURPOSE:
-%   Summarise cross-domain temporal mismatch and inherent sampling
-%   uncertainty. This closes the section by motivating the modelling
-%   techniques introduced in the next chapter subsection.
+\paragraph{Architectural Role}
+The GPU subsystem provides two forms of telemetry.  
+Device-level metrics describe the instantaneous operating state of each
+accelerator, including power, utilisation, memory, thermals, and clock data.
+Process-level metrics describe backend-aggregated utilisation over a defined
+wall-clock window.  Both streams are combined into a single \code{GpuTick} that
+represents the accelerator state at a specific moment in Tycho's global
+timeline.  GPUs and MIG instances are treated as independent logical devices.
 
-% MUST INCLUDE:
-%   - Identification of uncertainty sources:
-%       * Temporal mismatch between domains (fast GPU, slow Redfish).
-%       * Internal sensor averaging (NVML averaged metric).
-%       * Jitter in software counters.
-%       * Acquisition delays.
-%       * Missing samples.
-%   - Explain that these are not “errors” but natural constraints of
-%     multi-source measurement systems.
-%   - Clarify that Tycho’s architecture does not attempt perfect
-%     synchronisation; instead it:
-%       * constructs windows that respect each domain’s timing,
-%       * propagates uncertainty forward to the analysis stage.
+A central architectural design choice is the use of high-frequency instantaneous
+power fields exposed through NVIDIA's field interfaces, rather than the
+traditional one-second trailing average returned by \code{nvmlDeviceGetPowerUsage}.
+This enables sub-second attribution and allows Tycho to track energy behaviour
+with temporal fidelity comparable to RAPL.
 
-% MUST NOT INCLUDE:
-%   - Numerical error bounds.
-%   - Details of uncertainty quantification (belongs in analysis chapter).
+\paragraph{Backend Abstraction}
+The collector interfaces with NVIDIA hardware through a backend layer that
+supports both \code{NVML} and \code{DCGM}.  This abstraction performs device
+enumeration, capability probing, and topology discovery, including the presence
+of MIG instances.  The architecture does not assume uniform support across
+devices.  Cumulative energy counters, instantaneous power fields, and
+process-level utilisation may or may not be available.  All capability
+differences are managed through per-device feature masks inside the
+implementation.
 
-% MAY INCLUDE:
-%   - A forward reference: “The analysis engine (Section~\S\ref{sec:analysis_model})
-%     incorporates these uncertainties by …”
-%     Keep this brief.
+\paragraph{Conceptual Sampling Model.}
+GPU drivers update power and utilisation metrics at discrete, hardware-defined
+cadences that are not visible to callers.  Polling at a fixed interval risks
+either missing updates or repeatedly reading identical values.  Tycho therefore
+employs a phase-aware sampling model that infers the implicit publish rhythm
+from observed updates and aligns sampling effort with predicted update edges.
 
-% DIAGRAM:
-%   - None required; the section is integrative and conceptual.
+The sampling model distinguishes two conceptual modes.  
+In base mode, the subsystem polls at a moderate frequency to track slow drift in
+the device's cadence.  
+In burst mode, the subsystem temporarily increases its sampling frequency when
+Tycho's timebase approaches a predicted publish moment.  This concentrates
+sampling effort where a fresh update is expected and reduces latency between the
+hardware update and Tycho's observation of it.  The architecture guarantees that
+sampling remains event-driven rather than periodic.
+
+\paragraph{Tick Semantics}
+A \code{GpuTick} is emitted only when Tycho detects a genuinely new hardware
+update.  Each tick contains a snapshot of device-level metrics and, when
+available, process-level utilisation aligned to the same monotonic timestamp.
+This design ensures that GPU measurements participate in Tycho's
+cross-domain correlation without interpolation, resampling, or ad hoc
+realignment.  The one-to-one correspondence between hardware updates and GPU
+ticks is a core architectural guarantee and the primary distinction between
+Tycho's approach and traditional periodic sampling.
+
+\paragraph{Process Telemetry Integration.}
+Process-level metrics describe aggregated utilisation over a wall-clock window
+that is defined by the backend rather than Tycho's timing engine.  The
+architecture treats these windows as retrospective measurements that must be
+aligned with the device timeline.  Each process record is anchored to the
+timestamp of the device snapshot that triggered its acquisition.  This preserves
+temporal coherence in spite of the retrospective semantics of process telemetry
+and supports multi-tenant attribution across GPU workloads.
+
+\paragraph{Integration with the Global Timing Model}
+All GPU ticks are timestamped using Tycho's global monotonic timebase and
+inserted into the multi-domain ring buffer
+(\S~\ref{subsec:ringbuffer_overview}).  This ensures strict temporal ordering
+relative to RAPL, Redfish, and eBPF data.  The architecture maintains the
+principle of domain autonomy: each subsystem generates updates according to its
+own temporal behaviour, while the analysis engine later fuses these streams into
+a consistent attribution result.
+
+\paragraph{Architectural Limitations}
+Although the architecture abstracts over backend differences, several structural
+constraints remain.  
+Backend capabilities vary significantly across NVIDIA devices.  
+Some accelerators expose high-quality instantaneous power fields and cumulative
+energy counters, while others expose only averaged power and coarse utilisation.
+Process telemetry is inherently retrospective and cannot represent instantaneous
+states.  
+The implicit publish cadence may drift under DVFS or thermal transitions, which
+limits the predictability of update edges.  
+Tycho mitigates these effects through robust sampling logic in the implementation,
+but the fidelity of the resulting GPU timeline remains bounded by the behaviour
+of the underlying hardware.
+
+Overall, the GPU subsystem elevates accelerator telemetry to a first-class
+component of Tycho's energy model.  By aligning sampling with the device's
+publish behaviour and unifying device and process metrics under a single
+timestamping model, the architecture enables precise, temporally consistent
+attribution in heterogeneous accelerator environments.
+
 
 
 
