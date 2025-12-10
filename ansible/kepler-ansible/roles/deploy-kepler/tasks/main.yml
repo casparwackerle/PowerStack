@@ -31,52 +31,52 @@
 - name: Check if {{ kepler_name }} already exists
   stat:
     path: /var/lib/{{ kepler_name }}/{{ kepler_name }}-installed
-  register: tycho_installed
+  register: kepler_installed
 
 - name: Ensure {{ kepler_name }} values file is rendered locally
   template:
-    src: tycho-values.yml.j2      # was kepler-values.yml.j2
-    dest: /tmp/tycho-values.yml   # was /tmp/kepler-values.yml
+    src: kepler-values.yml.j2
+    dest: /tmp/kepler-values.yml
   delegate_to: localhost
   become: false
 
-- name: Debug rendered tycho values file
-  command: cat /tmp/tycho-values.yml
+- name: Debug rendered kepler values file
+  command: cat /tmp/kepler-values.yml
   delegate_to: localhost
   run_once: true
   become: false
 
 - name: Copy {{ kepler_name }} values file to the target machine
   copy:
-    src: /tmp/tycho-values.yml
-    dest: /tmp/tycho-values.yml
+    src: /tmp/kepler-values.yml
+    dest: /tmp/kepler-values.yml
     mode: '0644'
   become: true
 
-# # Public-facing: Helm release name is now "tycho"
+# # Public-facing: Helm release name is now "kepler"
 # - name: Install {{ kepler_name }} using Helm
-#   when: not tycho_installed.stat.exists
+#   when: not kepler_installed.stat.exists
 #   shell: |
 #     helm install {{ kepler_name }} kepler/kepler \
 #       --namespace {{ kepler_namespace }} \
 #       --create-namespace \
-#       -f /tmp/tycho-values.yml
+#       -f /tmp/kepler-values.yml
 #   environment:
-#     KUBECONFIG: /home/ubuntu/.kube/config
+#     KUBECONFIG: "{{ ansible_env.HOME }}/.kube/config"
 #   become: true
 
 - name: Deploy {{ kepler_name }} via Helm (idempotent)
   shell: |
-    helm upgrade --install tycho kepler/kepler \
-      --namespace tycho --create-namespace \
+    helm upgrade --install kepler kepler/kepler \
+      --namespace kepler --create-namespace \
       --wait --timeout 10m \
-      -f /tmp/tycho-values.yml
+      -f /tmp/kepler-values.yml
   environment:
-    KUBECONFIG: /home/ubuntu/.kube/config
+    KUBECONFIG: "{{ ansible_env.HOME }}/.kube/config"
   become: true
 
 - name: Mark {{ kepler_name }} as installed
   file:
     path: /var/lib/{{ kepler_name }}/{{ kepler_name }}-installed
     state: touch
-  when: not tycho_installed.stat.exists
+  when: not kepler_installed.stat.exists

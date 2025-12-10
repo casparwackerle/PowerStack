@@ -1,0 +1,16 @@
+---
+- name: Ensure perf_event_paranoid is configured on all nodes
+  hosts: k3s_cluster
+  become: true
+  roles:
+    - role: perf-event-config
+
+- name: Install and configure {{ tycho_name }}
+  hosts: server
+  become: true
+  vars_files:
+   - ../../../configs/vault.yml
+  roles:
+    - role: deploy-tycho
+#    - role: add-grafana-dashboard   # currently not working, but this is easy to do by hand, and also grafana has persistent storage
+    - role: post-install-cleanup

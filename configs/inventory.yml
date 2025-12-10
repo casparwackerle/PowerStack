@@ -67,10 +67,15 @@ k3s_cluster:
     alertmanager_custom_nodeport: 30004
       
     # Kepler
-    kepler_name: tycho
-    kepler_namespace: tycho
+    kepler_name: kepler
+    kepler_namespace: kepler
     kepler_repo_url: https://sustainable-computing-io.github.io/kepler-helm-chart
     
+    # tycho
+    tycho_name: tycho
+    tycho_namespace: tycho
+    tycho_repo_url: https://sustainable-computing-io.github.io/kepler-helm-chart
+
     # benchmarking
     benchmarking_namespace: benchmarking
     k_bench_repo: https://github.com/vmware-tanzu/k-bench.git

@@ -1,0 +1,12 @@
+---
+- name: Ensure permanent configuration for perf_event_paranoid
+  lineinfile:
+    path: /etc/sysctl.conf
+    regexp: '^kernel.perf_event_paranoid'
+    line: 'kernel.perf_event_paranoid=-1'
+    state: present
+  become: true
+
+- name: Apply sysctl changes to load the new configuration
+  command: sysctl -p
+  become: true

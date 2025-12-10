@@ -1,0 +1,28 @@
+---
+# Step 1: Uninstall tycho using Helm
+- name: Uninstall {{ tycho_namespace }} stack Helm release
+  shell: |
+    helm uninstall {{ tycho_name }} -n monitoring
+  register: helm_uninstall_result
+  failed_when: false
+- name: Debug Helm uninstall result
+  debug:
+    var: helm_uninstall_result.stdout
+
+# Step 2: Delete tycho namespace
+- name: Delete {{ tycho_namespace }} namespace
+  shell: |
+    kubectl delete namespace {{ tycho_namespace }} --wait=false
+  register: namespace_delete_result
+  failed_when: false
+- name: Debug namespace delete result
+  debug:
+    var: namespace_delete_result.stdout
+
+# Step 6: Remove installation marker file
+- name: Remove {{ tycho_namespace }} installation marker file
+  file:
+    path: /var/lib/{{ tycho_name }}/{{ tycho_name }}installed
+    state: absent
+  become: true
+

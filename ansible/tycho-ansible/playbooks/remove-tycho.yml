@@ -1,0 +1,6 @@
+---
+- name: Remove {{ tycho_name }} using helm
+  hosts: server
+  become: true
+  roles:
+     - role: remove-tycho

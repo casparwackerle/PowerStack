@@ -11,7 +11,7 @@
   args:
     executable: /bin/bash
   environment:
-    KUBECONFIG: /home/ubuntu/.kube/config
+    KUBECONFIG: "{{ ansible_env.HOME }}/.kube/config"
   async: 0
   poll: 0
   when: grafana_service_check.rc == 0
@@ -20,13 +20,13 @@
   shell: |
     kubectl patch svc monitoring-grafana -n {{ monitoring_namespace }} -p '{"spec": {"ports": [{"port": 80, "nodePort": {{ grafana_custom_nodeport }}, "protocol": "TCP", "targetPort": 3000}],"type": "NodePort"}}'
   environment:
-    KUBECONFIG: /home/ubuntu/.kube/config
+    KUBECONFIG: "{{ ansible_env.HOME }}/.kube/config"
 
 - name: Retrieve NodePort for Grafana service
   shell: |
     kubectl get svc monitoring-grafana -n {{ monitoring_namespace }} -o jsonpath="{.spec.ports[0].nodePort}"
   environment:
-    KUBECONFIG: /home/ubuntu/.kube/config
+    KUBECONFIG: "{{ ansible_env.HOME }}/.kube/config"
   register: grafana_nodeport
 
 - name: Display Grafana NodePort

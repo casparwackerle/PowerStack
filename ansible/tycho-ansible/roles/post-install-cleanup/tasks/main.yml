@@ -1,0 +1,22 @@
+---
+- name: Delete config/values files from target machine
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/tycho-values.yml
+    - /tmp/tycho-grafana-dashboard-configmap.yaml
+  become: true
+
+- name: Delete config/values files from control machine
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/tycho-values.yml
+    - /tmp/tycho-values.yml
+    - /tmp/tycho-grafana-dashboard.json
+    - /tmp/tycho-grafana-dashboard-configmap.yaml
+  delegate_to: localhost
+  run_once: true
+  become: false

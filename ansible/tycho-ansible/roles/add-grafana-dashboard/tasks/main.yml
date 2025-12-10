@@ -1,0 +1,44 @@
+---
+- name: Ensure Grafana dashboard JSON is rendered locally
+  template:
+    src: kepler-grafana-dashboard.json.j2
+    dest: /tmp/kepler-grafana-dashboard.json  # Rendered on the Ansible control node
+  delegate_to: localhost
+  become: false
+
+- name: Create Kepler-Grafana dashboard ConfigMap
+  copy:
+    content: |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: kepler-grafanae-dashboard
+        namespace: {{ monitoring_namespace }}
+        labels:
+          grafana_dashboard: "1"
+      data:
+        kepler-grafana-dashboard.json: |
+          {{ lookup('file', '/tmp/kepler-grafana-dashboard.json') | to_json | indent(10) }}
+    dest: /tmp/kepler-grafana-dashboard-configmap.yaml
+  delegate_to: localhost
+  become: false
+
+- name: Copy configmap file to the target machine
+  copy:
+    src: /tmp/kepler-grafana-dashboard-configmap.yaml
+    dest: /tmp/kepler-grafana-dashboard-configmap.yaml
+    mode: '0644'
+  become: true
+
+- name: Apply Grafana dashboard ConfigMap
+  command: kubectl apply -f /tmp/kepler-grafana-dashboard-configmap.yaml
+  become: true
+
+- name: Get Grafana pod name
+  shell: kubectl get pods -n {{ monitoring_namespace }} -l app.kubernetes.io/name=grafana -o jsonpath="{.items[0].metadata.name}"
+  register: grafana_pod
+  changed_when: false
+
+- name: Delete Grafana pod to trigger restart
+  command: kubectl delete pod -n {{ monitoring_namespace }} {{ grafana_pod.stdout }}
+  when: grafana_pod.stdout is defined and grafana_pod.stdout != ""

@@ -60,7 +60,7 @@
       --namespace {{ monitoring_namespace }} \
       -f /tmp/monitoring-stack-values.yml
   environment:
-    KUBECONFIG: /home/ubuntu/.kube/config
+    KUBECONFIG: "{{ ansible_env.HOME }}/.kube/config"
   become: true
 
 - name: Mark monitoring-stack as installed
