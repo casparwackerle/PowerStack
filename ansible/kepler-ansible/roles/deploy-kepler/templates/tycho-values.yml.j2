@@ -103,9 +103,5 @@ redfish:
   labels: {}
   annotations: {}
   fileContent: |-
-{% set server_hosts = groups['server'] | default([]) %}
-{% set agent_hosts  = groups['agent']  | default([]) %}
-{% set all_hosts = server_hosts + agent_hosts %}
-{% for h in all_hosts if hostvars[h].get('BMC_ip') %}
-    {{ hostvars[h].node_name }},{{ ansible_vault.xclarityUser }},{{ ansible_vault.xclarityPassword }},https://{{ hostvars[h].BMC_ip }}
-{% endfor %}
+    {{ hostvars[groups['server'][0]].node_name }},{{ ansible_vault.xclarityUser }},{{ ansible_vault.xclarityPassword }},https://{{ hostvars[groups['server'][0]].BMC_ip }}
+    {{ hostvars[groups['agent'][0]].node_name }},{{ ansible_vault.megaRacUser }},{{ ansible_vault.megaRacPassword }},https://{{ hostvars[groups['agent'][0]].BMC_ip }}

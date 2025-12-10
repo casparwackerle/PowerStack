@@ -59,7 +59,7 @@
 #      --set service.type=NodePort \
 #      --set service.nodePort={{ rancher_custom_nodeport }}
   environment:
-    KUBECONFIG: /home/ubuntu/.kube/config
+    KUBECONFIG: "{{ ansible_env.HOME }}/.kube/config"
   args:
     creates: /var/lib/rancher/rancher-installed
 

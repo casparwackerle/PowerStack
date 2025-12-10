@@ -2,31 +2,26 @@ k3s_cluster:
   children:
     server:
       hosts:
-        160.85.30.104:                  # This is the public IP of the control plane node
-           node_name: ho1
-           internal_ip: 192.168.0.104   # Internal IP for the control plane
-           external_ip: 160.85.30.104   # External IP for the control plane
-           BMC_ip: 160.85.30.101
-           disk_for_persistent_storage: /dev/sdd
+        newnan.zhaw.ch:                  # This is the public IP of the control plane node
+           node_name: controlNode
+           internal_ip: 192.168.10.60  # Internal IP for the control plane
+           external_ip: newnan.zhaw.ch   # External IP for the control plane
+           BMC_ip: 192.168.10.209
+           disk_for_persistent_storage: /dev/sdb
     agent:
       hosts:
-        160.85.30.105:                  # Public IP of worker node 1
-           node_name: ho2
-           internal_ip: 192.168.0.105   # Internal IP of worker node 1
-           BMC_ip: 160.85.30.102
-           disk_for_testing: /dev/sdb
-#         160.85.30.106:                  # Public IP of worker node 2
-#            node_name: ho3
-#            internal_ip: 192.168.0.106   # Internal IP of worker node 2
-#            BMC_ip: 160.85.30.103
-#            disk_for_testing: /dev/sdb
+        irvine.zhaw.ch:                  # Public IP of worker node 1
+           node_name: workerNode
+           internal_ip: 192.168.10.61   # Internal IP of worker node 1
+           BMC_ip: 192.168.10.157
+           disk_for_testing: /dev/nvme1n1
 
   # Required Vars
   vars:
     # ansible
     control_node_name: ho1
     ansible_port: 22
-    ansible_user: ubuntu
+    ansible_user: root
     k3s_version: v1.30.2+k3s1
     token: "{{ ansible_vault.token }}"
     api_endpoint: "{{ hostvars[groups['server'][0]]['ansible_host'] | default(groups['server'][0]) }}"
@@ -62,7 +57,7 @@ k3s_cluster:
     #grafana_admin_password: {{ ansible_vault.grafanaAdminPassword }}
     monitoring_namespace: monitoring
     testing_namespace: testing  #careful: Testing scripts are not adjusted automatically
-    prometheus_scrape_interval: 10s
+    prometheus_scrape_interval: 5s
     prometheus_kepler_port: 9102
 
     # NodePorts. MUST BE BETWEEN 30000 AND 32767
