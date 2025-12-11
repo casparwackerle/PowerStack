@@ -18,6 +18,8 @@
   file:
     path: "{{ export_path }}"
     state: directory
+    mode: "0755"
+  become: true
 
 - name: Check if the disk is mounted
   shell: mount | grep "{{ export_path }}"
@@ -34,12 +36,14 @@
     state: mounted
   when: mount_check.rc != 0
   changed_when: mount_check.rc == 0
+  become: true
 
 - name: Ensure /etc/fstab entry for the disk (ensure remount after reboot)
   lineinfile:
     path: /etc/fstab
     line: "{{ disk_for_persistent_storage }}1 {{ export_path }} btrfs defaults 0 0"
     state: present
+  become: true
 
 - name: Install NFS server
   apt:

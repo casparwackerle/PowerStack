@@ -1,8 +1,8 @@
 ---
 - name: Ensure NFS server address variable is defined
   fail:
-    msg: "The variable 'external_ip' is not defined for the NFS server host."
-  when: hostvars[groups['server'][0]]['external_ip'] is not defined
+    msg: "The variable 'nfs_server' is not defined in the inventory."
+  when: nfs_server is not defined
 
 - name: Ensure NFS export path variable is defined
   fail:
@@ -32,7 +32,7 @@
 - name: Mount the NFS share if not already mounted
   mount:
     path: "{{ export_path }}"
-    src: "{{ hostvars[groups['server'][0]]['external_ip'] }}:{{ export_path }}"
+    src: "{{ nfs_server }}:{{ export_path }}"
     fstype: nfs
     opts: defaults
     state: mounted
@@ -42,7 +42,7 @@
 - name: Ensure /etc/fstab entry for the NFS share (remount after reboot)
   lineinfile:
     path: /etc/fstab
-    line: "{{ hostvars[groups['server'][0]]['external_ip'] }}:{{ export_path }} {{ export_path }} nfs defaults 0 0"
+    line: "{{ nfs_server }}:{{ export_path }} {{ export_path }} nfs defaults 0 0"
     state: present
   become: true
 
@@ -53,9 +53,9 @@
 
 - name: Fail if the NFS share is not accessible
   fail:
-    msg: "The NFS share {{ hostvars[groups['server'][0]]['external_ip'] }}:{{ export_path }} could not be accessed from {{ export_path }}."
+    msg: "The NFS share {{ nfs_server }}:{{ export_path }} could not be accessed from {{ export_path }}."
   when: share_access.rc != 0
 
 - name: Confirm the NFS share is successfully mounted
   debug:
-    msg: "The NFS share {{ hostvars[groups['server'][0]]['external_ip'] }}:{{ export_path }} is successfully mounted on {{ export_path }}."
+    msg: "The NFS share {{ nfs_server }}:{{ export_path }} is successfully mounted on {{ export_path }}."

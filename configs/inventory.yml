@@ -35,6 +35,7 @@ k3s_cluster:
 
     # NFS on server disk (disk to be formatted is specified above)
     nfs_network: 192.168.0.0/24
+    nfs_server: newnan.zhaw.ch
     export_path: /mnt/data
 
     # kubernetes pv and pvc

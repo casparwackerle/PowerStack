@@ -17,7 +17,8 @@
     state: directory
     owner: root
     group: root
-    mode: '0755'
+    mode: '0777'
+    recurse: yes
   loop:
     - grafana
     - prometheus
@@ -96,7 +97,7 @@
         storageClassName: {{ storageclass_name }}
         nfs:
           path: {{ export_path }}/grafana
-          server: {{ hostvars[groups['server'][0]]['internal_ip'] }}
+          server: {{ nfs_server }}
     dest: "/tmp/{{ pv_name }}-grafana.yaml"
   become: true
 
@@ -128,7 +129,7 @@
         storageClassName: {{ storageclass_name }}
         nfs:
           path: {{ export_path }}/prometheus
-          server: {{ hostvars[groups['server'][0]]['internal_ip'] }}
+          server: {{ nfs_server }}
     dest: "/tmp/{{ pv_name }}-prometheus.yaml"
   become: true
 
@@ -160,7 +161,7 @@
         storageClassName: {{ storageclass_name }}
         nfs:
           path: {{ export_path }}/alertmanager
-          server: {{ hostvars[groups['server'][0]]['internal_ip'] }}
+          server: {{ nfs_server }}
     dest: "/tmp/{{ pv_name }}-alertmanager.yaml"
   become: true
 
