@@ -52,7 +52,7 @@ prometheus:
 {% set all_hosts = (servers + agents) %}
 {% if all_hosts|length > 0 %}
 {%   for h in all_hosts %}
-            - "{{ hostvars[h].internal_ip | default(h) }}:{{ scrape_port }}"
+            - "{{ hostvars[h].external_ip | default(h) }}:{{ scrape_port }}"
 {%   endfor %}
 {% else %}
             []
