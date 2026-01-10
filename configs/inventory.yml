@@ -59,7 +59,7 @@ k3s_cluster:
     #grafana_admin_password: {{ ansible_vault.grafanaAdminPassword }}
     monitoring_namespace: monitoring
     testing_namespace: testing  #careful: Testing scripts are not adjusted automatically
-    prometheus_scrape_interval: 5s
+    prometheus_scrape_interval: 3s
     prometheus_kepler_port: 9102
 
     # NodePorts. MUST BE BETWEEN 30000 AND 32767
