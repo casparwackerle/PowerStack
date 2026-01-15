@@ -38,6 +38,9 @@ grafana:
   persistence:
     enabled: true
     existingClaim: {{ pvc_name }}-grafana
+  grafana.ini:
+    dashboards:
+      min_refresh_interval: 1s
 
 prometheus:
   enabled: true
