@@ -1,9 +1,9 @@
----
-- name: Prepare SSD on master server
-  hosts: agent
-  become: true
-  roles:
-    - role: format_hdd
+# ---
+# - name: Prepare SSD on master server
+#   hosts: agent
+#   become: true
+#   roles:
+#     - role: format_hdd
 
 - name: Install and configure Ubuntu pod with kubectl
   hosts: server
