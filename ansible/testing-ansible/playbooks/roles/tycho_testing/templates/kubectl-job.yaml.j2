@@ -1,0 +1,60 @@
+# FILE: playbooks/roles/tycho_testing/templates/kubectl-job.yaml.j2
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: tycho-plan-{{ tycho_test_plan_id }}
+  namespace: {{ plan_ns }}
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app: tycho-testing
+        tycho_plan_id: "{{ tycho_test_plan_id }}"
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ tycho_testing_serviceaccount_name }}
+      containers:
+        - name: kubectl
+          image: {{ tycho_kubectl_image }}
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh","-c"]
+          args:
+            - |
+              set -eu
+
+              echo "[tycho-testing] job started"
+              echo "[tycho-testing] namespace: {{ plan_ns }}"
+              echo "[tycho-testing] plan id: {{ tycho_test_plan_id }}"
+              echo
+
+              echo "[tycho-testing] verify in-cluster auth: read ConfigMap"
+              kubectl -n {{ plan_ns }} get configmap {{ tycho_test_plan_configmap_name }} -o name
+              echo
+
+              echo "[tycho-testing] mounted plan.yaml (head):"
+              sed -n '1,120p' /plan/plan.yaml
+              echo
+
+              echo "[tycho-testing] mounted runner assets:"
+              ls -la /plan | sed -n '1,200p'
+              echo
+
+              echo "[tycho-testing] execute runner"
+              cp /plan/runner.sh /tmp/runner.sh
+              chmod +x /tmp/runner.sh
+              exec /tmp/runner.sh
+          volumeMounts:
+            - name: plan
+              mountPath: /plan
+              readOnly: true
+            - name: out
+              mountPath: /out
+      volumes:
+        - name: plan
+          configMap:
+            name: {{ tycho_test_plan_configmap_name }}
+        - name: out
+          persistentVolumeClaim:
+            claimName: {{ tycho_testing_pvc_name }}

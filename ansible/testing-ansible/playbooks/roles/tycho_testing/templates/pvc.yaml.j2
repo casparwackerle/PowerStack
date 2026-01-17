@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ tycho_testing_pvc_name }}
+  namespace: {{ plan_ns }}
+spec:
+  accessModes:
+    - {{ tycho_testing_access_mode }}
+  resources:
+    requests:
+      storage: {{ tycho_testing_pvc_size }}
+  selector:
+    matchLabels:
+      app: tycho-testing
+      tycho: testing
+  storageClassName: {{ tycho_testing_storageclass_name }}

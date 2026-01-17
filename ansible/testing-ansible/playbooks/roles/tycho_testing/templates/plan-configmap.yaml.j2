@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ tycho_test_plan_configmap_name }}
+  namespace: {{ plan_ns }}
+data:
+  plan.yaml: |
+{{ plan_yaml | indent(4, true) }}
+{% if workload_yaml_map is defined %}
+{% for k, v in workload_yaml_map.items() %}
+  {{ k }}: |
+{{ v | indent(4, true) }}
+{% endfor %}
+{% endif %}

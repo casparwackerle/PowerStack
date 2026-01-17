@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ tycho_testing_rolebinding_name }}
+  namespace: {{ plan_ns }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ tycho_testing_serviceaccount_name }}
+    namespace: {{ plan_ns }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ tycho_testing_role_name }}

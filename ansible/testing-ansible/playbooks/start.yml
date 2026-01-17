@@ -1,0 +1,5 @@
+- name: Start Tycho testing prototype (apply plan + start kubectl job)
+  hosts: localhost
+  gather_facts: false
+  roles:
+    - role: tycho_testing

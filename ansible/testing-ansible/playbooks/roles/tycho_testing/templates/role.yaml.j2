@@ -1,0 +1,29 @@
+# FILE: playbooks/roles/tycho_testing/templates/role.yaml.j2
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ tycho_testing_role_name }}
+  namespace: {{ plan_ns }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get","list","watch"]
+
+  # Runner creates and deletes per-phase Pods, polls status, and fetches logs.
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get","list","watch","create","delete","deletecollection"]
+
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+
+  # Optional but useful for debugging (kubectl describe uses events).
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get","list","watch"]
+
+  # The runner does not create Jobs, but the Job itself is useful to observe.
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get","list","watch"]

@@ -1,0 +1,14 @@
+---
+- name: Prepare NFS export directory for Tycho testing
+  hosts: server
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Ensure tycho-testing directory exists on NFS server
+      file:
+        path: /mnt/data/tycho-testing
+        state: directory
+        owner: root
+        group: root
+        mode: "0777"
+        recurse: true

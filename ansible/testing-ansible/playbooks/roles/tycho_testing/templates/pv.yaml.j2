@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ tycho_testing_pv_name }}
+  labels:
+    app: tycho-testing
+    tycho: testing
+spec:
+  capacity:
+    storage: {{ tycho_testing_pvc_size }}
+  accessModes:
+    - {{ tycho_testing_access_mode }}
+  storageClassName: {{ tycho_testing_storageclass_name }}
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    path: {{ tycho_testing_nfs_export_path }}/{{ tycho_testing_nfs_subdir }}
+    server: {{ tycho_testing_nfs_server }}

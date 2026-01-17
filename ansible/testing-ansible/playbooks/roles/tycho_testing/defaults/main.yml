@@ -1,0 +1,33 @@
+tycho_test_plan_id: "cpu-short-lived-v1"
+
+# playbook_dir == PowerStack/ansible/testing-ansible/playbooks
+tycho_test_plan_root: "{{ playbook_dir }}/../../../testing/plans"
+
+tycho_test_plan_configmap_name: "tycho-test-plan"
+
+tycho_kubectl_image: "bitnami/kubectl:latest"
+
+tycho_testing_serviceaccount_name: "tycho-testing"
+tycho_testing_role_name: "tycho-testing"
+tycho_testing_rolebinding_name: "tycho-testing"
+
+# Deterministic job name prefix (final job name: tycho-plan-<plan_id>)
+tycho_testing_job_generate_name_prefix: "tycho-plan-"
+
+# -----------------------------
+# Storage (NFS-backed) prototype
+# -----------------------------
+tycho_testing_nfs_server: "srv-lab-t-736"
+tycho_testing_nfs_export_path: "/mnt/data"
+tycho_testing_nfs_subdir: "tycho-testing"
+
+# For now, keep StorageClassName as "manual" so we do not depend on dynamic provisioning.
+# This is just a label; since we're using a static PV + selector, it will work as long
+# as PV and PVC match.
+tycho_testing_storageclass_name: "manual"
+
+tycho_testing_access_mode: "ReadWriteMany"
+tycho_testing_pvc_size: "20Gi"
+
+tycho_testing_pv_name: "tycho-testing-pv"
+tycho_testing_pvc_name: "tycho-testing-pvc"
