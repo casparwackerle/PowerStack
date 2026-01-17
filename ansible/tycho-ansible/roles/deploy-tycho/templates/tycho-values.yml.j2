@@ -136,7 +136,7 @@ serviceAccount:
 
 serviceMonitor:
   enabled: true
-  namespace: tycho 
+  namespace: {{ tycho_namespace }}  
   interval: 10s
   scrapeTimeout: 5s
   labels: {}
@@ -149,3 +149,12 @@ serviceMonitor:
       sourceLabels:
         - __meta_kubernetes_pod_node_name
       targetLabel: instance
+
+redfish:
+  enabled: true
+  name: redfish
+  labels: {}
+  annotations: {}
+  fileContent: |-
+    {{ hostvars[groups['server'][0]].node_name }},{{ ansible_vault.xclarityUser }},{{ ansible_vault.xclarityPassword }},https://{{ hostvars[groups['server'][0]].BMC_ip }}
+    {{ hostvars[groups['agent'][0]].node_name }},{{ ansible_vault.megaRacUser }},{{ ansible_vault.megaRacPassword }},https://{{ hostvars[groups['agent'][0]].BMC_ip }}
