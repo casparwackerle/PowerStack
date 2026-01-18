@@ -1,0 +1,52 @@
+apiVersion: tycho.testing/v1
+kind: TestPlan
+metadata:
+  plan_id: "gpu-burst-train-3s-1-v1"
+  description: "Slice 5 Core: 3s on / 3s off burst train for 4 minutes (interpretable at 3s aggregation)."
+
+spec:
+  target:
+    node_name: "srv-lab-t-737"
+    namespace: "tycho-test"
+
+  repetitions:
+    count: 1
+
+  timing:
+    margin_before_sec: 10
+    margin_after_sec: 10
+
+  phases:
+    # - name: "warmup"
+    #   type: "sleep"
+    #   duration_sec: 30
+
+    - name: "burst_train_3s"
+      type: "workload"
+      workload:
+        template: "gpu-burn-burst"
+        params:
+          total_duration_sec: 240
+          on_sec: 3
+          off_sec: 3
+
+          gpu_request_count: 1
+
+          # gpu_burn knobs (optional)
+          gpu_burn_mem_pct: 90
+          gpu_burn_use_doubles: false
+          gpu_burn_use_tensor_cores: true
+
+          # Optional: force a specific physical GPU index on the node
+          # gpu_burn_gpu_index: 0
+
+          # Optional: override image/runtime
+          # image: "oguzpastirmaci/gpu-burn:latest"
+          # runtime_class: "nvidia"
+
+          cpu_request_mcpu: 1000
+          cpu_limit_mcpu: 0
+
+    - name: "cooldown"
+      type: "sleep"
+      duration_sec: 30

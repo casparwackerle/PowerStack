@@ -1,0 +1,52 @@
+apiVersion: tycho.testing/v1
+kind: TestPlan
+metadata:
+  plan_id: "gpu-burn-steady-v1"
+  description: "Slice 5 Phase 0: Bring-up GPU burn image and verify non-zero GPU workload energy export (steady run)."
+
+spec:
+  target:
+    node_name: "srv-lab-t-737"
+    namespace: "tycho-test"
+
+  repetitions:
+    count: 1
+
+  timing:
+    margin_before_sec: 10
+    margin_after_sec: 10
+
+  phases:
+    # - name: "warmup"
+    #   type: "sleep"
+    #   duration_sec: 15
+
+    - name: "gpu_burn_steady"
+      type: "workload"
+      workload:
+        template: "gpu-burn-steady"
+        params:
+          duration_sec: 120
+          gpu_request_count: 1
+
+          # Optional but recommended for bring-up visibility
+          gpu_burn_list_gpus: true
+
+          # gpu_burn knobs (optional)
+          gpu_burn_mem_pct: 90
+          gpu_burn_use_doubles: false
+          gpu_burn_use_tensor_cores: true
+
+          # Optional: force a specific physical GPU index on the node
+          # gpu_burn_gpu_index: 0
+
+          # Optional: override image/runtime
+          # image: "oguzpastirmaci/gpu-burn:latest"
+          # runtime_class: "nvidia"
+
+          cpu_request_mcpu: 1000
+          cpu_limit_mcpu: 0
+
+    - name: "cooldown"
+      type: "sleep"
+      duration_sec: 15

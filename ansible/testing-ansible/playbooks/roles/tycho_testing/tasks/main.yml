@@ -92,11 +92,13 @@
   loop: "{{ plan_phases }}"
   when: (item.type == 'workload') and (((item.workload | default({})).template | default('') | length) == 0)
 
-- name: Fail fast on unknown workload templates (Slice 2 minimum set)
-  fail:
-    msg: "Unknown workload template '{{ (item.workload.template | default('MISSING')) }}' in phase '{{ item.name }}' (allowed: noop-sleep, stressng-cpu, stressng-cpu-burst, stressng-cpu-jitter, gpu-burn-steady', gpu-burn-burst)"
-  loop: "{{ plan_phases }}"
-  when: (item.type == 'workload') and ((item.workload.template | default('')) not in ['noop-sleep','stressng-cpu','stressng-cpu-burst','stressng-cpu-jitter','gpu-burn-steady','gpu-burn-burst'])
+
+
+# - name: Fail fast on unknown workload templates (Slice 2 minimum set)
+#   fail:
+#     msg: "Unknown workload template '{{ (item.workload.template | default('MISSING')) }}' in phase '{{ item.name }}' (allowed: noop-sleep, stressng-cpu, stressng-cpu-burst, stressng-cpu-jitter, gpu-burn-steady', gpu-burn-burst)"
+#   loop: "{{ plan_phases }}"
+#   when: (item.type == 'workload') and ((item.workload.template | default('')) not in ['noop-sleep','stressng-cpu','stressng-cpu-burst','stressng-cpu-jitter','gpu-burn-steady','gpu-burn-burst'])
 
 # Validate stressng-cpu params (minimum set)
 - name: Fail fast if stressng-cpu missing required params
@@ -170,44 +172,62 @@
       ((item.workload.params.cpu_request_mcpu | default(0) | int) <= 0) or
       ((item.workload.params.cpu_limit_mcpu | default(0) | int) < 0)
     )
-
-- name: Fail fast if gpu-burn-steady missing required params
+- name: Fail fast if gpu-burn-steady has invalid gpu_burn params
   fail:
     msg: >-
-      Phase '{{ item.name }}' gpu-burn-steady requires params:
-      duration_sec (>0), gpu_request_count (>=1),
-      cpu_request_mcpu (optional, >=0), cpu_limit_mcpu (optional, >=0, 0 means unset),
-      image (optional, non-empty), variant (optional)
+      Phase '{{ item.name }}' gpu-burn-steady: invalid gpu_burn params.
+      gpu_burn_mem_mb and gpu_burn_mem_pct are mutually exclusive.
+      gpu_burn_mem_pct must be 1..100.
+      gpu_burn_gpu_index must be >= 0 if set.
   loop: "{{ plan_phases }}"
   when: >
     (item.type == 'workload') and
     ((item.workload.template | default('')) == 'gpu-burn-steady') and
     (
-      ((item.workload.params.duration_sec | default(0) | int) <= 0) or
-      ((item.workload.params.gpu_request_count | default(0) | int) < 1) or
-      ((item.workload.params.cpu_request_mcpu | default(0) | int) < 0) or
-      ((item.workload.params.cpu_limit_mcpu | default(0) | int) < 0)
+      (
+        (item.workload.params.gpu_burn_mem_mb is defined) and
+        (item.workload.params.gpu_burn_mem_pct is defined)
+      ) or
+      (
+        (item.workload.params.gpu_burn_mem_pct is defined) and
+        (
+          (item.workload.params.gpu_burn_mem_pct | int) < 1 or
+          (item.workload.params.gpu_burn_mem_pct | int) > 100
+        )
+      ) or
+      (
+        (item.workload.params.gpu_burn_gpu_index is defined) and
+        ((item.workload.params.gpu_burn_gpu_index | int) < 0)
+      )
     )
 
-- name: Fail fast if gpu-burn-burst missing required params
+- name: Fail fast if gpu-burn-burst has invalid gpu_burn params
   fail:
     msg: >-
-      Phase '{{ item.name }}' gpu-burn-burst requires params:
-      total_duration_sec (>0), on_sec (>0), off_sec (>=0),
-      gpu_request_count (>=1),
-      cpu_request_mcpu (optional, >=0), cpu_limit_mcpu (optional, >=0, 0 means unset),
-      image (optional, non-empty), variant (optional)
+      Phase '{{ item.name }}' gpu-burn-burst: invalid gpu_burn params.
+      gpu_burn_mem_mb and gpu_burn_mem_pct are mutually exclusive.
+      gpu_burn_mem_pct must be 1..100.
+      gpu_burn_gpu_index must be >= 0 if set.
   loop: "{{ plan_phases }}"
   when: >
     (item.type == 'workload') and
     ((item.workload.template | default('')) == 'gpu-burn-burst') and
     (
-      ((item.workload.params.total_duration_sec | default(0) | int) <= 0) or
-      ((item.workload.params.on_sec | default(0) | int) <= 0) or
-      ((item.workload.params.off_sec | default(-1) | int) < 0) or
-      ((item.workload.params.gpu_request_count | default(0) | int) < 1) or
-      ((item.workload.params.cpu_request_mcpu | default(0) | int) < 0) or
-      ((item.workload.params.cpu_limit_mcpu | default(0) | int) < 0)
+      (
+        (item.workload.params.gpu_burn_mem_mb is defined) and
+        (item.workload.params.gpu_burn_mem_pct is defined)
+      ) or
+      (
+        (item.workload.params.gpu_burn_mem_pct is defined) and
+        (
+          (item.workload.params.gpu_burn_mem_pct | int) < 1 or
+          (item.workload.params.gpu_burn_mem_pct | int) > 100
+        )
+      ) or
+      (
+        (item.workload.params.gpu_burn_gpu_index is defined) and
+        ((item.workload.params.gpu_burn_gpu_index | int) < 0)
+      )
     )
 
 
@@ -233,7 +253,10 @@
       STRESSNG_IMAGE="polinux/stress-ng:latest"
 
       # GPU burn workload image (override per plan via params.image if needed)
-      GPU_BURN_IMAGE="<<<SET_ME>>>"
+      GPU_BURN_IMAGE="oguzpastirmaci/gpu-burn:latest"
+
+      # Default runtime class for GPU workloads (can be overridden per phase via params.runtime_class)
+      GPU_RUNTIME_CLASS_DEFAULT="nvidia"
 
       # Default timeout slack in seconds
       TIMEOUT_SLACK_SEC="60"
@@ -1136,19 +1159,38 @@
                 fi
                 kubectl -n "${NAMESPACE}" delete pod "${pod_name}" --ignore-not-found=true >/dev/null 2>&1 || true
               fi
+
+
+
+
+              
             elif [ "${TEMPLATE}" = "gpu-burn-steady" ]; then
               dur="$(echo "${PARAMS_JSON}" | sed -n 's/.*"duration_sec"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
               gcount="$(echo "${PARAMS_JSON}" | sed -n 's/.*"gpu_request_count"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
-              variant="$(echo "${PARAMS_JSON}" | sed -n 's/.*"variant"[ ]*:[ ]*"\([^"]*\)".*/\1/p')"
               img="$(echo "${PARAMS_JSON}" | sed -n 's/.*"image"[ ]*:[ ]*"\([^"]*\)".*/\1/p')"
               cpu_req="$(echo "${PARAMS_JSON}" | sed -n 's/.*"cpu_request_mcpu"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
               cpu_lim="$(echo "${PARAMS_JSON}" | sed -n 's/.*"cpu_limit_mcpu"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+              runtime_class="$(echo "${PARAMS_JSON}" | sed -n 's/.*"runtime_class"[ ]*:[ ]*"\([^"]*\)".*/\1/p')"
 
-              if [ -z "${variant}" ]; then variant="burn"; fi
+              mem_mb="$(echo "${PARAMS_JSON}" | sed -n 's/.*"gpu_burn_mem_mb"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+              mem_pct="$(echo "${PARAMS_JSON}" | sed -n 's/.*"gpu_burn_mem_pct"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+              use_doubles_raw="$(echo "${PARAMS_JSON}" | sed -n 's/.*"gpu_burn_use_doubles"[ ]*:[ ]*\(true\|false\|1\|0\).*/\1/p')"
+              use_tc_raw="$(echo "${PARAMS_JSON}" | sed -n 's/.*"gpu_burn_use_tensor_cores"[ ]*:[ ]*\(true\|false\|1\|0\).*/\1/p')"
+              gpu_index="$(echo "${PARAMS_JSON}" | sed -n 's/.*"gpu_burn_gpu_index"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+              list_gpus_raw="$(echo "${PARAMS_JSON}" | sed -n 's/.*"gpu_burn_list_gpus"[ ]*:[ ]*\(true\|false\|1\|0\).*/\1/p')"
+
               if [ -z "${gcount}" ]; then gcount=1; fi
               if [ -z "${cpu_req}" ]; then cpu_req=0; fi
               if [ -z "${cpu_lim}" ]; then cpu_lim=0; fi
               if [ -z "${img}" ]; then img="${GPU_BURN_IMAGE}"; fi
+              if [ -z "${runtime_class}" ]; then runtime_class="${GPU_RUNTIME_CLASS_DEFAULT}"; fi
+
+              use_doubles="false"
+              use_tc="false"
+              list_gpus="false"
+              if [ "${use_doubles_raw}" = "true" ] || [ "${use_doubles_raw}" = "1" ]; then use_doubles="true"; fi
+              if [ "${use_tc_raw}" = "true" ] || [ "${use_tc_raw}" = "1" ]; then use_tc="true"; fi
+              if [ "${list_gpus_raw}" = "true" ] || [ "${list_gpus_raw}" = "1" ]; then list_gpus="true"; fi
 
               if [ -z "${dur}" ] || [ -z "${img}" ] || [ "${gcount}" -lt 1 ]; then
                 phase_status="failed"
@@ -1160,9 +1202,8 @@
                 k8s_kind="Pod"
                 k8s_name="${pod_name}"
 
-                log "workload gpu-burn-steady dur=${dur}s gpus=${gcount} image=${img} variant=${variant} cpu_request=${cpu_req}m cpu_limit=${cpu_lim}m pod=${pod_name}"
+                log "workload gpu-burn-steady dur=${dur}s gpus=${gcount} image=${img} runtimeClass=${runtime_class} mem_mb=${mem_mb:-} mem_pct=${mem_pct:-} doubles=${use_doubles} tc=${use_tc} gpu_index=${gpu_index:-} list_gpus=${list_gpus} cpu_request=${cpu_req}m cpu_limit=${cpu_lim}m pod=${pod_name}"
 
-                # Build optional CPU resources YAML fragments
                 cpu_req_yaml=""
                 cpu_lim_yaml=""
                 if [ "${cpu_req}" -gt 0 ]; then cpu_req_yaml="cpu: \"${cpu_req}m\""; fi
@@ -1181,6 +1222,7 @@
       spec:
         restartPolicy: Never
         nodeName: "${TARGET_NODE}"
+        runtimeClassName: "${runtime_class}"
         containers:
           - name: gpuburn
             image: "${img}"
@@ -1189,24 +1231,68 @@
             args:
               - |
                 set -eu
-                DUR="${dur}"
-                VARIANT="${variant}"
 
-                # Try a few common entrypoints (plan stays stable, image can vary)
-                if [ "\$VARIANT" = "burn" ]; then
-                  if command -v gpu_burn >/dev/null 2>&1; then
-                    gpu_burn "\$DUR"
-                  elif command -v gpu-burn >/dev/null 2>&1; then
-                    gpu-burn "\$DUR"
-                  else
-                    echo "No gpu_burn binary found in image"
-                    exit 2
-                  fi
+                DUR="${dur}"
+                USE_DOUBLES="${use_doubles}"
+                USE_TC="${use_tc}"
+                LIST_GPUS="${list_gpus}"
+                GPU_INDEX="${gpu_index:-}"
+                MEM_MB="${mem_mb:-}"
+                MEM_PCT="${mem_pct:-}"
+
+                # Resolve gpu-burn binary.
+                GPU_BURN_BIN=""
+                if command -v gpu_burn >/dev/null 2>&1; then
+                  GPU_BURN_BIN="gpu_burn"
+                elif command -v gpu-burn >/dev/null 2>&1; then
+                  GPU_BURN_BIN="gpu-burn"
+                elif [ -x "/app/gpu_burn" ]; then
+                  GPU_BURN_BIN="/app/gpu_burn"
                 else
-                  # Variant hook: implement later if you add images (matmul, etc)
-                  echo "Unknown variant: \$VARIANT"
+                  echo "gpu-burn binary not found (expected gpu_burn, gpu-burn, or /app/gpu_burn)"
                   exit 2
                 fi
+
+                # Build argv safely without eval.
+                # FLAGS_STR is for logging only.
+                FLAGS_STR=""
+                set --
+
+                if [ -n "\${MEM_MB:-}" ] && [ "\${MEM_MB:-0}" -gt 0 ] 2>/dev/null; then
+                  set -- "\$@" -m "\${MEM_MB}"
+                  FLAGS_STR="\${FLAGS_STR} -m \${MEM_MB}"
+                elif [ -n "\${MEM_PCT:-}" ] && [ "\${MEM_PCT:-0}" -gt 0 ] 2>/dev/null; then
+                  set -- "\$@" -m "\${MEM_PCT}%"
+                  FLAGS_STR="\${FLAGS_STR} -m \${MEM_PCT}%"
+                fi
+
+                if [ "\${USE_DOUBLES}" = "true" ]; then
+                  set -- "\$@" -d
+                  FLAGS_STR="\${FLAGS_STR} -d"
+                fi
+
+                if [ "\${USE_TC}" = "true" ]; then
+                  set -- "\$@" -tc
+                  FLAGS_STR="\${FLAGS_STR} -tc"
+                fi
+
+                if [ -n "\${GPU_INDEX:-}" ]; then
+                  set -- "\$@" -i "\${GPU_INDEX}"
+                  FLAGS_STR="\${FLAGS_STR} -i \${GPU_INDEX}"
+                fi
+
+                if [ "\${LIST_GPUS}" = "true" ]; then
+                  echo "[gpu-burn] \${GPU_BURN_BIN} -l"
+                  "\${GPU_BURN_BIN}" -l || true
+                  echo
+                fi
+
+                nvidia-smi -L || true
+
+                echo "[gpu-burn] running: \${GPU_BURN_BIN}\${FLAGS_STR} \${DUR}"
+                "\${GPU_BURN_BIN}" "\$@" "\${DUR}"
+
+
             resources:
               requests:
                 nvidia.com/gpu: "${gcount}"
@@ -1217,13 +1303,24 @@
       EOF
 
                 k8s_uid="$(kubectl -n "${NAMESPACE}" get pod "${pod_name}" -o jsonpath='{.metadata.uid}' 2>/dev/null || echo "")"
-                deadline=$(( $(date +%s) + ${dur} + ${TIMEOUT_SLACK_SEC} ))
+                deadline=$(( $(date +%s) + dur + TIMEOUT_SLACK_SEC ))
                 while :; do
                   now="$(date +%s)"
-                  if [ "${now}" -gt "${deadline}" ]; then phase_status="failed"; phase_exit_reason="timeout"; break; fi
+                  if [ "${now}" -gt "${deadline}" ]; then
+                    phase_status="failed"
+                    phase_exit_reason="timeout"
+                    break
+                  fi
+
                   st="$(kubectl -n "${NAMESPACE}" get pod "${pod_name}" -o jsonpath='{.status.phase}' 2>/dev/null || echo "")"
-                  if [ "${st}" = "Succeeded" ]; then break; fi
-                  if [ "${st}" = "Failed" ]; then phase_status="failed"; phase_exit_reason="pod failed"; break; fi
+                  if [ "${st}" = "Succeeded" ]; then
+                    break
+                  fi
+                  if [ "${st}" = "Failed" ]; then
+                    phase_status="failed"
+                    phase_exit_reason="pod failed"
+                    break
+                  fi
                   sleep 1
                 done
 
@@ -1233,22 +1330,40 @@
                 fi
                 kubectl -n "${NAMESPACE}" delete pod "${pod_name}" --ignore-not-found=true >/dev/null 2>&1 || true
               fi
+
+
+
+
             elif [ "${TEMPLATE}" = "gpu-burn-burst" ]; then
               total="$(echo "${PARAMS_JSON}" | sed -n 's/.*"total_duration_sec"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
               on_sec="$(echo "${PARAMS_JSON}" | sed -n 's/.*"on_sec"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
               off_sec="$(echo "${PARAMS_JSON}" | sed -n 's/.*"off_sec"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
               gcount="$(echo "${PARAMS_JSON}" | sed -n 's/.*"gpu_request_count"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
-              variant="$(echo "${PARAMS_JSON}" | sed -n 's/.*"variant"[ ]*:[ ]*"\([^"]*\)".*/\1/p')"
               img="$(echo "${PARAMS_JSON}" | sed -n 's/.*"image"[ ]*:[ ]*"\([^"]*\)".*/\1/p')"
               cpu_req="$(echo "${PARAMS_JSON}" | sed -n 's/.*"cpu_request_mcpu"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
               cpu_lim="$(echo "${PARAMS_JSON}" | sed -n 's/.*"cpu_limit_mcpu"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+              runtime_class="$(echo "${PARAMS_JSON}" | sed -n 's/.*"runtime_class"[ ]*:[ ]*"\([^"]*\)".*/\1/p')"
 
-              if [ -z "${variant}" ]; then variant="burn"; fi
+              mem_mb="$(echo "${PARAMS_JSON}" | sed -n 's/.*"gpu_burn_mem_mb"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+              mem_pct="$(echo "${PARAMS_JSON}" | sed -n 's/.*"gpu_burn_mem_pct"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+              use_doubles_raw="$(echo "${PARAMS_JSON}" | sed -n 's/.*"gpu_burn_use_doubles"[ ]*:[ ]*\(true\|false\|1\|0\).*/\1/p')"
+              use_tc_raw="$(echo "${PARAMS_JSON}" | sed -n 's/.*"gpu_burn_use_tensor_cores"[ ]*:[ ]*\(true\|false\|1\|0\).*/\1/p')"
+              gpu_index="$(echo "${PARAMS_JSON}" | sed -n 's/.*"gpu_burn_gpu_index"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+              list_gpus_raw="$(echo "${PARAMS_JSON}" | sed -n 's/.*"gpu_burn_list_gpus"[ ]*:[ ]*\(true\|false\|1\|0\).*/\1/p')"
+
               if [ -z "${gcount}" ]; then gcount=1; fi
               if [ -z "${off_sec}" ]; then off_sec=0; fi
               if [ -z "${cpu_req}" ]; then cpu_req=0; fi
               if [ -z "${cpu_lim}" ]; then cpu_lim=0; fi
               if [ -z "${img}" ]; then img="${GPU_BURN_IMAGE}"; fi
+              if [ -z "${runtime_class}" ]; then runtime_class="${GPU_RUNTIME_CLASS_DEFAULT}"; fi
+
+              use_doubles="false"
+              use_tc="false"
+              list_gpus="false"
+              if [ "${use_doubles_raw}" = "true" ] || [ "${use_doubles_raw}" = "1" ]; then use_doubles="true"; fi
+              if [ "${use_tc_raw}" = "true" ] || [ "${use_tc_raw}" = "1" ]; then use_tc="true"; fi
+              if [ "${list_gpus_raw}" = "true" ] || [ "${list_gpus_raw}" = "1" ]; then list_gpus="true"; fi
 
               if [ -z "${total}" ] || [ -z "${on_sec}" ] || [ -z "${img}" ] || [ "${gcount}" -lt 1 ]; then
                 phase_status="failed"
@@ -1260,7 +1375,7 @@
                 k8s_kind="Pod"
                 k8s_name="${pod_name}"
 
-                log "workload gpu-burn-burst total=${total}s on=${on_sec}s off=${off_sec}s gpus=${gcount} image=${img} variant=${variant} cpu_request=${cpu_req}m cpu_limit=${cpu_lim}m pod=${pod_name}"
+                log "workload gpu-burn-burst total=${total}s on=${on_sec}s off=${off_sec}s gpus=${gcount} image=${img} runtimeClass=${runtime_class} mem_mb=${mem_mb:-} mem_pct=${mem_pct:-} doubles=${use_doubles} tc=${use_tc} gpu_index=${gpu_index:-} list_gpus=${list_gpus} cpu_request=${cpu_req}m cpu_limit=${cpu_lim}m pod=${pod_name}"
 
                 cpu_req_yaml=""
                 cpu_lim_yaml=""
@@ -1280,6 +1395,7 @@
       spec:
         restartPolicy: Never
         nodeName: "${TARGET_NODE}"
+        runtimeClassName: "${runtime_class}"
         containers:
           - name: gpuburn
             image: "${img}"
@@ -1288,28 +1404,65 @@
             args:
               - |
                 set -eu
+
                 TOTAL="${total}"
                 ON_SEC="${on_sec}"
                 OFF_SEC="${off_sec}"
-                VARIANT="${variant}"
 
-                run_burn() {
-                  secs="\$1"
-                  if [ "\$secs" -le 0 ]; then return; fi
-                  if [ "\$VARIANT" = "burn" ]; then
-                    if command -v gpu_burn >/dev/null 2>&1; then
-                      gpu_burn "\$secs"
-                    elif command -v gpu-burn >/dev/null 2>&1; then
-                      gpu-burn "\$secs"
-                    else
-                      echo "No gpu_burn binary found in image"
-                      exit 2
-                    fi
-                  else
-                    echo "Unknown variant: \$VARIANT"
-                    exit 2
-                  fi
-                }
+                USE_DOUBLES="${use_doubles}"
+                USE_TC="${use_tc}"
+                LIST_GPUS="${list_gpus}"
+                GPU_INDEX="${gpu_index:-}"
+                MEM_MB="${mem_mb:-}"
+                MEM_PCT="${mem_pct:-}"
+
+                # Resolve gpu-burn binary.
+                GPU_BURN_BIN=""
+                if command -v gpu_burn >/dev/null 2>&1; then
+                  GPU_BURN_BIN="gpu_burn"
+                elif command -v gpu-burn >/dev/null 2>&1; then
+                  GPU_BURN_BIN="gpu-burn"
+                elif [ -x "/app/gpu_burn" ]; then
+                  GPU_BURN_BIN="/app/gpu_burn"
+                else
+                  echo "gpu-burn binary not found (expected gpu_burn, gpu-burn, or /app/gpu_burn)"
+                  exit 2
+                fi
+
+                # Build argv safely without eval.
+                FLAGS_STR=""
+                set --
+
+                if [ -n "\${MEM_MB:-}" ] && [ "\${MEM_MB:-0}" -gt 0 ] 2>/dev/null; then
+                  set -- "\$@" -m "\${MEM_MB}"
+                  FLAGS_STR="\${FLAGS_STR} -m \${MEM_MB}"
+                elif [ -n "\${MEM_PCT:-}" ] && [ "\${MEM_PCT:-0}" -gt 0 ] 2>/dev/null; then
+                  set -- "\$@" -m "\${MEM_PCT}%"
+                  FLAGS_STR="\${FLAGS_STR} -m \${MEM_PCT}%"
+                fi
+
+                if [ "\${USE_DOUBLES}" = "true" ]; then
+                  set -- "\$@" -d
+                  FLAGS_STR="\${FLAGS_STR} -d"
+                fi
+
+                if [ "\${USE_TC}" = "true" ]; then
+                  set -- "\$@" -tc
+                  FLAGS_STR="\${FLAGS_STR} -tc"
+                fi
+
+                if [ -n "\${GPU_INDEX:-}" ]; then
+                  set -- "\$@" -i "\${GPU_INDEX}"
+                  FLAGS_STR="\${FLAGS_STR} -i \${GPU_INDEX}"
+                fi
+
+                if [ "\${LIST_GPUS}" = "true" ]; then
+                  echo "[gpu-burn] \${GPU_BURN_BIN} -l"
+                  "\${GPU_BURN_BIN}" -l || true
+                  echo
+                fi
+
+                nvidia-smi -L || true
 
                 start="\$(date +%s)"
                 while :; do
@@ -1320,7 +1473,10 @@
 
                   run_on="\$ON_SEC"
                   if [ "\$run_on" -gt "\$rem" ]; then run_on="\$rem"; fi
-                  run_burn "\$run_on"
+                  if [ "\$run_on" -gt 0 ]; then
+                    echo "[gpu-burn] running: \${GPU_BURN_BIN}\${FLAGS_STR} \${run_on}"
+                    "\${GPU_BURN_BIN}" "\$@" "\${run_on}"
+                  fi
 
                   now="\$(date +%s)"
                   elapsed=\$(( now - start ))
@@ -1329,7 +1485,9 @@
 
                   run_off="\$OFF_SEC"
                   if [ "\$run_off" -gt "\$rem" ]; then run_off="\$rem"; fi
-                  if [ "\$run_off" -gt 0 ]; then sleep "\$run_off"; fi
+                  if [ "\$run_off" -gt 0 ]; then
+                    sleep "\$run_off"
+                  fi
                 done
             resources:
               requests:
@@ -1341,13 +1499,24 @@
       EOF
 
                 k8s_uid="$(kubectl -n "${NAMESPACE}" get pod "${pod_name}" -o jsonpath='{.metadata.uid}' 2>/dev/null || echo "")"
-                deadline=$(( $(date +%s) + ${total} + ${TIMEOUT_SLACK_SEC} ))
+                deadline=$(( $(date +%s) + total + TIMEOUT_SLACK_SEC ))
                 while :; do
                   now="$(date +%s)"
-                  if [ "${now}" -gt "${deadline}" ]; then phase_status="failed"; phase_exit_reason="timeout"; break; fi
+                  if [ "${now}" -gt "${deadline}" ]; then
+                    phase_status="failed"
+                    phase_exit_reason="timeout"
+                    break
+                  fi
+
                   st="$(kubectl -n "${NAMESPACE}" get pod "${pod_name}" -o jsonpath='{.status.phase}' 2>/dev/null || echo "")"
-                  if [ "${st}" = "Succeeded" ]; then break; fi
-                  if [ "${st}" = "Failed" ]; then phase_status="failed"; phase_exit_reason="pod failed"; break; fi
+                  if [ "${st}" = "Succeeded" ]; then
+                    break
+                  fi
+                  if [ "${st}" = "Failed" ]; then
+                    phase_status="failed"
+                    phase_exit_reason="pod failed"
+                    break
+                  fi
                   sleep 1
                 done
 
@@ -1357,6 +1526,16 @@
                 fi
                 kubectl -n "${NAMESPACE}" delete pod "${pod_name}" --ignore-not-found=true >/dev/null 2>&1 || true
               fi
+
+
+
+
+
+
+
+
+
+
             else
               log "unknown workload template: raw='${TEMPLATE}'"
               phase_status="failed"
