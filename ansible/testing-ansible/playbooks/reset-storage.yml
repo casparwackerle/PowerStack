@@ -1,0 +1,30 @@
+---
+- name: Reset Tycho testing PV/PVC (safe for Slice 1 development)
+  hosts: localhost
+  gather_facts: false
+  vars:
+    ns: "tycho-test"
+    pv_name: "tycho-testing-pv"
+    pvc_name: "tycho-testing-pvc"
+  tasks:
+    - name: Delete job (ignore if missing)
+      shell: |
+        set -euo pipefail
+        kubectl -n {{ ns }} delete job -l app=tycho-testing --ignore-not-found=true
+      args:
+        executable: /bin/bash
+      ignore_errors: true
+
+    - name: Delete pvc (ignore if missing)
+      shell: |
+        set -euo pipefail
+        kubectl -n {{ ns }} delete pvc {{ pvc_name }} --ignore-not-found=true
+      args:
+        executable: /bin/bash
+
+    - name: Delete pv (ignore if missing)
+      shell: |
+        set -euo pipefail
+        kubectl delete pv {{ pv_name }} --ignore-not-found=true
+      args:
+        executable: /bin/bash

@@ -31,8 +31,35 @@ exec > >(tee -i "$LOG_FILE") 2>&1
 
 echo "Log file created: $LOG_FILE"
 
-PLAN_ID="${1:-cpu-short-lived-v1}"
+# -------------------------
+# Args / Plan selection
+# -------------------------
+
+# Optional flags
+RESET=false
+if [ "${1:-}" = "--reset" ]; then
+  RESET=true
+fi
+
+# -------------------------
+# Available test plans
+# (activate exactly ONE)
+# -------------------------
+
+# PLAN_ID="cpu-short-lived-v1"
+PLAN_ID="cpu-burst-train-v1"
+# PLAN_ID="cpu-warmup-ramp-test-v1"
+
+# -------------------------
+# Safety check
+# -------------------------
+if [ -z "$PLAN_ID" ]; then
+  echo "Error: PLAN_ID is empty. Activate exactly one plan."
+  exit 1
+fi
+
 echo "Starting Tycho testing with plan: $PLAN_ID"
+echo "Reset enabled: $RESET"
 
 # -------------------------
 # Step 0: NFS prep (real cluster inventory)
@@ -47,6 +74,17 @@ ansible-playbook playbooks/nfs-prep.yml \
   --ask-vault-pass
 
 echo "NFS prep complete."
+
+# -------------------------
+# Step 0.5: Optional reset (kubectl-only, localhost inventory)
+# -------------------------
+if [ "$RESET" = true ]; then
+  echo
+  echo "Step 0.5: Resetting Tycho testing PV/PVC (and prior jobs) before launch..."
+  ansible-playbook playbooks/reset-storage.yml \
+    -i inventory.yml
+  echo "Reset complete."
+fi
 
 # -------------------------
 # Step 1: Apply plan + start job (localhost inventory)

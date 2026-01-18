@@ -10,7 +10,7 @@ spec:
     storage: {{ tycho_testing_pvc_size }}
   accessModes:
     - {{ tycho_testing_access_mode }}
-  storageClassName: {{ tycho_testing_storageclass_name }}
+  storageClassName: ""
   persistentVolumeReclaimPolicy: Retain
   nfs:
     path: {{ tycho_testing_nfs_export_path }}/{{ tycho_testing_nfs_subdir }}

@@ -1,147 +1,3 @@
-# - name: Resolve plan file path
-#   set_fact:
-#     plan_path: "{{ tycho_test_plan_root }}/{{ tycho_test_plan_id }}.yaml"
-
-# - name: Load plan YAML file (raw)
-#   set_fact:
-#     plan_yaml: "{{ lookup('file', plan_path) }}"
-
-# - name: Parse plan YAML
-#   set_fact:
-#     plan_obj: "{{ plan_yaml | from_yaml }}"
-
-# - name: Fail fast on apiVersion/kind mismatch
-#   fail:
-#     msg: "Invalid plan header: expected apiVersion tycho.testing/v1 and kind TestPlan"
-#   when: plan_obj.apiVersion != 'tycho.testing/v1' or plan_obj.kind != 'TestPlan'
-
-# - name: Fail fast if metadata.plan_id mismatches selected plan id
-#   fail:
-#     msg: "Plan ID mismatch: file selected={{ tycho_test_plan_id }}, metadata.plan_id={{ plan_obj.metadata.plan_id | default('MISSING') }}"
-#   when: (plan_obj.metadata.plan_id | default('')) != tycho_test_plan_id
-
-# - name: Extract namespace from plan
-#   set_fact:
-#     plan_ns: "{{ plan_obj.spec.target.namespace | default('') }}"
-
-# - name: Fail fast if namespace missing
-#   fail:
-#     msg: "spec.target.namespace is required"
-#   when: plan_ns | length == 0
-
-# # NOTE:
-# # We intentionally do NOT SSH to the NFS server from this role.
-# # This keeps testing-ansible "localhost only" and avoids SSH auth issues.
-# # Ensure the NFS directory exists separately (one-time) if your NFS server requires it.
-
-# # ---------------------------
-# # Render manifests
-# # ---------------------------
-
-# - name: Render Namespace manifest
-#   set_fact:
-#     ns_manifest: "{{ lookup('template', 'namespace.yaml.j2') }}"
-
-# - name: Render ServiceAccount manifest
-#   set_fact:
-#     sa_manifest: "{{ lookup('template', 'serviceaccount.yaml.j2') }}"
-
-# - name: Render Role manifest
-#   set_fact:
-#     role_manifest: "{{ lookup('template', 'role.yaml.j2') }}"
-
-# - name: Render RoleBinding manifest
-#   set_fact:
-#     rb_manifest: "{{ lookup('template', 'rolebinding.yaml.j2') }}"
-
-# - name: Render Plan ConfigMap manifest
-#   set_fact:
-#     cm_manifest: "{{ lookup('template', 'plan-configmap.yaml.j2') }}"
-
-# - name: Render PV manifest
-#   set_fact:
-#     pv_manifest: "{{ lookup('template', 'pv.yaml.j2') }}"
-
-# - name: Render PVC manifest
-#   set_fact:
-#     pvc_manifest: "{{ lookup('template', 'pvc.yaml.j2') }}"
-
-# - name: Render kubectl Job manifest
-#   set_fact:
-#     job_manifest: "{{ lookup('template', 'kubectl-job.yaml.j2') }}"
-
-# # ---------------------------
-# # Apply manifests via kubectl
-# # ---------------------------
-
-# - name: Create temp dir for rendered manifests
-#   tempfile:
-#     state: directory
-#     suffix: tycho-testing
-#   register: tmpdir
-
-# - name: Write rendered manifests to files
-#   copy:
-#     dest: "{{ tmpdir.path }}/{{ item.name }}"
-#     content: "{{ item.content }}"
-#     mode: "0600"
-#   loop:
-#     - { name: "00-namespace.yaml",      content: "{{ ns_manifest }}" }
-#     - { name: "10-serviceaccount.yaml", content: "{{ sa_manifest }}" }
-#     - { name: "20-role.yaml",           content: "{{ role_manifest }}" }
-#     - { name: "30-rolebinding.yaml",    content: "{{ rb_manifest }}" }
-#     - { name: "40-configmap.yaml",      content: "{{ cm_manifest }}" }
-#     - { name: "50-pv.yaml",             content: "{{ pv_manifest }}" }
-#     - { name: "60-pvc.yaml",            content: "{{ pvc_manifest }}" }
-#     - { name: "70-job.yaml",            content: "{{ job_manifest }}" }
-
-# - name: Apply all manifests
-#   shell: |
-#     set -euo pipefail
-
-#     kubectl apply -f "{{ tmpdir.path }}/00-namespace.yaml"
-#     kubectl apply -f "{{ tmpdir.path }}/10-serviceaccount.yaml"
-#     kubectl apply -f "{{ tmpdir.path }}/20-role.yaml"
-#     kubectl apply -f "{{ tmpdir.path }}/30-rolebinding.yaml"
-#     kubectl apply -f "{{ tmpdir.path }}/40-configmap.yaml"
-
-#     # PV/PVC are safe to apply idempotently
-#     kubectl apply -f "{{ tmpdir.path }}/50-pv.yaml"
-#     kubectl apply -f "{{ tmpdir.path }}/60-pvc.yaml"
-
-#     # Clean up previous runs for this plan id so logs are unambiguous
-#     kubectl -n {{ plan_ns }} delete job tycho-plan-{{ tycho_test_plan_id }} --ignore-not-found=true
-#     kubectl -n {{ plan_ns }} delete pod -l app=tycho-testing,tycho_plan_id={{ tycho_test_plan_id }} --ignore-not-found=true
-
-#     # Recreate job
-#     kubectl apply -f "{{ tmpdir.path }}/70-job.yaml"
-#   args:
-#     executable: /bin/bash
-#   register: apply_all
-
-
-
-# - name: Show kubectl apply output
-#   debug:
-#     var: apply_all.stdout_lines
-
-# - name: Show PVC status
-#   shell: |
-#     set -euo pipefail
-#     kubectl -n {{ plan_ns }} get pvc {{ tycho_testing_pvc_name }} -o wide
-#   args:
-#     executable: /bin/bash
-#   register: pvc_status
-#   changed_when: false
-
-# - name: Print next commands
-#   debug:
-#     msg:
-#       - "PVC status:\n{{ pvc_status.stdout }}"
-#       - "Job logs: kubectl -n {{ plan_ns }} logs job/tycho-plan-{{ tycho_test_plan_id }} --tail=200"
-#       - "If the job fails to write, create the NFS dir: {{ tycho_testing_nfs_export_path }}/{{ tycho_testing_nfs_subdir }} on {{ tycho_testing_nfs_server }}"
-
-
 # FILE: playbooks/roles/tycho_testing/tasks/main.yml
 - name: Resolve plan file path
   set_fact:
@@ -206,11 +62,11 @@
     msg: "spec.phases must be a non-empty list"
   when: plan_phases | length == 0
 
-- name: Fail fast on unknown phase types
+- name: Fail fast on unknown workload templates (Slice 2 minimum set)
   fail:
-    msg: "Unknown phase type '{{ item.type | default('MISSING') }}' in phase '{{ item.name | default('MISSING') }}' (allowed: sleep, ramp, workload)"
+    msg: "Unknown workload template '{{ (item.workload.template | default('MISSING')) }}' in phase '{{ item.name }}' (allowed: noop-sleep, sleep, ramp, stressng-cpu, stressng-cpu-burst)"
   loop: "{{ plan_phases }}"
-  when: (item.type | default('')) not in ['sleep','ramp','workload']
+  when: (item.type == 'workload') and ((item.workload.template | default('')) not in ['sleep','noop-sleep','stressng-cpu','ramp','stressng-cpu-burst'])
 
 - name: Fail fast if any phase name missing
   fail:
@@ -238,9 +94,9 @@
 
 - name: Fail fast on unknown workload templates (Slice 2 minimum set)
   fail:
-    msg: "Unknown workload template '{{ (item.workload.template | default('MISSING')) }}' in phase '{{ item.name }}' (allowed: noop-sleep, stressng-cpu)"
+    msg: "Unknown workload template '{{ (item.workload.template | default('MISSING')) }}' in phase '{{ item.name }}' (allowed: noop-sleep, stressng-cpu, 'stressng-cpu-burst')"
   loop: "{{ plan_phases }}"
-  when: (item.type == 'workload') and ((item.workload.template | default('')) not in ['noop-sleep','stressng-cpu'])
+  when: (item.type == 'workload') and ((item.workload.template | default('')) not in ['noop-sleep','stressng-cpu','stressng-cpu-burst'])
 
 # Validate stressng-cpu params (minimum set)
 - name: Fail fast if stressng-cpu missing required params
@@ -256,6 +112,41 @@
       ((item.workload.params.method | default('') | length) == 0) or
       ((item.workload.params.cpu_request_mcpu | default(0) | int) <= 0)
     )
+
+# Validate stressng-cpu-burst params (minimum set)
+- name: Fail fast if stressng-cpu-burst missing required params
+  fail:
+    msg: >-
+      Phase '{{ item.name }}' stressng-cpu-burst requires params:
+      total_duration_sec (>0), on_sec (>0), off_sec (>0), seed (>=0),
+      on_workers (>=0), on_method (non-empty),
+      off_mode (sleep|stress),
+      off_workers (>=0 when off_mode=stress), off_method (non-empty when off_mode=stress),
+      cpu_request_mcpu (>0), cpu_limit_mcpu (>=0, 0 means unset)
+  loop: "{{ plan_phases }}"
+  when: >
+    (item.type == 'workload') and
+    ((item.workload.template | default('')) == 'stressng-cpu-burst') and
+    (
+      ((item.workload.params.total_duration_sec | default(0) | int) <= 0) or
+      ((item.workload.params.on_sec | default(0) | int) <= 0) or
+      ((item.workload.params.off_sec | default(0) | int) <= 0) or
+      ((item.workload.params.seed | default(-1) | int) < 0) or
+      ((item.workload.params.on_workers | default(-1) | int) < 0) or
+      ((item.workload.params.on_method | default('') | length) == 0) or
+      ((item.workload.params.off_mode | default('') | length) == 0) or
+      ((item.workload.params.off_mode | default('')) not in ['sleep','stress']) or
+      (
+        ((item.workload.params.off_mode | default('')) == 'stress') and
+        (
+          ((item.workload.params.off_workers | default(-1) | int) < 0) or
+          ((item.workload.params.off_method | default('') | length) == 0)
+        )
+      ) or
+      ((item.workload.params.cpu_request_mcpu | default(0) | int) <= 0) or
+      ((item.workload.params.cpu_limit_mcpu | default(0) | int) < 0)
+    )
+
 
 # ---------------------------
 # Slice 2: Build runner assets (stored in ConfigMap via workload_yaml_map)
@@ -287,7 +178,14 @@
     runner_phases_psv: |
       {% for p in plan_phases -%}
       {# Columns: name|type|planned_duration_sec|template|params_json|role #}
-      {{ p.name | trim }}|{{ p.type | trim }}|{{ (p.duration_sec | default(0) | int) if (p.type in ['sleep','ramp']) else (p.workload.params.duration_sec | default(0) | int) }}|{{ (p.workload.template | default('')) if (p.type == 'workload') else ('noop-sleep' if (p.type == 'sleep') else ('ramp-' ~ (p.ramp_profile | default('')))) }}|{{ (p.workload.params | default({}) | to_json) if (p.type == 'workload') else ({ 'duration_sec': (p.duration_sec | default(0) | int) } | to_json) if (p.type == 'sleep') else ({ 'ramp_profile': (p.ramp_profile | default('')), 'duration_sec': (p.duration_sec | default(0) | int) } | to_json) }}|{{ 'ramp' if (p.type == 'ramp') else 'workload' if (p.type == 'workload') else 'sleep' }}
+      {{ p.name | trim }}|{{ p.type | trim }}|{{ (p.duration_sec | default(0) | int) if (p.type in ['sleep','ramp']) else ((p.workload.params.total_duration_sec | default(0) | int) if ((p.workload.template | default('')) == 'stressng-cpu-burst') else (p.workload.params.duration_sec | default(0) | int)) }}|{{ (p.workload.template | default('')) if (p.type == 'workload') else ('noop-sleep' if (p.type == 'sleep') else ('ramp-' ~ (p.ramp_profile | default('')))) }}|{{ (p.workload.params | default({}) | to_json) if (p.type == 'workload') else ({ 'duration_sec': (p.duration_sec | default(0) | int) } | to_json) if (p.type == 'sleep') else ({
+        'ramp_profile': (p.ramp_profile | default('')),
+        'duration_sec': (p.duration_sec | default(0) | int),
+        'max_workers': (p.params.max_workers | default(0) | int),
+        'step_count': (p.params.step_count | default(0) | int),
+        'method': (p.params.method | default('')),
+        'cpu_request_mcpu': (p.params.cpu_request_mcpu | default(0) | int)
+      } | to_json) }}|{{ 'ramp' if (p.type == 'ramp') else 'workload' if (p.type == 'workload') else 'sleep' }}
       {% endfor %}
 
 - name: Build runner script (runner.sh)
@@ -412,10 +310,11 @@
           if [ -z "${PHASE_NAME}" ]; then
             continue
           fi
-          # skip empty lines
-          if [ -z "${PHASE_NAME}" ]; then
-            continue
-          fi
+
+          # Normalize fields (defensive: trims accidental whitespace / CRLF)
+          PHASE_NAME="$(printf '%s' "${PHASE_NAME}" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          PHASE_TYPE="$(printf '%s' "${PHASE_TYPE}" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          TEMPLATE="$(printf '%s' "${TEMPLATE}" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
 
           PHASE_START="$(utc_now)"
           log "phase '${PHASE_NAME}' type=${PHASE_TYPE} start_utc=${PHASE_START}"
@@ -436,38 +335,65 @@
             sleep "${dur}"
 
           elif [ "${PHASE_TYPE}" = "ramp" ]; then
-            # ramp: simple heuristic cpu ramp based on duration, implemented as repeated short stress-ng pods
-            # params_json includes {"ramp_profile":"cpu","duration_sec":N}
-            # only cpu profile supported in Slice 2.
-            # We'll do 1s steps low/med/high repeating.
+            # ramp: cpu ramp up to max_workers over total duration (step_count steps).
+            # PARAMS_JSON fields:
+            # - ramp_profile (must be "cpu")
+            # - duration_sec (total duration)
+            # - max_workers (target workers at final step)
+            # - step_count (number of steps, default 10)
+            # - method (stress-ng cpu method, default "matrixprod")
+            # - cpu_request_mcpu (cap for cpu request; per step uses min(workers*1000, cap). If cap=0, uses workers*1000)
+
             profile="$(echo "${PARAMS_JSON}" | sed -n 's/.*"ramp_profile"[ ]*:[ ]*"\([^"]*\)".*/\1/p')"
             total="${PLANNED_DUR}"
+
+            maxw="$(echo "${PARAMS_JSON}" | sed -n 's/.*"max_workers"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+            steps="$(echo "${PARAMS_JSON}" | sed -n 's/.*"step_count"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+            method="$(echo "${PARAMS_JSON}" | sed -n 's/.*"method"[ ]*:[ ]*"\([^"]*\)".*/\1/p')"
+            cap_req="$(echo "${PARAMS_JSON}" | sed -n 's/.*"cpu_request_mcpu"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+
+            if [ -z "${method}" ]; then method="matrixprod"; fi
+            if [ -z "${steps}" ] || [ "${steps}" -le 0 ]; then steps=10; fi
+            if [ -z "${maxw}" ] || [ "${maxw}" -le 0 ]; then maxw=4; fi
+            if [ -z "${cap_req}" ]; then cap_req=0; fi
 
             if [ "${profile}" != "cpu" ]; then
               phase_status="failed"
               phase_exit_reason="unknown ramp_profile"
             else
-              step=1
-              # fixed mapping for Slice 2:
-              # low=1 worker, med=2 workers, high=4 workers
-              # cpu request fixed to 2000m (simple default) for ramp pods
-              # method fixed to 'matrixprod' (stable)
-              log "ramp cpu total=${total}s (1s steps low/med/high repeating)"
-              t=0
-              while [ "${t}" -lt "${total}" ]; do
-                mod=$(( t % 3 ))
-                if [ "${mod}" -eq 0 ]; then w=1; lvl="low"; fi
-                if [ "${mod}" -eq 1 ]; then w=2; lvl="med"; fi
-                if [ "${mod}" -eq 2 ]; then w=4; lvl="high"; fi
+              log "ramp cpu total=${total}s max_workers=${maxw} steps=${steps} method=${method} cap_cpu_request_mcpu=${cap_req}"
 
-                # ramp step is executed as a workload pod (role=ramp)
-                step_name="${PHASE_NAME}-${lvl}-${t}"
-                step_slug="$(sanitize_k8s_name "${step_name}")"
+              # integer step duration, last step absorbs remainder
+              base_step=$(( total / steps ))
+              rem=$(( total - (base_step * steps) ))
+              if [ "${base_step}" -le 0 ]; then
+                base_step=1
+                rem=0
+                steps="${total}"
+              fi
+
+              i=1
+              while [ "${i}" -le "${steps}" ]; do
+                step_dur="${base_step}"
+                if [ "${i}" -eq "${steps}" ]; then
+                  step_dur=$(( base_step + rem ))
+                fi
+
+                # linear ramp: workers = ceil(maxw * i / steps)
+                workers=$(( (maxw * i + steps - 1) / steps ))
+                if [ "${workers}" -lt 1 ]; then workers=1; fi
+
+                # per-step cpu request (mcpu): workers*1000, optionally capped
+                req=$(( workers * 1000 ))
+                if [ "${cap_req}" -gt 0 ] && [ "${req}" -gt "${cap_req}" ]; then
+                  req="${cap_req}"
+                fi
+
+                step_slug="$(sanitize_k8s_name "${PHASE_NAME}-s${i}")"
                 pod_name="tycho-${PLAN_ID}-r${rep}-${step_slug}-${SAFE_TS}"
 
-                log "ramp step t=${t}s lvl=${lvl} workers=${w} pod=${pod_name}"
+                log "ramp step ${i}/${steps} duration=${step_dur}s workers=${workers} cpu_request=${req}m pod=${pod_name}"
 
-                # create pod
                 cat <<EOF | kubectl -n "${NAMESPACE}" apply -f -
       apiVersion: v1
       kind: Pod
@@ -489,14 +415,13 @@
             args:
               - |
                 set -eu
-                stress-ng --cpu ${w} --cpu-method matrixprod --timeout ${step}s --metrics-brief
+                stress-ng --cpu ${workers} --cpu-method ${method} --timeout ${step_dur}s --metrics-brief
             resources:
               requests:
-                cpu: "2000m"
+                cpu: "${req}m"
       EOF
 
-                # wait for completion (timeout = step + slack)
-                deadline=$(( $(date +%s) + step + TIMEOUT_SLACK_SEC ))
+                deadline=$(( $(date +%s) + step_dur + TIMEOUT_SLACK_SEC ))
                 while :; do
                   now="$(date +%s)"
                   if [ "${now}" -gt "${deadline}" ]; then
@@ -505,11 +430,11 @@
                     break
                   fi
 
-                  phase_state="$(kubectl -n "${NAMESPACE}" get pod "${pod_name}" -o jsonpath='{.status.phase}' 2>/dev/null || echo "")"
-                  if [ "${phase_state}" = "Succeeded" ]; then
+                  st="$(kubectl -n "${NAMESPACE}" get pod "${pod_name}" -o jsonpath='{.status.phase}' 2>/dev/null || echo "")"
+                  if [ "${st}" = "Succeeded" ]; then
                     break
                   fi
-                  if [ "${phase_state}" = "Failed" ]; then
+                  if [ "${st}" = "Failed" ]; then
                     phase_status="failed"
                     phase_exit_reason="pod failed in ramp step"
                     break
@@ -517,20 +442,37 @@
                   sleep 1
                 done
 
-                # collect logs for ramp step (always, for debug)
-                kubectl -n "${NAMESPACE}" logs "${pod_name}" > "${OUT_DIR}/phase_${PHASE_NAME}_step_${lvl}_${t}.log" 2>&1 || true
-                if [ "${phase_status}" != "ok" ]; then
-                  kubectl -n "${NAMESPACE}" describe pod "${pod_name}" > "${OUT_DIR}/phase_${PHASE_NAME}_step_${lvl}_${t}_describe.txt" 2>&1 || true
+                step_log="${OUT_DIR}/phase_${PHASE_NAME}_step_${i}.log"
+                agg_log="${OUT_DIR}/phase_${PHASE_NAME}.log"
+
+                # Always create log files so debugging is deterministic
+                : > "${step_log}"
+                : > "${agg_log}" 2>/dev/null || true
+
+                # Capture logs (best-effort). If logs fail, store a helpful marker.
+                if ! kubectl -n "${NAMESPACE}" logs "${pod_name}" > "${step_log}" 2>&1; then
+                  echo "[tycho-testing] kubectl logs failed for pod=${pod_name}" >> "${step_log}"
                 fi
 
-                # cleanup ramp step pod
+                # Append into aggregated ramp log
+                {
+                  echo "===== ramp step ${i}/${steps} pod=${pod_name} ====="
+                  cat "${step_log}"
+                  echo
+                } >> "${agg_log}" 2>/dev/null || true
+
+                # On failure: also capture describe
+                if [ "${phase_status}" != "ok" ]; then
+                  kubectl -n "${NAMESPACE}" describe pod "${pod_name}" > "${OUT_DIR}/phase_${PHASE_NAME}_step_${i}_describe.txt" 2>&1 || true
+                fi
+
                 kubectl -n "${NAMESPACE}" delete pod "${pod_name}" --ignore-not-found=true >/dev/null 2>&1 || true
 
                 if [ "${phase_status}" != "ok" ]; then
                   break
                 fi
 
-                t=$(( t + step ))
+                i=$(( i + 1 ))
               done
             fi
 
@@ -671,11 +613,233 @@
                 fi
                 kubectl -n "${NAMESPACE}" delete pod "${pod_name}" --ignore-not-found=true >/dev/null 2>&1 || true
               fi
+                        elif [ "${TEMPLATE}" = "stressng-cpu-burst" ]; then
+              # params:
+              # total_duration_sec, on_sec, off_sec, seed
+              # on_workers, on_method
+              # off_mode (sleep|stress), off_workers, off_method
+              # cpu_request_mcpu, cpu_limit_mcpu (0 => unset)
+              total="$(echo "${PARAMS_JSON}" | sed -n 's/.*"total_duration_sec"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+              on_sec="$(echo "${PARAMS_JSON}" | sed -n 's/.*"on_sec"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+              off_sec="$(echo "${PARAMS_JSON}" | sed -n 's/.*"off_sec"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+              seed="$(echo "${PARAMS_JSON}" | sed -n 's/.*"seed"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+
+              on_workers="$(echo "${PARAMS_JSON}" | sed -n 's/.*"on_workers"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+              on_method="$(echo "${PARAMS_JSON}" | sed -n 's/.*"on_method"[ ]*:[ ]*"\([^"]*\)".*/\1/p')"
+
+              off_mode="$(echo "${PARAMS_JSON}" | sed -n 's/.*"off_mode"[ ]*:[ ]*"\([^"]*\)".*/\1/p')"
+              off_workers="$(echo "${PARAMS_JSON}" | sed -n 's/.*"off_workers"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+              off_method="$(echo "${PARAMS_JSON}" | sed -n 's/.*"off_method"[ ]*:[ ]*"\([^"]*\)".*/\1/p')"
+
+              cpu_req="$(echo "${PARAMS_JSON}" | sed -n 's/.*"cpu_request_mcpu"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+              cpu_lim="$(echo "${PARAMS_JSON}" | sed -n 's/.*"cpu_limit_mcpu"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+
+              # defaults / coercions
+              if [ -z "${seed}" ]; then seed=0; fi
+              if [ -z "${off_mode}" ]; then off_mode="sleep"; fi
+              if [ -z "${off_workers}" ]; then off_workers=0; fi
+              if [ -z "${cpu_lim}" ]; then cpu_lim=0; fi
+
+              if [ -z "${total}" ] || [ -z "${on_sec}" ] || [ -z "${off_sec}" ] || [ -z "${on_workers}" ] || [ -z "${on_method}" ] || [ -z "${cpu_req}" ]; then
+                phase_status="failed"
+                phase_exit_reason="missing stressng-cpu-burst params"
+              else
+                phase_slug="$(sanitize_k8s_name "${PHASE_NAME}")"
+                pod_name="tycho-${PLAN_ID}-r${rep}-${phase_slug}-${SAFE_TS}"
+
+                k8s_kind="Pod"
+                k8s_name="${pod_name}"
+
+                log "workload stressng-cpu-burst total=${total}s on=${on_sec}s off=${off_sec}s seed=${seed} on_workers=${on_workers} on_method=${on_method} off_mode=${off_mode} off_workers=${off_workers} off_method=${off_method} cpu_request=${cpu_req}m cpu_limit=${cpu_lim}m pod=${pod_name}"
+
+                # render pod manifest (limits are optional; cpu_lim=0 => omit)
+                if [ "${cpu_lim}" -gt 0 ]; then
+                  cat <<EOF | kubectl -n "${NAMESPACE}" apply -f -
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: ${pod_name}
+        labels:
+          tycho.testing/plan_id: "${PLAN_ID}"
+          tycho.testing/rep: "${rep}"
+          tycho.testing/phase: "${PHASE_NAME}"
+          tycho.testing/role: "workload"
+      spec:
+        restartPolicy: Never
+        nodeName: "${TARGET_NODE}"
+        containers:
+          - name: stressng
+            image: "${STRESSNG_IMAGE}"
+            imagePullPolicy: IfNotPresent
+            command: ["/bin/sh","-c"]
+            args:
+              - |
+                set -eu
+                # seed is currently only logged for determinism; kept for future jitter extensions
+                SEED="${seed}"
+                TOTAL="${total}"
+                ON_SEC="${on_sec}"
+                OFF_SEC="${off_sec}"
+                ON_WORKERS="${on_workers}"
+                ON_METHOD="${on_method}"
+                OFF_MODE="${off_mode}"
+                OFF_WORKERS="${off_workers}"
+                OFF_METHOD="${off_method}"
+
+                start="\$(date +%s)"
+                while :; do
+                  now="\$(date +%s)"
+                  elapsed=\$(( now - start ))
+                  rem=\$(( TOTAL - elapsed ))
+                  if [ "\$rem" -le 0 ]; then
+                    break
+                  fi
+
+                  # ON segment
+                  run_on="\$ON_SEC"
+                  if [ "\$run_on" -gt "\$rem" ]; then run_on="\$rem"; fi
+                  if [ "\$run_on" -gt 0 ]; then
+                    if [ "\$ON_WORKERS" -gt 0 ]; then
+                      stress-ng --cpu "\$ON_WORKERS" --cpu-method "\$ON_METHOD" --timeout "\${run_on}s" --metrics-brief
+                    else
+                      sleep "\$run_on"
+                    fi
+                  fi
+
+                  now="\$(date +%s)"
+                  elapsed=\$(( now - start ))
+                  rem=\$(( TOTAL - elapsed ))
+                  if [ "\$rem" -le 0 ]; then
+                    break
+                  fi
+
+                  # OFF segment
+                  run_off="\$OFF_SEC"
+                  if [ "\$run_off" -gt "\$rem" ]; then run_off="\$rem"; fi
+                  if [ "\$run_off" -gt 0 ]; then
+                    if [ "\$OFF_MODE" = "stress" ] && [ "\$OFF_WORKERS" -gt 0 ]; then
+                      stress-ng --cpu "\$OFF_WORKERS" --cpu-method "\$OFF_METHOD" --timeout "\${run_off}s" --metrics-brief
+                    else
+                      sleep "\$run_off"
+                    fi
+                  fi
+                done
+
+            resources:
+              requests:
+                cpu: "${cpu_req}m"
+              limits:
+                cpu: "${cpu_lim}m"
+      EOF
+                else
+                  cat <<EOF | kubectl -n "${NAMESPACE}" apply -f -
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: ${pod_name}
+        labels:
+          tycho.testing/plan_id: "${PLAN_ID}"
+          tycho.testing/rep: "${rep}"
+          tycho.testing/phase: "${PHASE_NAME}"
+          tycho.testing/role: "workload"
+      spec:
+        restartPolicy: Never
+        nodeName: "${TARGET_NODE}"
+        containers:
+          - name: stressng
+            image: "${STRESSNG_IMAGE}"
+            imagePullPolicy: IfNotPresent
+            command: ["/bin/sh","-c"]
+            args:
+              - |
+                set -eu
+                SEED="${seed}"
+                TOTAL="${total}"
+                ON_SEC="${on_sec}"
+                OFF_SEC="${off_sec}"
+                ON_WORKERS="${on_workers}"
+                ON_METHOD="${on_method}"
+                OFF_MODE="${off_mode}"
+                OFF_WORKERS="${off_workers}"
+                OFF_METHOD="${off_method}"
+
+                start="\$(date +%s)"
+                while :; do
+                  now="\$(date +%s)"
+                  elapsed=\$(( now - start ))
+                  rem=\$(( TOTAL - elapsed ))
+                  if [ "\$rem" -le 0 ]; then
+                    break
+                  fi
+
+                  # ON segment
+                  run_on="\$ON_SEC"
+                  if [ "\$run_on" -gt "\$rem" ]; then run_on="\$rem"; fi
+                  if [ "\$run_on" -gt 0 ]; then
+                    if [ "\$ON_WORKERS" -gt 0 ]; then
+                      stress-ng --cpu "\$ON_WORKERS" --cpu-method "\$ON_METHOD" --timeout "\${run_on}s" --metrics-brief
+                    else
+                      sleep "\$run_on"
+                    fi
+                  fi
+
+                  now="\$(date +%s)"
+                  elapsed=\$(( now - start ))
+                  rem=\$(( TOTAL - elapsed ))
+                  if [ "\$rem" -le 0 ]; then
+                    break
+                  fi
+
+                  # OFF segment
+                  run_off="\$OFF_SEC"
+                  if [ "\$run_off" -gt "\$rem" ]; then run_off="\$rem"; fi
+                  if [ "\$run_off" -gt 0 ]; then
+                    if [ "\$OFF_MODE" = "stress" ] && [ "\$OFF_WORKERS" -gt 0 ]; then
+                      stress-ng --cpu "\$OFF_WORKERS" --cpu-method "\$OFF_METHOD" --timeout "\${run_off}s" --metrics-brief
+                    else
+                      sleep "\$run_off"
+                    fi
+                  fi
+                done
+            resources:
+              requests:
+                cpu: "${cpu_req}m"
+      EOF
+                fi
+
+                k8s_uid="$(kubectl -n "${NAMESPACE}" get pod "${pod_name}" -o jsonpath='{.metadata.uid}' 2>/dev/null || echo "")"
+                deadline=$(( $(date +%s) + ${total} + ${TIMEOUT_SLACK_SEC} ))
+                while :; do
+                  now="$(date +%s)"
+                  if [ "${now}" -gt "${deadline}" ]; then
+                    phase_status="failed"
+                    phase_exit_reason="timeout"
+                    break
+                  fi
+
+                  st="$(kubectl -n "${NAMESPACE}" get pod "${pod_name}" -o jsonpath='{.status.phase}' 2>/dev/null || echo "")"
+                  if [ "${st}" = "Succeeded" ]; then
+                    break
+                  fi
+                  if [ "${st}" = "Failed" ]; then
+                    phase_status="failed"
+                    phase_exit_reason="pod failed"
+                    break
+                  fi
+                  sleep 1
+                done
+
+                kubectl -n "${NAMESPACE}" logs "${pod_name}" > "${OUT_DIR}/phase_${PHASE_NAME}.log" 2>&1 || true
+                if [ "${phase_status}" != "ok" ]; then
+                  kubectl -n "${NAMESPACE}" describe pod "${pod_name}" > "${OUT_DIR}/phase_${PHASE_NAME}_describe.txt" 2>&1 || true
+                fi
+                kubectl -n "${NAMESPACE}" delete pod "${pod_name}" --ignore-not-found=true >/dev/null 2>&1 || true
+              fi
             else
+              log "unknown workload template: raw='${TEMPLATE}'"
               phase_status="failed"
               phase_exit_reason="unknown workload template"
             fi
-
           else
             phase_status="failed"
             phase_exit_reason="unknown phase type"
@@ -869,31 +1033,83 @@
     - { name: "70-job.yaml",            content: "{{ job_manifest }}" }
 
 - name: Apply all manifests
-  shell: |
-    set -euo pipefail
+  ansible.builtin.shell:
+    cmd: |
+      set -euo pipefail
 
-    kubectl apply -f "{{ tmpdir.path }}/00-namespace.yaml"
-    kubectl apply -f "{{ tmpdir.path }}/10-serviceaccount.yaml"
-    kubectl apply -f "{{ tmpdir.path }}/20-role.yaml"
-    kubectl apply -f "{{ tmpdir.path }}/30-rolebinding.yaml"
-    kubectl apply -f "{{ tmpdir.path }}/40-configmap.yaml"
+      ns="{{ plan_ns }}"
+      pvc="{{ tycho_testing_pvc_name }}"
+      pv="{{ tycho_testing_pv_name }}"
+      job="tycho-plan-{{ tycho_test_plan_id }}"
 
-    # PV/PVC are safe to apply idempotently
-    kubectl apply -f "{{ tmpdir.path }}/50-pv.yaml"
-    kubectl apply -f "{{ tmpdir.path }}/60-pvc.yaml"
+      K="kubectl --request-timeout=20s"
 
-    # Clean up previous runs for this plan id so logs are unambiguous
-    kubectl -n {{ plan_ns }} delete job tycho-plan-{{ tycho_test_plan_id }} --ignore-not-found=true
-    kubectl -n {{ plan_ns }} delete pod -l app=tycho-testing,tycho_plan_id={{ tycho_test_plan_id }} --ignore-not-found=true
+      $K apply -f "{{ tmpdir.path }}/00-namespace.yaml"
+      $K apply -f "{{ tmpdir.path }}/10-serviceaccount.yaml"
+      $K apply -f "{{ tmpdir.path }}/20-role.yaml"
+      $K apply -f "{{ tmpdir.path }}/30-rolebinding.yaml"
+      $K apply -f "{{ tmpdir.path }}/40-configmap.yaml"
 
-    # Also clean up any leftover phase pods from older runs
-    kubectl -n {{ plan_ns }} delete pod -l tycho.testing/plan_id={{ tycho_test_plan_id }} --ignore-not-found=true || true
+      # PV is cluster-scoped; idempotent apply
+      $K apply -f "{{ tmpdir.path }}/50-pv.yaml"
 
-    # Recreate job
-    kubectl apply -f "{{ tmpdir.path }}/70-job.yaml"
-  args:
+      # Always ensure the previous job/pods are gone (fast, non-blocking)
+      $K -n "${ns}" delete job "${job}" --ignore-not-found=true --wait=false || true
+      $K -n "${ns}" delete pod -l "app=tycho-testing,tycho_plan_id={{ tycho_test_plan_id }}" --ignore-not-found=true --wait=false || true
+      $K -n "${ns}" delete pod -l "tycho.testing/plan_id={{ tycho_test_plan_id }}" --ignore-not-found=true --wait=false || true
+
+      if [ "{{ tycho_testing_reset | default(false) | bool }}" = "True" ]; then
+        echo "[tycho-testing][reset] enabled: recycling PVC and clearing PV claimRef"
+
+        # Bounded wait: ensure no pod is still referencing the PVC (best-effort)
+        for i in $(seq 1 30); do
+          # list podName|claimNames...
+          if $K -n "${ns}" get pod -o jsonpath='{range .items[*]}{.metadata.name}{"|"}{range .spec.volumes[*]}{.persistentVolumeClaim.claimName}{" "}{end}{"\n"}{end}' 2>/dev/null \
+            | grep -Eq "\|.*\b${pvc}\b"; then
+            sleep 1
+          else
+            break
+          fi
+        done
+
+        # Delete PVC (do not wait forever)
+        $K -n "${ns}" delete pvc "${pvc}" --ignore-not-found=true --wait=false || true
+
+        # Bounded wait until PVC is actually gone
+        for i in $(seq 1 60); do
+          if $K -n "${ns}" get pvc "${pvc}" >/dev/null 2>&1; then
+            sleep 1
+          else
+            break
+          fi
+        done
+
+        # IMPORTANT: PV reclaimPolicy=Retain => PV will be Released with old claimRef.
+        # Clear claimRef so the new PVC can bind to the existing PV.
+        # (Safe even if claimRef is already empty.)
+        $K patch pv "${pv}" --type=merge -p '{"spec":{"claimRef":null}}' >/dev/null 2>&1 || true
+
+      else
+        echo "[tycho-testing] normal run: keeping existing PVC (no delete)"
+      fi
+
+      # Ensure PVC exists (idempotent apply). If it already exists, this is a no-op.
+      $K apply -f "{{ tmpdir.path }}/60-pvc.yaml"
+
+      # Bounded wait for PVC to become Bound (helpful before starting the job)
+      for i in $(seq 1 60); do
+        phase="$($K -n "${ns}" get pvc "${pvc}" -o jsonpath='{.status.phase}' 2>/dev/null || echo "")"
+        if [ "${phase}" = "Bound" ]; then
+          break
+        fi
+        sleep 1
+      done
+
+      # Recreate job
+      $K apply -f "{{ tmpdir.path }}/70-job.yaml"
     executable: /bin/bash
   register: apply_all
+
 
 - name: Show kubectl apply output
   debug:
