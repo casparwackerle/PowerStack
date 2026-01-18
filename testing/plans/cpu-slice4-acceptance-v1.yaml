@@ -1,0 +1,81 @@
+apiVersion: tycho.testing/v1
+kind: TestPlan
+metadata:
+  plan_id: "cpu-slice4-acceptance-v1"
+  description: "Slice 4 CPU acceptance: burst + jitter + steady stress in one run"
+
+spec:
+  target:
+    node_name: "srv-lab-t-737"
+    namespace: "tycho-test"
+
+  repetitions:
+    count: 1
+
+  timing:
+    margin_before_sec: 10
+    margin_after_sec: 10
+
+  phases:
+    - name: "warmup"
+      type: "sleep"
+      duration_sec: 10
+
+    - name: "burst_train"
+      type: "workload"
+      workload:
+        template: "stressng-cpu-burst"
+        params:
+          total_duration_sec: 120
+          on_sec: 9
+          off_sec: 9
+          seed: 1
+
+          on_workers: 10
+          on_method: "matrixprod"
+
+          off_mode: "stress"
+          off_workers: 1
+          off_method: "matrixprod"
+
+          cpu_request_mcpu: 10000
+          cpu_limit_mcpu: 0
+
+    - name: "gap"
+      type: "sleep"
+      duration_sec: 15
+
+    - name: "jitter_train"
+      type: "workload"
+      workload:
+        template: "stressng-cpu-jitter"
+        params:
+          total_duration_sec: 120
+          on_sec: 6
+          gap_min_sec: 3
+          gap_max_sec: 15
+          seed: 1
+
+          workers: 10
+          method: "matrixprod"
+
+          cpu_request_mcpu: 10000
+          cpu_limit_mcpu: 0
+
+    - name: "gap2"
+      type: "sleep"
+      duration_sec: 15
+
+    - name: "steady"
+      type: "workload"
+      workload:
+        template: "stressng-cpu"
+        params:
+          workers: 10
+          method: "matrixprod"
+          duration_sec: 60
+          cpu_request_mcpu: 10000
+
+    - name: "cooldown"
+      type: "sleep"
+      duration_sec: 10

@@ -1,0 +1,43 @@
+apiVersion: tycho.testing/v1
+kind: TestPlan
+metadata:
+  plan_id: "cpu-jitter-train-v1"
+  description: "Slice 4: CPU jitter burst train (on + randomized gap) in one pod"
+
+spec:
+  target:
+    node_name: "srv-lab-t-737"
+    namespace: "tycho-test"
+
+  repetitions:
+    count: 1
+
+  timing:
+    margin_before_sec: 10
+    margin_after_sec: 10
+
+  phases:
+    - name: "warmup"
+      type: "sleep"
+      duration_sec: 10
+
+    - name: "jitter"
+      type: "workload"
+      workload:
+        template: "stressng-cpu-jitter"
+        params:
+          total_duration_sec: 180
+          on_sec: 6
+          gap_min_sec: 3
+          gap_max_sec: 15
+          seed: 1
+
+          workers: 10
+          method: "matrixprod"
+
+          cpu_request_mcpu: 10000
+          cpu_limit_mcpu: 0
+
+    - name: "cooldown"
+      type: "sleep"
+      duration_sec: 10

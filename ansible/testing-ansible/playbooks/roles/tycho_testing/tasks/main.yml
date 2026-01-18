@@ -64,9 +64,9 @@
 
 - name: Fail fast on unknown workload templates (Slice 2 minimum set)
   fail:
-    msg: "Unknown workload template '{{ (item.workload.template | default('MISSING')) }}' in phase '{{ item.name }}' (allowed: noop-sleep, sleep, ramp, stressng-cpu, stressng-cpu-burst)"
+    msg: "Unknown workload template '{{ (item.workload.template | default('MISSING')) }}' in phase '{{ item.name }}' (allowed: noop-sleep, sleep, ramp, stressng-cpu, stressng-cpu-burst, stressng-cpu-jitter, gpu-burn-steady, gpu-burn-burst)"
   loop: "{{ plan_phases }}"
-  when: (item.type == 'workload') and ((item.workload.template | default('')) not in ['sleep','noop-sleep','stressng-cpu','ramp','stressng-cpu-burst'])
+  when: (item.type == 'workload') and ((item.workload.template | default('')) not in ['sleep','noop-sleep','stressng-cpu','ramp','stressng-cpu-burst','stressng-cpu-jitter','gpu-burn-steady','gpu-burn-burst'])
 
 - name: Fail fast if any phase name missing
   fail:
@@ -94,9 +94,9 @@
 
 - name: Fail fast on unknown workload templates (Slice 2 minimum set)
   fail:
-    msg: "Unknown workload template '{{ (item.workload.template | default('MISSING')) }}' in phase '{{ item.name }}' (allowed: noop-sleep, stressng-cpu, 'stressng-cpu-burst')"
+    msg: "Unknown workload template '{{ (item.workload.template | default('MISSING')) }}' in phase '{{ item.name }}' (allowed: noop-sleep, stressng-cpu, stressng-cpu-burst, stressng-cpu-jitter, gpu-burn-steady', gpu-burn-burst)"
   loop: "{{ plan_phases }}"
-  when: (item.type == 'workload') and ((item.workload.template | default('')) not in ['noop-sleep','stressng-cpu','stressng-cpu-burst'])
+  when: (item.type == 'workload') and ((item.workload.template | default('')) not in ['noop-sleep','stressng-cpu','stressng-cpu-burst','stressng-cpu-jitter','gpu-burn-steady','gpu-burn-burst'])
 
 # Validate stressng-cpu params (minimum set)
 - name: Fail fast if stressng-cpu missing required params
@@ -147,6 +147,69 @@
       ((item.workload.params.cpu_limit_mcpu | default(0) | int) < 0)
     )
 
+- name: Fail fast if stressng-cpu-jitter missing required params
+  fail:
+    msg: >-
+      Phase '{{ item.name }}' stressng-cpu-jitter requires params:
+      total_duration_sec (>0), on_sec (>0),
+      gap_min_sec (>=0), gap_max_sec (>=gap_min_sec),
+      seed (>=0), workers (>=0), method (non-empty),
+      cpu_request_mcpu (>0), cpu_limit_mcpu (>=0, 0 means unset)
+  loop: "{{ plan_phases }}"
+  when: >
+    (item.type == 'workload') and
+    ((item.workload.template | default('')) == 'stressng-cpu-jitter') and
+    (
+      ((item.workload.params.total_duration_sec | default(0) | int) <= 0) or
+      ((item.workload.params.on_sec | default(0) | int) <= 0) or
+      ((item.workload.params.gap_min_sec | default(-1) | int) < 0) or
+      ((item.workload.params.gap_max_sec | default(-1) | int) < (item.workload.params.gap_min_sec | default(0) | int)) or
+      ((item.workload.params.seed | default(-1) | int) < 0) or
+      ((item.workload.params.workers | default(-1) | int) < 0) or
+      ((item.workload.params.method | default('') | length) == 0) or
+      ((item.workload.params.cpu_request_mcpu | default(0) | int) <= 0) or
+      ((item.workload.params.cpu_limit_mcpu | default(0) | int) < 0)
+    )
+
+- name: Fail fast if gpu-burn-steady missing required params
+  fail:
+    msg: >-
+      Phase '{{ item.name }}' gpu-burn-steady requires params:
+      duration_sec (>0), gpu_request_count (>=1),
+      cpu_request_mcpu (optional, >=0), cpu_limit_mcpu (optional, >=0, 0 means unset),
+      image (optional, non-empty), variant (optional)
+  loop: "{{ plan_phases }}"
+  when: >
+    (item.type == 'workload') and
+    ((item.workload.template | default('')) == 'gpu-burn-steady') and
+    (
+      ((item.workload.params.duration_sec | default(0) | int) <= 0) or
+      ((item.workload.params.gpu_request_count | default(0) | int) < 1) or
+      ((item.workload.params.cpu_request_mcpu | default(0) | int) < 0) or
+      ((item.workload.params.cpu_limit_mcpu | default(0) | int) < 0)
+    )
+
+- name: Fail fast if gpu-burn-burst missing required params
+  fail:
+    msg: >-
+      Phase '{{ item.name }}' gpu-burn-burst requires params:
+      total_duration_sec (>0), on_sec (>0), off_sec (>=0),
+      gpu_request_count (>=1),
+      cpu_request_mcpu (optional, >=0), cpu_limit_mcpu (optional, >=0, 0 means unset),
+      image (optional, non-empty), variant (optional)
+  loop: "{{ plan_phases }}"
+  when: >
+    (item.type == 'workload') and
+    ((item.workload.template | default('')) == 'gpu-burn-burst') and
+    (
+      ((item.workload.params.total_duration_sec | default(0) | int) <= 0) or
+      ((item.workload.params.on_sec | default(0) | int) <= 0) or
+      ((item.workload.params.off_sec | default(-1) | int) < 0) or
+      ((item.workload.params.gpu_request_count | default(0) | int) < 1) or
+      ((item.workload.params.cpu_request_mcpu | default(0) | int) < 0) or
+      ((item.workload.params.cpu_limit_mcpu | default(0) | int) < 0)
+    )
+
 
 # ---------------------------
 # Slice 2: Build runner assets (stored in ConfigMap via workload_yaml_map)
@@ -169,6 +232,9 @@
       # stress-ng workload image (simple, prebuilt)
       STRESSNG_IMAGE="polinux/stress-ng:latest"
 
+      # GPU burn workload image (override per plan via params.image if needed)
+      GPU_BURN_IMAGE="<<<SET_ME>>>"
+
       # Default timeout slack in seconds
       TIMEOUT_SLACK_SEC="60"
 
@@ -178,15 +244,38 @@
     runner_phases_psv: |
       {% for p in plan_phases -%}
       {# Columns: name|type|planned_duration_sec|template|params_json|role #}
-      {{ p.name | trim }}|{{ p.type | trim }}|{{ (p.duration_sec | default(0) | int) if (p.type in ['sleep','ramp']) else ((p.workload.params.total_duration_sec | default(0) | int) if ((p.workload.template | default('')) == 'stressng-cpu-burst') else (p.workload.params.duration_sec | default(0) | int)) }}|{{ (p.workload.template | default('')) if (p.type == 'workload') else ('noop-sleep' if (p.type == 'sleep') else ('ramp-' ~ (p.ramp_profile | default('')))) }}|{{ (p.workload.params | default({}) | to_json) if (p.type == 'workload') else ({ 'duration_sec': (p.duration_sec | default(0) | int) } | to_json) if (p.type == 'sleep') else ({
-        'ramp_profile': (p.ramp_profile | default('')),
-        'duration_sec': (p.duration_sec | default(0) | int),
-        'max_workers': (p.params.max_workers | default(0) | int),
-        'step_count': (p.params.step_count | default(0) | int),
-        'method': (p.params.method | default('')),
-        'cpu_request_mcpu': (p.params.cpu_request_mcpu | default(0) | int)
-      } | to_json) }}|{{ 'ramp' if (p.type == 'ramp') else 'workload' if (p.type == 'workload') else 'sleep' }}
-      {% endfor %}
+      {{ p.name | trim }}|{{ p.type | trim }}|{{
+        (p.duration_sec | default(0) | int)
+        if (p.type in ['sleep','ramp'])
+        else (
+          (p.workload.params.total_duration_sec | default(0) | int)
+          if ((p.workload.template | default('')) in ['stressng-cpu-burst','stressng-cpu-jitter','gpu-burn-burst'])
+          else (p.workload.params.duration_sec | default(0) | int)
+        )
+      }}|{{
+        (p.workload.template | default(''))
+        if (p.type == 'workload')
+        else ('noop-sleep' if (p.type == 'sleep') else ('ramp-' ~ (p.ramp_profile | default(''))))
+      }}|{{
+        (p.workload.params | default({}) | to_json)
+        if (p.type == 'workload')
+        else (
+          ({ 'duration_sec': (p.duration_sec | default(0) | int) } | to_json)
+          if (p.type == 'sleep')
+          else ({
+            'ramp_profile': (p.ramp_profile | default('')),
+            'duration_sec': (p.duration_sec | default(0) | int),
+            'max_workers': (p.params.max_workers | default(0) | int),
+            'step_count': (p.params.step_count | default(0) | int),
+            'method': (p.params.method | default('')),
+            'cpu_request_mcpu': (p.params.cpu_request_mcpu | default(0) | int)
+          } | to_json)
+        )
+      }}|{{
+        'ramp' if (p.type == 'ramp') else 'workload' if (p.type == 'workload') else 'sleep'
+      }}
+      {% endfor -%}
+
 
 - name: Build runner script (runner.sh)
   set_fact:
@@ -613,7 +702,7 @@
                 fi
                 kubectl -n "${NAMESPACE}" delete pod "${pod_name}" --ignore-not-found=true >/dev/null 2>&1 || true
               fi
-                        elif [ "${TEMPLATE}" = "stressng-cpu-burst" ]; then
+            elif [ "${TEMPLATE}" = "stressng-cpu-burst" ]; then
               # params:
               # total_duration_sec, on_sec, off_sec, seed
               # on_workers, on_method
@@ -835,6 +924,439 @@
                 fi
                 kubectl -n "${NAMESPACE}" delete pod "${pod_name}" --ignore-not-found=true >/dev/null 2>&1 || true
               fi
+            elif [ "${TEMPLATE}" = "stressng-cpu-jitter" ]; then
+              total="$(echo "${PARAMS_JSON}" | sed -n 's/.*"total_duration_sec"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+              on_sec="$(echo "${PARAMS_JSON}" | sed -n 's/.*"on_sec"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+              gmin="$(echo "${PARAMS_JSON}" | sed -n 's/.*"gap_min_sec"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+              gmax="$(echo "${PARAMS_JSON}" | sed -n 's/.*"gap_max_sec"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+              seed="$(echo "${PARAMS_JSON}" | sed -n 's/.*"seed"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+
+              workers="$(echo "${PARAMS_JSON}" | sed -n 's/.*"workers"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+              method="$(echo "${PARAMS_JSON}" | sed -n 's/.*"method"[ ]*:[ ]*"\([^"]*\)".*/\1/p')"
+
+              cpu_req="$(echo "${PARAMS_JSON}" | sed -n 's/.*"cpu_request_mcpu"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+              cpu_lim="$(echo "${PARAMS_JSON}" | sed -n 's/.*"cpu_limit_mcpu"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+
+              if [ -z "${seed}" ]; then seed=0; fi
+              if [ -z "${gmin}" ]; then gmin=0; fi
+              if [ -z "${gmax}" ]; then gmax="${gmin}"; fi
+              if [ -z "${cpu_lim}" ]; then cpu_lim=0; fi
+
+              if [ -z "${total}" ] || [ -z "${on_sec}" ] || [ -z "${workers}" ] || [ -z "${method}" ] || [ -z "${cpu_req}" ]; then
+                phase_status="failed"
+                phase_exit_reason="missing stressng-cpu-jitter params"
+              else
+                phase_slug="$(sanitize_k8s_name "${PHASE_NAME}")"
+                pod_name="tycho-${PLAN_ID}-r${rep}-${phase_slug}-${SAFE_TS}"
+
+                k8s_kind="Pod"
+                k8s_name="${pod_name}"
+
+                log "workload stressng-cpu-jitter total=${total}s on=${on_sec}s gap=[${gmin},${gmax}] seed=${seed} workers=${workers} method=${method} cpu_request=${cpu_req}m cpu_limit=${cpu_lim}m pod=${pod_name}"
+
+                # limits optional (cpu_lim=0 => omit)
+                if [ "${cpu_lim}" -gt 0 ]; then
+                  cat <<EOF | kubectl -n "${NAMESPACE}" apply -f -
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: ${pod_name}
+        labels:
+          tycho.testing/plan_id: "${PLAN_ID}"
+          tycho.testing/rep: "${rep}"
+          tycho.testing/phase: "${PHASE_NAME}"
+          tycho.testing/role: "workload"
+      spec:
+        restartPolicy: Never
+        nodeName: "${TARGET_NODE}"
+        containers:
+          - name: stressng
+            image: "${STRESSNG_IMAGE}"
+            imagePullPolicy: IfNotPresent
+            command: ["/bin/sh","-c"]
+            args:
+              - |
+                set -eu
+                TOTAL="${total}"
+                ON_SEC="${on_sec}"
+                GAP_MIN="${gmin}"
+                GAP_MAX="${gmax}"
+                STATE="${seed}"
+                WORKERS="${workers}"
+                METHOD="${method}"
+
+                # LCG PRNG for /bin/sh (deterministic)
+                # state = (1103515245*state + 12345) mod 2^31
+                next_u31() {
+                  STATE=\$(( (1103515245 * STATE + 12345) % 2147483648 ))
+                  echo "\$STATE"
+                }
+
+                rand_gap() {
+                  if [ "\$GAP_MAX" -le "\$GAP_MIN" ]; then
+                    echo "\$GAP_MIN"
+                    return
+                  fi
+                  span=\$(( GAP_MAX - GAP_MIN + 1 ))
+                  r="\$(next_u31)"
+                  echo \$(( GAP_MIN + (r % span) ))
+                }
+
+                start="\$(date +%s)"
+                while :; do
+                  now="\$(date +%s)"
+                  elapsed=\$(( now - start ))
+                  rem=\$(( TOTAL - elapsed ))
+                  if [ "\$rem" -le 0 ]; then break; fi
+
+                  run_on="\$ON_SEC"
+                  if [ "\$run_on" -gt "\$rem" ]; then run_on="\$rem"; fi
+                  if [ "\$run_on" -gt 0 ]; then
+                    if [ "\$WORKERS" -gt 0 ]; then
+                      stress-ng --cpu "\$WORKERS" --cpu-method "\$METHOD" --timeout "\${run_on}s" --metrics-brief
+                    else
+                      sleep "\$run_on"
+                    fi
+                  fi
+
+                  now="\$(date +%s)"
+                  elapsed=\$(( now - start ))
+                  rem=\$(( TOTAL - elapsed ))
+                  if [ "\$rem" -le 0 ]; then break; fi
+
+                  gap="\$(rand_gap)"
+                  if [ "\$gap" -gt "\$rem" ]; then gap="\$rem"; fi
+                  if [ "\$gap" -gt 0 ]; then
+                    sleep "\$gap"
+                  fi
+                done
+            resources:
+              requests:
+                cpu: "${cpu_req}m"
+              limits:
+                cpu: "${cpu_lim}m"
+      EOF
+                else
+                  cat <<EOF | kubectl -n "${NAMESPACE}" apply -f -
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: ${pod_name}
+        labels:
+          tycho.testing/plan_id: "${PLAN_ID}"
+          tycho.testing/rep: "${rep}"
+          tycho.testing/phase: "${PHASE_NAME}"
+          tycho.testing/role: "workload"
+      spec:
+        restartPolicy: Never
+        nodeName: "${TARGET_NODE}"
+        containers:
+          - name: stressng
+            image: "${STRESSNG_IMAGE}"
+            imagePullPolicy: IfNotPresent
+            command: ["/bin/sh","-c"]
+            args:
+              - |
+                set -eu
+                TOTAL="${total}"
+                ON_SEC="${on_sec}"
+                GAP_MIN="${gmin}"
+                GAP_MAX="${gmax}"
+                STATE="${seed}"
+                WORKERS="${workers}"
+                METHOD="${method}"
+
+                next_u31() {
+                  STATE=\$(( (1103515245 * STATE + 12345) % 2147483648 ))
+                  echo "\$STATE"
+                }
+
+                rand_gap() {
+                  if [ "\$GAP_MAX" -le "\$GAP_MIN" ]; then
+                    echo "\$GAP_MIN"
+                    return
+                  fi
+                  span=\$(( GAP_MAX - GAP_MIN + 1 ))
+                  r="\$(next_u31)"
+                  echo \$(( GAP_MIN + (r % span) ))
+                }
+
+                start="\$(date +%s)"
+                while :; do
+                  now="\$(date +%s)"
+                  elapsed=\$(( now - start ))
+                  rem=\$(( TOTAL - elapsed ))
+                  if [ "\$rem" -le 0 ]; then break; fi
+
+                  run_on="\$ON_SEC"
+                  if [ "\$run_on" -gt "\$rem" ]; then run_on="\$rem"; fi
+                  if [ "\$run_on" -gt 0 ]; then
+                    if [ "\$WORKERS" -gt 0 ]; then
+                      stress-ng --cpu "\$WORKERS" --cpu-method "\$METHOD" --timeout "\${run_on}s" --metrics-brief
+                    else
+                      sleep "\$run_on"
+                    fi
+                  fi
+
+                  now="\$(date +%s)"
+                  elapsed=\$(( now - start ))
+                  rem=\$(( TOTAL - elapsed ))
+                  if [ "\$rem" -le 0 ]; then break; fi
+
+                  gap="\$(rand_gap)"
+                  if [ "\$gap" -gt "\$rem" ]; then gap="\$rem"; fi
+                  if [ "\$gap" -gt 0 ]; then
+                    sleep "\$gap"
+                  fi
+                done
+            resources:
+              requests:
+                cpu: "${cpu_req}m"
+      EOF
+                fi
+
+                k8s_uid="$(kubectl -n "${NAMESPACE}" get pod "${pod_name}" -o jsonpath='{.metadata.uid}' 2>/dev/null || echo "")"
+                deadline=$(( $(date +%s) + ${total} + ${TIMEOUT_SLACK_SEC} ))
+                while :; do
+                  now="$(date +%s)"
+                  if [ "${now}" -gt "${deadline}" ]; then
+                    phase_status="failed"
+                    phase_exit_reason="timeout"
+                    break
+                  fi
+                  st="$(kubectl -n "${NAMESPACE}" get pod "${pod_name}" -o jsonpath='{.status.phase}' 2>/dev/null || echo "")"
+                  if [ "${st}" = "Succeeded" ]; then break; fi
+                  if [ "${st}" = "Failed" ]; then phase_status="failed"; phase_exit_reason="pod failed"; break; fi
+                  sleep 1
+                done
+
+                kubectl -n "${NAMESPACE}" logs "${pod_name}" > "${OUT_DIR}/phase_${PHASE_NAME}.log" 2>&1 || true
+                if [ "${phase_status}" != "ok" ]; then
+                  kubectl -n "${NAMESPACE}" describe pod "${pod_name}" > "${OUT_DIR}/phase_${PHASE_NAME}_describe.txt" 2>&1 || true
+                fi
+                kubectl -n "${NAMESPACE}" delete pod "${pod_name}" --ignore-not-found=true >/dev/null 2>&1 || true
+              fi
+            elif [ "${TEMPLATE}" = "gpu-burn-steady" ]; then
+              dur="$(echo "${PARAMS_JSON}" | sed -n 's/.*"duration_sec"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+              gcount="$(echo "${PARAMS_JSON}" | sed -n 's/.*"gpu_request_count"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+              variant="$(echo "${PARAMS_JSON}" | sed -n 's/.*"variant"[ ]*:[ ]*"\([^"]*\)".*/\1/p')"
+              img="$(echo "${PARAMS_JSON}" | sed -n 's/.*"image"[ ]*:[ ]*"\([^"]*\)".*/\1/p')"
+              cpu_req="$(echo "${PARAMS_JSON}" | sed -n 's/.*"cpu_request_mcpu"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+              cpu_lim="$(echo "${PARAMS_JSON}" | sed -n 's/.*"cpu_limit_mcpu"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+
+              if [ -z "${variant}" ]; then variant="burn"; fi
+              if [ -z "${gcount}" ]; then gcount=1; fi
+              if [ -z "${cpu_req}" ]; then cpu_req=0; fi
+              if [ -z "${cpu_lim}" ]; then cpu_lim=0; fi
+              if [ -z "${img}" ]; then img="${GPU_BURN_IMAGE}"; fi
+
+              if [ -z "${dur}" ] || [ -z "${img}" ] || [ "${gcount}" -lt 1 ]; then
+                phase_status="failed"
+                phase_exit_reason="missing gpu-burn-steady params"
+              else
+                phase_slug="$(sanitize_k8s_name "${PHASE_NAME}")"
+                pod_name="tycho-${PLAN_ID}-r${rep}-${phase_slug}-${SAFE_TS}"
+
+                k8s_kind="Pod"
+                k8s_name="${pod_name}"
+
+                log "workload gpu-burn-steady dur=${dur}s gpus=${gcount} image=${img} variant=${variant} cpu_request=${cpu_req}m cpu_limit=${cpu_lim}m pod=${pod_name}"
+
+                # Build optional CPU resources YAML fragments
+                cpu_req_yaml=""
+                cpu_lim_yaml=""
+                if [ "${cpu_req}" -gt 0 ]; then cpu_req_yaml="cpu: \"${cpu_req}m\""; fi
+                if [ "${cpu_lim}" -gt 0 ]; then cpu_lim_yaml="cpu: \"${cpu_lim}m\""; fi
+
+                cat <<EOF | kubectl -n "${NAMESPACE}" apply -f -
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: ${pod_name}
+        labels:
+          tycho.testing/plan_id: "${PLAN_ID}"
+          tycho.testing/rep: "${rep}"
+          tycho.testing/phase: "${PHASE_NAME}"
+          tycho.testing/role: "workload"
+      spec:
+        restartPolicy: Never
+        nodeName: "${TARGET_NODE}"
+        containers:
+          - name: gpuburn
+            image: "${img}"
+            imagePullPolicy: IfNotPresent
+            command: ["/bin/sh","-c"]
+            args:
+              - |
+                set -eu
+                DUR="${dur}"
+                VARIANT="${variant}"
+
+                # Try a few common entrypoints (plan stays stable, image can vary)
+                if [ "\$VARIANT" = "burn" ]; then
+                  if command -v gpu_burn >/dev/null 2>&1; then
+                    gpu_burn "\$DUR"
+                  elif command -v gpu-burn >/dev/null 2>&1; then
+                    gpu-burn "\$DUR"
+                  else
+                    echo "No gpu_burn binary found in image"
+                    exit 2
+                  fi
+                else
+                  # Variant hook: implement later if you add images (matmul, etc)
+                  echo "Unknown variant: \$VARIANT"
+                  exit 2
+                fi
+            resources:
+              requests:
+                nvidia.com/gpu: "${gcount}"
+                ${cpu_req_yaml}
+              limits:
+                nvidia.com/gpu: "${gcount}"
+                ${cpu_lim_yaml}
+      EOF
+
+                k8s_uid="$(kubectl -n "${NAMESPACE}" get pod "${pod_name}" -o jsonpath='{.metadata.uid}' 2>/dev/null || echo "")"
+                deadline=$(( $(date +%s) + ${dur} + ${TIMEOUT_SLACK_SEC} ))
+                while :; do
+                  now="$(date +%s)"
+                  if [ "${now}" -gt "${deadline}" ]; then phase_status="failed"; phase_exit_reason="timeout"; break; fi
+                  st="$(kubectl -n "${NAMESPACE}" get pod "${pod_name}" -o jsonpath='{.status.phase}' 2>/dev/null || echo "")"
+                  if [ "${st}" = "Succeeded" ]; then break; fi
+                  if [ "${st}" = "Failed" ]; then phase_status="failed"; phase_exit_reason="pod failed"; break; fi
+                  sleep 1
+                done
+
+                kubectl -n "${NAMESPACE}" logs "${pod_name}" > "${OUT_DIR}/phase_${PHASE_NAME}.log" 2>&1 || true
+                if [ "${phase_status}" != "ok" ]; then
+                  kubectl -n "${NAMESPACE}" describe pod "${pod_name}" > "${OUT_DIR}/phase_${PHASE_NAME}_describe.txt" 2>&1 || true
+                fi
+                kubectl -n "${NAMESPACE}" delete pod "${pod_name}" --ignore-not-found=true >/dev/null 2>&1 || true
+              fi
+            elif [ "${TEMPLATE}" = "gpu-burn-burst" ]; then
+              total="$(echo "${PARAMS_JSON}" | sed -n 's/.*"total_duration_sec"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+              on_sec="$(echo "${PARAMS_JSON}" | sed -n 's/.*"on_sec"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+              off_sec="$(echo "${PARAMS_JSON}" | sed -n 's/.*"off_sec"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+              gcount="$(echo "${PARAMS_JSON}" | sed -n 's/.*"gpu_request_count"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+              variant="$(echo "${PARAMS_JSON}" | sed -n 's/.*"variant"[ ]*:[ ]*"\([^"]*\)".*/\1/p')"
+              img="$(echo "${PARAMS_JSON}" | sed -n 's/.*"image"[ ]*:[ ]*"\([^"]*\)".*/\1/p')"
+              cpu_req="$(echo "${PARAMS_JSON}" | sed -n 's/.*"cpu_request_mcpu"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+              cpu_lim="$(echo "${PARAMS_JSON}" | sed -n 's/.*"cpu_limit_mcpu"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+
+              if [ -z "${variant}" ]; then variant="burn"; fi
+              if [ -z "${gcount}" ]; then gcount=1; fi
+              if [ -z "${off_sec}" ]; then off_sec=0; fi
+              if [ -z "${cpu_req}" ]; then cpu_req=0; fi
+              if [ -z "${cpu_lim}" ]; then cpu_lim=0; fi
+              if [ -z "${img}" ]; then img="${GPU_BURN_IMAGE}"; fi
+
+              if [ -z "${total}" ] || [ -z "${on_sec}" ] || [ -z "${img}" ] || [ "${gcount}" -lt 1 ]; then
+                phase_status="failed"
+                phase_exit_reason="missing gpu-burn-burst params"
+              else
+                phase_slug="$(sanitize_k8s_name "${PHASE_NAME}")"
+                pod_name="tycho-${PLAN_ID}-r${rep}-${phase_slug}-${SAFE_TS}"
+
+                k8s_kind="Pod"
+                k8s_name="${pod_name}"
+
+                log "workload gpu-burn-burst total=${total}s on=${on_sec}s off=${off_sec}s gpus=${gcount} image=${img} variant=${variant} cpu_request=${cpu_req}m cpu_limit=${cpu_lim}m pod=${pod_name}"
+
+                cpu_req_yaml=""
+                cpu_lim_yaml=""
+                if [ "${cpu_req}" -gt 0 ]; then cpu_req_yaml="cpu: \"${cpu_req}m\""; fi
+                if [ "${cpu_lim}" -gt 0 ]; then cpu_lim_yaml="cpu: \"${cpu_lim}m\""; fi
+
+                cat <<EOF | kubectl -n "${NAMESPACE}" apply -f -
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: ${pod_name}
+        labels:
+          tycho.testing/plan_id: "${PLAN_ID}"
+          tycho.testing/rep: "${rep}"
+          tycho.testing/phase: "${PHASE_NAME}"
+          tycho.testing/role: "workload"
+      spec:
+        restartPolicy: Never
+        nodeName: "${TARGET_NODE}"
+        containers:
+          - name: gpuburn
+            image: "${img}"
+            imagePullPolicy: IfNotPresent
+            command: ["/bin/sh","-c"]
+            args:
+              - |
+                set -eu
+                TOTAL="${total}"
+                ON_SEC="${on_sec}"
+                OFF_SEC="${off_sec}"
+                VARIANT="${variant}"
+
+                run_burn() {
+                  secs="\$1"
+                  if [ "\$secs" -le 0 ]; then return; fi
+                  if [ "\$VARIANT" = "burn" ]; then
+                    if command -v gpu_burn >/dev/null 2>&1; then
+                      gpu_burn "\$secs"
+                    elif command -v gpu-burn >/dev/null 2>&1; then
+                      gpu-burn "\$secs"
+                    else
+                      echo "No gpu_burn binary found in image"
+                      exit 2
+                    fi
+                  else
+                    echo "Unknown variant: \$VARIANT"
+                    exit 2
+                  fi
+                }
+
+                start="\$(date +%s)"
+                while :; do
+                  now="\$(date +%s)"
+                  elapsed=\$(( now - start ))
+                  rem=\$(( TOTAL - elapsed ))
+                  if [ "\$rem" -le 0 ]; then break; fi
+
+                  run_on="\$ON_SEC"
+                  if [ "\$run_on" -gt "\$rem" ]; then run_on="\$rem"; fi
+                  run_burn "\$run_on"
+
+                  now="\$(date +%s)"
+                  elapsed=\$(( now - start ))
+                  rem=\$(( TOTAL - elapsed ))
+                  if [ "\$rem" -le 0 ]; then break; fi
+
+                  run_off="\$OFF_SEC"
+                  if [ "\$run_off" -gt "\$rem" ]; then run_off="\$rem"; fi
+                  if [ "\$run_off" -gt 0 ]; then sleep "\$run_off"; fi
+                done
+            resources:
+              requests:
+                nvidia.com/gpu: "${gcount}"
+                ${cpu_req_yaml}
+              limits:
+                nvidia.com/gpu: "${gcount}"
+                ${cpu_lim_yaml}
+      EOF
+
+                k8s_uid="$(kubectl -n "${NAMESPACE}" get pod "${pod_name}" -o jsonpath='{.metadata.uid}' 2>/dev/null || echo "")"
+                deadline=$(( $(date +%s) + ${total} + ${TIMEOUT_SLACK_SEC} ))
+                while :; do
+                  now="$(date +%s)"
+                  if [ "${now}" -gt "${deadline}" ]; then phase_status="failed"; phase_exit_reason="timeout"; break; fi
+                  st="$(kubectl -n "${NAMESPACE}" get pod "${pod_name}" -o jsonpath='{.status.phase}' 2>/dev/null || echo "")"
+                  if [ "${st}" = "Succeeded" ]; then break; fi
+                  if [ "${st}" = "Failed" ]; then phase_status="failed"; phase_exit_reason="pod failed"; break; fi
+                  sleep 1
+                done
+
+                kubectl -n "${NAMESPACE}" logs "${pod_name}" > "${OUT_DIR}/phase_${PHASE_NAME}.log" 2>&1 || true
+                if [ "${phase_status}" != "ok" ]; then
+                  kubectl -n "${NAMESPACE}" describe pod "${pod_name}" > "${OUT_DIR}/phase_${PHASE_NAME}_describe.txt" 2>&1 || true
+                fi
+                kubectl -n "${NAMESPACE}" delete pod "${pod_name}" --ignore-not-found=true >/dev/null 2>&1 || true
+              fi
             else
               log "unknown workload template: raw='${TEMPLATE}'"
               phase_status="failed"
@@ -965,6 +1487,7 @@
       runner.sh: "{{ runner_sh }}"
       runner_meta.env: "{{ runner_meta_env }}"
       runner_phases.psv: "{{ runner_phases_psv }}"
+      
 
 # NOTE:
 # We intentionally do NOT SSH to the NFS server from this role.
