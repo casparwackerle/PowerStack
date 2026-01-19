@@ -1,8 +1,8 @@
 apiVersion: tycho.testing/v1
 kind: TestPlan
 metadata:
-  plan_id: "gpu-burn-steady-3-pod"
-  description: "run pods at the same time"
+  plan_id: "gpu-burn-steady-set"
+  description: "Slice 6 test: workload_set launches 3 gpu-burn-steady pods in parallel, then cooldown"
 
 spec:
   target:
@@ -17,18 +17,17 @@ spec:
     margin_after_sec: 10
 
   phases:
-    # - name: "warmup"
-    #   type: "sleep"
-    #   duration_sec: 15
+    - name: "warmup"
+      type: "sleep"
+      duration_sec: 15
 
-
-    - name: "pair"                     # simultaneous workloads are possible
+    - name: "triple"
       type: "workload_set"
       workloads:
         - name: "gpu-burn-steady-1"
           template: "gpu-burn-steady"
           params:
-            duration_sec: 120
+            duration_sec: 20
             gpu_request_count: 1
             gpu_burn_list_gpus: true
             gpu_burn_mem_pct: 90
@@ -36,19 +35,31 @@ spec:
             gpu_burn_use_tensor_cores: true
             cpu_request_mcpu: 1000
             cpu_limit_mcpu: 0
+
         - name: "gpu-burn-steady-2"
           template: "gpu-burn-steady"
           params:
-            duration_sec: 120
+            duration_sec: 20
             gpu_request_count: 1
             gpu_burn_list_gpus: true
             gpu_burn_mem_pct: 90
             gpu_burn_use_doubles: false
             gpu_burn_use_tensor_cores: true
             cpu_request_mcpu: 1000
-            cpu_limit_mcpu: 0 
+            cpu_limit_mcpu: 0
 
+        - name: "gpu-burn-steady-3"
+          template: "gpu-burn-steady"
+          params:
+            duration_sec: 20
+            gpu_request_count: 1
+            gpu_burn_list_gpus: true
+            gpu_burn_mem_pct: 90
+            gpu_burn_use_doubles: false
+            gpu_burn_use_tensor_cores: true
+            cpu_request_mcpu: 1000
+            cpu_limit_mcpu: 0
 
-    - name: "cooldown"
-      type: "sleep"
-      duration_sec: 15
+    # - name: "cooldown"
+    #   type: "sleep"
+    #   duration_sec: 15

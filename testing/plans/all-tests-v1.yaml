@@ -1,0 +1,174 @@
+apiVersion: tycho.testing/v1
+kind: TestPlan
+metadata:
+  plan_id: "all-tests-v1"
+  description: "collection of all workloads imaginable"
+
+spec:
+  target:
+    node_name: "srv-lab-t-737"
+    namespace: "tycho-test"
+
+  repetitions:
+    count: 2
+
+  timing:
+    margin_before_sec: 10
+    margin_after_sec: 10
+
+  phases:
+    - name: "warmup"
+      type: "sleep"
+      duration_sec: 3
+
+    - name: "precondition"
+      type: "ramp"
+      ramp_profile: "cpu"
+      duration_sec: 50
+      params:
+        max_workers: 2
+        step_count: 5
+        method: "matrixprod"
+        cpu_request_mcpu: 50000
+
+    - name: "test"
+      type: "workload"
+      workload:
+        template: "stressng-cpu"
+        params:
+          duration_sec: 60
+          workers: 1
+          method: "matrixprod"
+          cpu_request_mcpu: 2000
+
+    - name: "burst_train"
+      type: "workload"
+      workload:
+        template: "stressng-cpu-burst"
+        params:
+          total_duration_sec: 60
+          on_sec: 9
+          off_sec: 9
+          seed: 1
+
+          on_workers: 10
+          on_method: "matrixprod"
+
+          off_mode: "stress"
+          off_workers: 1
+          off_method: "matrixprod"
+
+          cpu_request_mcpu: 10000
+          cpu_limit_mcpu: 0
+
+    - name: "jitter"
+      type: "workload"
+      workload:
+        template: "stressng-cpu-jitter"
+        params:
+          total_duration_sec: 60
+          on_sec: 6
+          gap_min_sec: 3
+          gap_max_sec: 15
+          seed: 1
+
+          workers: 10
+          method: "matrixprod"
+
+          cpu_request_mcpu: 10000
+          cpu_limit_mcpu: 0
+
+    - name: "gpu_burn_steady"
+      type: "workload"
+      workload:
+        template: "gpu-burn-steady"
+        params:
+          duration_sec: 60
+          gpu_request_count: 1
+          gpu_burn_list_gpus: true
+          gpu_burn_mem_pct: 90
+          gpu_burn_use_doubles: false
+          gpu_burn_use_tensor_cores: true
+          cpu_request_mcpu: 1000
+          cpu_limit_mcpu: 0
+
+    - name: "burst_train_3s"
+      type: "workload"
+      workload:
+        template: "gpu-burn-burst"
+        params:
+          total_duration_sec: 60
+          on_sec: 3
+          off_sec: 3
+          gpu_request_count: 1
+          gpu_burn_mem_pct: 90
+          gpu_burn_use_doubles: false
+          gpu_burn_use_tensor_cores: true
+          cpu_request_mcpu: 1000
+          cpu_limit_mcpu: 0
+
+    - name: "concurrent_cpu"
+      type: "workload_set"
+      workloads:
+        - name: "MatrixProd"
+          template: "stressng-cpu"
+          params:
+            duration_sec: 60
+            workers: 1
+            method: "matrixprod"
+            cpu_request_mcpu: 2000
+
+        - name: "FFT"
+          template: "stressng-cpu"
+          params:
+            duration_sec: 60
+            workers: 1
+            method: "fft"
+            cpu_request_mcpu: 2000
+
+    - name: "cooldown"
+      type: "sleep"
+      duration_sec: 15
+
+    - name: "concurrent_gpu"
+      type: "workload_set"
+      workloads:
+        - name: "gpu-burn-steady-1"
+          template: "gpu-burn-steady"
+          params:
+            duration_sec: 20
+            gpu_request_count: 1
+            gpu_burn_list_gpus: true
+            gpu_burn_mem_pct: 90
+            gpu_burn_use_doubles: false
+            gpu_burn_use_tensor_cores: true
+            cpu_request_mcpu: 1000
+            cpu_limit_mcpu: 0
+
+        - name: "gpu-burn-steady-2"
+          template: "gpu-burn-steady"
+          params:
+            duration_sec: 20
+            gpu_request_count: 1
+            gpu_burn_list_gpus: true
+            gpu_burn_mem_pct: 90
+            gpu_burn_use_doubles: false
+            gpu_burn_use_tensor_cores: true
+            cpu_request_mcpu: 1000
+            cpu_limit_mcpu: 0
+
+        - name: "gpu-burn-steady-3"
+          template: "gpu-burn-steady"
+          params:
+            duration_sec: 20
+            gpu_request_count: 1
+            gpu_burn_list_gpus: true
+            gpu_burn_mem_pct: 90
+            gpu_burn_use_doubles: false
+            gpu_burn_use_tensor_cores: true
+            cpu_request_mcpu: 1000
+            cpu_limit_mcpu: 0
+
+    - name: "cooldown"
+      type: "sleep"
+      duration_sec: 15

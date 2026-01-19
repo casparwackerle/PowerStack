@@ -1,0 +1,59 @@
+apiVersion: tycho.testing/v1
+kind: TestPlan
+metadata:
+  plan_id: "cpu-stress-workload-set"
+  description: "Prototype: short-lived CPU bursts"
+
+spec:
+  target:
+    node_name: "srv-lab-t-737"
+    namespace: "tycho-test"
+
+  repetitions:
+    count: 1
+
+  timing:
+    margin_before_sec: 10
+    margin_after_sec: 10
+
+  phases:
+    # - name: "warmup"
+    #   type: "sleep"
+    #   duration_sec: 10
+
+    # - name: "pair"                     # simultaneous workloads are possible
+    #   type: "workload_set"
+    #   workloads:
+    # - name: "w1"
+    #   template: "stressng-cpu"
+    #   params: { workers: 20, method: "matrixprod", duration_sec: 120, cpu_request_mcpu: 20000 }
+    # - name: "w2"
+    #   template: "stressng-cpu"
+    #   params: { workers: 10, method: "fft",       duration_sec: 120, cpu_request_mcpu: 10000 }
+
+    - name: "triple"
+      type: "workload_set"
+      workloads:
+      - name: "test1"
+        type: "workload"
+        workload:
+          template: "stressng-cpu"
+          params:
+            workers: 10
+            method: "fft"
+            duration_sec: 10
+            cpu_request_mcpu: 2000
+      - name: "test2"
+        type: "workload"
+        workload:
+          template: "stressng-cpu"
+          params:
+            workers: 20
+            method: "matrixprod"
+            duration_sec: 10
+            cpu_request_mcpu: 2000
+
+
+    # - name: "cooldown"
+    #   type: "sleep"
+    #   duration_sec: 10

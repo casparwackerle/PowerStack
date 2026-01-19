@@ -23,7 +23,7 @@ rules:
     resources: ["events"]
     verbs: ["get","list","watch"]
 
-  # The runner does not create Jobs, but the Job itself is useful to observe.
+  # Slice 6: parent runner creates sub-runner Jobs and watches them.
   - apiGroups: ["batch"]
     resources: ["jobs"]
-    verbs: ["get","list","watch"]
+    verbs: ["get","list","watch","create","delete","deletecollection","patch"]

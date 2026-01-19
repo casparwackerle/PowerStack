@@ -19,6 +19,11 @@ spec:
         - name: kubectl
           image: {{ tycho_kubectl_image }}
           imagePullPolicy: IfNotPresent
+          env:
+            - name: TYCHO_PLAN_CONFIGMAP_NAME
+              value: "{{ tycho_test_plan_configmap_name }}"
+            - name: TYCHO_OUT_PVC_NAME
+              value: "{{ tycho_testing_pvc_name }}"
           command: ["/bin/sh","-c"]
           args:
             - |
