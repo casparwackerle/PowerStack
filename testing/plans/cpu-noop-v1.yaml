@@ -1,0 +1,37 @@
+apiVersion: tycho.testing/v1
+kind: TestPlan
+metadata:
+  plan_id: "cpu-noop-v1"
+  description: "noop"
+
+spec:
+  target:
+    node_name: "srv-lab-t-737"
+    namespace: "tycho-test"
+
+  # Start with count=2 to validate logging/metrics completeness.
+  # After validation, increase count for unattended statistical runs.
+  repetitions:
+    count: 1
+
+  timing:
+    margin_before_sec: 10
+    margin_after_sec: 10
+
+  phases:
+    - name: "busy-vs-noop-sleep"
+      type: "workload_set"
+      workloads:
+        - name: "busy"
+          template: "stressng-cpu"
+          params:
+            duration_sec: 180
+            workers: 1
+            method: "matrixprod"
+            cpu_request_mcpu: 8000
+
+        - name: "Noop"
+          template: "noop-sleep"
+          params:
+            duration_sec: 180
+            cpu_request_mcpu: 8000

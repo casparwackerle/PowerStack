@@ -1,7 +1,7 @@
 apiVersion: tycho.testing/v1
 kind: TestPlan
 metadata:
-  plan_id: "tycho-testing"
+  plan_id: "tycho-testing-short"
   description: "Single self-contained master plan: idle baselines, CPU steady/burst/jitter/discrimination, GPU steady/burst/concurrency (3s-aggregated thesis suite)."
 
 spec:
@@ -31,7 +31,7 @@ spec:
     #   - Stable idle energy with low variance; no unexplained spikes or non-zero workload attribution.
     - name: "idle_baseline_start"
       type: "sleep"
-      duration_sec: 180
+      duration_sec: 18
 
 
     # ------------------------------------------------------------
@@ -47,19 +47,19 @@ spec:
     - name: "cpu_precondition_ramp"
       type: "ramp"
       ramp_profile: "cpu"
-      duration_sec: 60
+      duration_sec: 10
       params:
         max_workers: 4
         step_count: 6
         method: "matrixprod"
-        cpu_request_mcpu: 30000
+        cpu_request_mcpu: 50000
 
     # ------------------------------------------------------------
     # CPU: cooldown to return to idle
     # ------------------------------------------------------------
     - name: "cooldown"
       type: "sleep"
-      duration_sec: 20
+      duration_sec: 5
 
     # ------------------------------------------------------------
     # CPU: steady baseline reference
@@ -76,17 +76,17 @@ spec:
       workload:
         template: "stressng-cpu"
         params:
-          duration_sec: 120
-          workers: 1
+          duration_sec: 12
+          workers: 2
           method: "matrixprod"
-          cpu_request_mcpu: 16000
+          cpu_request_mcpu: 4000
 
     # ------------------------------------------------------------
     # CPU: cooldown to return to idle
     # ------------------------------------------------------------
     - name: "cooldown"
       type: "sleep"
-      duration_sec: 20
+      duration_sec: 5
 
     # ------------------------------------------------------------
     # CPU: burst train (on/off) with hard-off or low baseline
@@ -106,7 +106,7 @@ spec:
       workload:
         template: "stressng-cpu-burst"
         params:
-          total_duration_sec: 180
+          total_duration_sec: 18
           on_sec: 9
           off_sec: 9
           seed: 1
@@ -118,7 +118,7 @@ spec:
           off_workers: 0
           off_method: "matrixprod"
 
-          cpu_request_mcpu: 16000
+          cpu_request_mcpu: 10000
           cpu_limit_mcpu: 0
 
     # ------------------------------------------------------------
@@ -126,7 +126,7 @@ spec:
     # ------------------------------------------------------------
     - name: "cooldown"
       type: "sleep"
-      duration_sec: 20
+      duration_sec: 5
 
     # ------------------------------------------------------------
     # CPU: jitter train (robustness to irregular timing)
@@ -144,7 +144,7 @@ spec:
       workload:
         template: "stressng-cpu-jitter"
         params:
-          total_duration_sec: 180
+          total_duration_sec: 18
           on_sec: 6
           gap_min_sec: 3
           gap_max_sec: 15
@@ -153,7 +153,7 @@ spec:
           workers: 10
           method: "matrixprod"
 
-          cpu_request_mcpu: 16000
+          cpu_request_mcpu: 10000
           cpu_limit_mcpu: 0
 
     # ------------------------------------------------------------
@@ -161,7 +161,7 @@ spec:
     # ------------------------------------------------------------
     - name: "cooldown"
       type: "sleep"
-      duration_sec: 20
+      duration_sec: 5
 
     # ------------------------------------------------------------
     # CPU: discrimination (concurrent methods)
@@ -181,25 +181,25 @@ spec:
         - name: "MatrixProd"
           template: "stressng-cpu"
           params:
-            duration_sec: 180
+            duration_sec: 18
             workers: 1
             method: "matrixprod"
-            cpu_request_mcpu: 8000
+            cpu_request_mcpu: 2000
 
         - name: "FFT"
           template: "stressng-cpu"
           params:
-            duration_sec: 180
+            duration_sec: 18
             workers: 1
             method: "fft"
-            cpu_request_mcpu: 8000
+            cpu_request_mcpu: 2000
 
     # ------------------------------------------------------------
     # CPU: cooldown to return to idle
     # ------------------------------------------------------------
     - name: "cooldown"
       type: "sleep"
-      duration_sec: 20
+      duration_sec: 5
 
     # ------------------------------------------------------------
     # CPU: discrimination (concurrent, alternative pair)
@@ -218,25 +218,25 @@ spec:
         - name: "BitOps"
           template: "stressng-cpu"
           params:
-            duration_sec: 180
+            duration_sec: 18
             workers: 1
             method: "bitops"
-            cpu_request_mcpu: 8000
+            cpu_request_mcpu: 2000
 
         - name: "MatrixProd"
           template: "stressng-cpu"
           params:
-            duration_sec: 180
+            duration_sec: 18
             workers: 1
             method: "matrixprod"
-            cpu_request_mcpu: 8000
+            cpu_request_mcpu: 2000
    
     # ------------------------------------------------------------
     # CPU: cooldown to return to idle
     # ------------------------------------------------------------
     - name: "cooldown"
       type: "sleep"
-      duration_sec: 20
+      duration_sec: 5
 
     # ------------------------------------------------------------
     # CPU: idle-allocation fairness (busy vs noop)
@@ -255,7 +255,7 @@ spec:
         - name: "busy"
           template: "stressng-cpu"
           params:
-            duration_sec: 180
+            duration_sec: 18
             workers: 1
             method: "matrixprod"
             cpu_request_mcpu: 8000
@@ -263,16 +263,16 @@ spec:
         - name: "Noop"
           template: "noop-sleep"
           params:
-            duration_sec: 180
+            duration_sec: 18
             cpu_request_mcpu: 8000
-
 
     # ------------------------------------------------------------
     # CPU: cooldown to return to idle
     # ------------------------------------------------------------
     - name: "cooldown"
       type: "sleep"
-      duration_sec: 20
+      duration_sec: 5
+
 
     # ------------------------------------------------------------
     # GPU: idle baseline (optional but useful drift check)
@@ -286,14 +286,14 @@ spec:
     #   - Near-zero workload-attributed GPU energy; low-variance idle GPU energy; no coupling to prior CPU activity.
     - name: "idle_baseline_gpu_start"
       type: "sleep"
-      duration_sec: 120
+      duration_sec: 12
 
     # ------------------------------------------------------------
     # CPU: cooldown to return to idle
     # ------------------------------------------------------------
     - name: "cooldown"
       type: "sleep"
-      duration_sec: 20
+      duration_sec: 5
 
     # ------------------------------------------------------------
     # GPU: steady baseline reference
@@ -312,7 +312,7 @@ spec:
       workload:
         template: "gpu-burn-steady"
         params:
-          duration_sec: 180
+          duration_sec: 18
           gpu_request_count: 1
           gpu_burn_list_gpus: true
           gpu_burn_mem_pct: 90
@@ -326,7 +326,7 @@ spec:
     # ------------------------------------------------------------
     - name: "cooldown"
       type: "sleep"
-      duration_sec: 20
+      duration_sec: 5
 
     # ------------------------------------------------------------
     # GPU: burst train (3s on / 3s off)
@@ -344,7 +344,7 @@ spec:
       workload:
         template: "gpu-burn-burst"
         params:
-          total_duration_sec: 240
+          total_duration_sec: 24
           on_sec: 3
           off_sec: 3
           gpu_request_count: 1
@@ -359,7 +359,7 @@ spec:
     # ------------------------------------------------------------
     - name: "cooldown"
       type: "sleep"
-      duration_sec: 20
+      duration_sec: 5
 
     # ------------------------------------------------------------
     # GPU: concurrency / slicing robustness (2 pods)
@@ -379,7 +379,7 @@ spec:
         - name: "gpu-burn-steady-a"
           template: "gpu-burn-steady"
           params:
-            duration_sec: 180
+            duration_sec: 18
             gpu_request_count: 1
             gpu_burn_list_gpus: true
             gpu_burn_mem_pct: 90
@@ -391,7 +391,7 @@ spec:
         - name: "gpu-burn-steady-b"
           template: "gpu-burn-steady"
           params:
-            duration_sec: 180
+            duration_sec: 18
             gpu_request_count: 1
             gpu_burn_list_gpus: true
             gpu_burn_mem_pct: 90
@@ -405,7 +405,7 @@ spec:
     # ------------------------------------------------------------
     - name: "cooldown"
       type: "sleep"
-      duration_sec: 20
+      duration_sec: 5
 
     # ------------------------------------------------------------
     # GPU: concurrency / slicing robustness
@@ -428,7 +428,7 @@ spec:
         - name: "gpu-burn-steady-1"
           template: "gpu-burn-steady"
           params:
-            duration_sec: 180
+            duration_sec: 18
             gpu_request_count: 1
             gpu_burn_list_gpus: true
             gpu_burn_mem_pct: 90
@@ -440,7 +440,7 @@ spec:
         - name: "gpu-burn-steady-2"
           template: "gpu-burn-steady"
           params:
-            duration_sec: 180
+            duration_sec: 18
             gpu_request_count: 1
             gpu_burn_list_gpus: true
             gpu_burn_mem_pct: 90
@@ -452,7 +452,7 @@ spec:
         - name: "gpu-burn-steady-3"
           template: "gpu-burn-steady"
           params:
-            duration_sec: 180
+            duration_sec: 18
             gpu_request_count: 1
             gpu_burn_list_gpus: true
             gpu_burn_mem_pct: 90
@@ -463,4 +463,4 @@ spec:
 
     - name: "idle_baseline_end"
       type: "sleep"
-      duration_sec: 180
+      duration_sec: 18

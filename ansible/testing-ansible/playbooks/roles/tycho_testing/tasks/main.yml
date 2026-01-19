@@ -654,10 +654,18 @@
         # -------------------------
 
         if [ "${PHASE_TYPE}" = "sleep" ]; then
-          # sleep: pure wait
           dur="${PLANNED_DUR}"
+
+          # Optional but helpful: deterministic per-phase log file exists for analysis.
           log "sleep ${dur}s"
+
+          {
+            echo "[phase] type=sleep name=${PHASE_NAME} rep=${rep} planned_dur_sec=${dur}"
+            echo "[phase] start_utc=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          } > "${OUT_DIR}/phase_${PHASE_NAME}.log" 2>&1
+
           sleep "${dur}"
+          echo "[phase] end_utc=$(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> "${OUT_DIR}/phase_${PHASE_NAME}.log" 2>&1
 
         elif [ "${PHASE_TYPE}" = "ramp" ]; then
           # ramp: cpu ramp up to max_workers over total duration (step_count steps).
@@ -804,16 +812,27 @@
 
         elif [ "${PHASE_TYPE}" = "workload" ]; then
           if [ "${TEMPLATE}" = "noop-sleep" ]; then
-            dur="${PLANNED_DUR}"
-            phase_slug="$(sanitize_k8s_name "${PHASE_NAME}")"
-            pod_name="tycho-${PLAN_ID}-r${rep}-${phase_slug}-${SAFE_TS}"
+            # params: duration_sec, cpu_request_mcpu (>0), cpu_limit_mcpu (>=0, optional; 0 => omit)
+            dur="$(echo "${PARAMS_JSON}" | sed -n 's/.*"duration_sec"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+            cpu_req="$(echo "${PARAMS_JSON}" | sed -n 's/.*"cpu_request_mcpu"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
+            cpu_lim="$(echo "${PARAMS_JSON}" | sed -n 's/.*"cpu_limit_mcpu"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')"
 
-            k8s_kind="Pod"
-            k8s_name="${pod_name}"
+            if [ -z "${cpu_lim}" ]; then cpu_lim=0; fi
 
-            log "workload noop-sleep duration=${dur}s pod=${pod_name}"
+            if [ -z "${dur}" ] || [ -z "${cpu_req}" ]; then
+              phase_status="failed"
+              phase_exit_reason="missing noop-sleep params (duration_sec, cpu_request_mcpu)"
+            else
+              phase_slug="$(sanitize_k8s_name "${PHASE_NAME}")"
+              pod_name="tycho-${PLAN_ID}-r${rep}-${phase_slug}-${SAFE_TS}"
 
-            cat <<EOF | kubectl -n "${NAMESPACE}" create -f -
+              k8s_kind="Pod"
+              k8s_name="${pod_name}"
+
+              log "workload noop-sleep duration=${dur}s cpu_request=${cpu_req}m cpu_limit=${cpu_lim}m pod=${pod_name}"
+
+              if [ "${cpu_lim}" -gt 0 ]; then
+                cat <<EOF | kubectl -n "${NAMESPACE}" apply -f -
       apiVersion: v1
       kind: Pod
       metadata:
@@ -835,32 +854,62 @@
               - |
                 set -eu
                 sleep ${dur}
+            resources:
+              requests:
+                cpu: "${cpu_req}m"
+              limits:
+                cpu: "${cpu_lim}m"
+      EOF
+              else
+                cat <<EOF | kubectl -n "${NAMESPACE}" apply -f -
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: ${pod_name}
+        labels:
+          tycho.testing/plan_id: "${PLAN_ID}"
+          tycho.testing/rep: "${rep}"
+          tycho.testing/phase: "${PHASE_NAME}"
+          tycho.testing/role: "workload"
+      spec:
+        restartPolicy: Never
+        nodeName: "${TARGET_NODE}"
+        containers:
+          - name: sleep
+            image: "busybox:1.36"
+            imagePullPolicy: IfNotPresent
+            command: ["/bin/sh","-c"]
+            args:
+              - |
+                set -eu
+                sleep ${dur}
+            resources:
+              requests:
+                cpu: "${cpu_req}m"
       EOF
 
-            k8s_uid="$(kubectl -n "${NAMESPACE}" get pod "${pod_name}" -o jsonpath='{.metadata.uid}' 2>/dev/null || echo "")"
-            deadline=$(( $(date +%s) + dur + TIMEOUT_SLACK_SEC ))
-            while :; do
-              now="$(date +%s)"
-              if [ "${now}" -gt "${deadline}" ]; then
-                phase_status="failed"
-                phase_exit_reason="timeout"
-                break
               fi
-              st="$(kubectl -n "${NAMESPACE}" get pod "${pod_name}" -o jsonpath='{.status.phase}' 2>/dev/null || echo "")"
-              if [ "${st}" = "Succeeded" ]; then break; fi
-              if [ "${st}" = "Failed" ]; then phase_status="failed"; phase_exit_reason="pod failed"; break; fi
-              sleep 1
-            done
+              k8s_uid="$(kubectl -n "${NAMESPACE}" get pod "${pod_name}" -o jsonpath='{.metadata.uid}' 2>/dev/null || echo "")"
+              deadline=$(( $(date +%s) + dur + TIMEOUT_SLACK_SEC ))
+              while :; do
+                now="$(date +%s)"
+                if [ "${now}" -gt "${deadline}" ]; then
+                  phase_status="failed"
+                  phase_exit_reason="timeout"
+                  break
+                fi
+                st="$(kubectl -n "${NAMESPACE}" get pod "${pod_name}" -o jsonpath='{.status.phase}' 2>/dev/null || echo "")"
+                if [ "${st}" = "Succeeded" ]; then break; fi
+                if [ "${st}" = "Failed" ]; then phase_status="failed"; phase_exit_reason="pod failed"; break; fi
+                sleep 1
+              done
 
-            kubectl -n "${NAMESPACE}" logs "${pod_name}" > "${OUT_DIR}/phase_${PHASE_NAME}.log" 2>&1 || true
-            if [ "${phase_status}" != "ok" ]; then
-              kubectl -n "${NAMESPACE}" describe pod "${pod_name}" > "${OUT_DIR}/phase_${PHASE_NAME}_describe.txt" 2>&1 || true
+              kubectl -n "${NAMESPACE}" logs "${pod_name}" > "${OUT_DIR}/phase_${PHASE_NAME}.log" 2>&1 || true
+              if [ "${phase_status}" != "ok" ]; then
+                kubectl -n "${NAMESPACE}" describe pod "${pod_name}" > "${OUT_DIR}/phase_${PHASE_NAME}_describe.txt" 2>&1 || true
+              fi
+              kubectl -n "${NAMESPACE}" delete pod "${pod_name}" --ignore-not-found=true >/dev/null 2>&1 || true
             fi
-            kubectl -n "${NAMESPACE}" delete pod "${pod_name}" --ignore-not-found=true >/dev/null 2>&1 || true
-
-
-
-
 
 
 
@@ -927,15 +976,7 @@
               kubectl -n "${NAMESPACE}" delete pod "${pod_name}" --ignore-not-found=true >/dev/null 2>&1 || true
             fi
 
-          # NOTE: Keep your other templates here exactly as you already have them:
-          # stressng-cpu-burst, stressng-cpu-jitter, gpu-burn-steady, gpu-burn-burst
-          # (Copy/paste your existing blocks unchanged.)
-          #
-          # For brevity of this answer: I am NOT re-printing the rest of your template chain here
-          # because you already pasted it, and you explicitly do not want to edit manually.
-          #
-          # In your repository, replace this runner.sh with THIS runner.sh, but include the
-          # rest of the template chain blocks exactly as you had them.
+
 
 
 

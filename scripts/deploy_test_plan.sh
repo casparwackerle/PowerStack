@@ -53,6 +53,7 @@ fi
 # PLAN_ID="cpu-burst-baseline-v1" # CPU burst train with baseline stress (1 core) and bursts (10 cores)
 # PLAN_ID="cpu-burst-hard-off-v1." # off_workers=0 means no stress in off-phase (sleep only), while keeping off_mode=stress to prove the branch logic is correct
 # PLAN_ID="cpu-slice4-acceptance-v1"  # This is the “single run validates everything CPU” plan.
+# PLAN_ID="cpu-noop-v1"
 # PLAN_ID="cpu-stress-workload-set"
 # PLAN_ID="gpu-burn-steady-v1"
 # PLAN_ID="gpu-burst-train-3s-1-v1"
@@ -60,6 +61,7 @@ fi
 # PLAN_ID="all-tests-v1"
 # PLAN_ID="tycho-testing"
 PLAN_ID="tycho-testing-short"
+
 
 # -------------------------
 # Safety check
