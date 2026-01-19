@@ -1,0 +1,430 @@
+apiVersion: tycho.testing/v1
+kind: TestPlan
+metadata:
+  plan_id: "tycho-testing"
+  description: "Single self-contained master plan: idle baselines, CPU steady/burst/jitter/discrimination, GPU steady/burst/concurrency (3s-aggregated thesis suite)."
+
+spec:
+  target:
+    node_name: "srv-lab-t-737"
+    namespace: "tycho-test"
+
+  # Start with count=2 to validate logging/metrics completeness.
+  # After validation, increase count for unattended statistical runs.
+  repetitions:
+    count: 2
+
+  timing:
+    margin_before_sec: 10
+    margin_after_sec: 10
+
+  phases:
+    # ------------------------------------------------------------
+    # Baseline: long idle (noise floor + stability)
+    # ------------------------------------------------------------
+    # Analysis:
+    #   - Measure idle noise floor: per-3s bucket energy variance for CPU (pkg/core/uncore/dram) and GPU.
+    #   - Compare first vs last half of the phase to detect drift.
+    # Hypothesis:
+    #   - Workload-attributed energy ≈ 0; all energy appears as idle.
+    # Expected (good Tycho behavior):
+    #   - Stable idle energy with low variance; no unexplained spikes or non-zero workload attribution.
+    - name: "idle_baseline_start"
+      type: "sleep"
+      duration_sec: 180
+
+
+    # ------------------------------------------------------------
+    # CPU: warmup ramp (transition behavior)
+    # ------------------------------------------------------------
+    # Analysis:
+    #   - Treat as warm-up only: exclude from quantitative results and figures.
+    #   - Sanity-check that Tycho/Prometheus streams are alive (metrics present, no gaps) and that CPU energy rises above idle.
+    # Hypothesis:
+    #   - Warm-up stabilizes subsequent phases (reduces transient behavior right after start).
+    # Expected (good Tycho behavior):
+    #   - No crashes; continuous metric emission; after this phase, later steady/burst phases show stable per-3s bucket behavior.
+    - name: "cpu_precondition_ramp"
+      type: "ramp"
+      ramp_profile: "cpu"
+      duration_sec: 60
+      params:
+        max_workers: 4
+        step_count: 6
+        method: "matrixprod"
+        cpu_request_mcpu: 50000
+
+    # ------------------------------------------------------------
+    # CPU: cooldown to return to idle
+    # ------------------------------------------------------------
+    - name: "cooldown"
+      type: "sleep"
+      duration_sec: 20
+
+    # ------------------------------------------------------------
+    # CPU: steady baseline reference
+    # ------------------------------------------------------------
+    # Analysis:
+    #   - Compute per-3s bucket CPU dynamic energy distribution for this phase.
+    #   - Compare variance across repetitions to establish a steady-state reference.
+    # Hypothesis:
+    #   - Steady compute produces stable, repeatable energy per time bucket.
+    # Expected (good Tycho behavior):
+    #   - Nearly constant dynamic energy; low variance; correct attribution to this workload; idle energy reduced vs idle baseline.
+    - name: "cpu_steady_matrixprod"
+      type: "workload"
+      workload:
+        template: "stressng-cpu"
+        params:
+          duration_sec: 120
+          workers: 2
+          method: "matrixprod"
+          cpu_request_mcpu: 4000
+
+    # ------------------------------------------------------------
+    # CPU: cooldown to return to idle
+    # ------------------------------------------------------------
+    - name: "cooldown"
+      type: "sleep"
+      duration_sec: 20
+
+    # ------------------------------------------------------------
+    # CPU: burst train (on/off) with hard-off or low baseline
+    # Pick ONE by setting off_mode/off_workers accordingly.
+    # Current config = hard-off (true idle gaps).
+    # ------------------------------------------------------------
+    # Analysis:
+    #   - Pattern check: compare CPU dynamic energy per 3s bucket between "on" windows vs "off" windows (classify buckets by overlap with on/off schedule).
+    #   - Duty-cycle scaling: compute phase total dynamic energy and verify it matches expected on-time fraction (on_sec/(on_sec+off_sec)) relative to cpu_steady_matrixprod (normalized by duration/requests).
+    #   - Leakage check: during off windows, dynamic energy should approach idle baseline; idle energy should rise back toward idle.
+    # Hypothesis:
+    #   - Tycho tracks burstiness under 3s aggregation: energy concentrates in on-windows, drops in off-windows, totals scale with on-time.
+    # Expected (good Tycho behavior):
+    #   - Clear alternation high/low dynamic energy; near-zero dynamic during hard-off; minimal smearing across boundaries; per-phase totals consistent across repetitions.
+    - name: "cpu_burst_train"
+      type: "workload"
+      workload:
+        template: "stressng-cpu-burst"
+        params:
+          total_duration_sec: 180
+          on_sec: 9
+          off_sec: 9
+          seed: 1
+
+          on_workers: 10
+          on_method: "matrixprod"
+
+          off_mode: "stress"
+          off_workers: 0
+          off_method: "matrixprod"
+
+          cpu_request_mcpu: 10000
+          cpu_limit_mcpu: 0
+
+    # ------------------------------------------------------------
+    # CPU: cooldown to return to idle
+    # ------------------------------------------------------------
+    - name: "cooldown"
+      type: "sleep"
+      duration_sec: 20
+
+    # ------------------------------------------------------------
+    # CPU: jitter train (robustness to irregular timing)
+    # ------------------------------------------------------------
+    # Analysis:
+    #   - Robustness: compute distribution of CPU dynamic energy per 3s bucket; compare variance vs cpu_burst_train (should be higher due to irregular timing).
+    #   - Non-zero signal: compare phase mean dynamic energy vs idle_baseline_start (must be clearly above).
+    #   - Leakage check: identify low-energy buckets and verify they approach idle baseline (no systematic residual attribution when idle gaps occur).
+    # Hypothesis:
+    #   - Irregular burst timing increases bucket-to-bucket variance but does not break attribution or create systematic idle leakage.
+    # Expected (good Tycho behavior):
+    #   - Dynamic energy remains consistently > idle baseline on average; higher variance than fixed burst train; no long tails or drift; repeat totals stable across repetitions.
+    - name: "cpu_jitter_train"
+      type: "workload"
+      workload:
+        template: "stressng-cpu-jitter"
+        params:
+          total_duration_sec: 180
+          on_sec: 6
+          gap_min_sec: 3
+          gap_max_sec: 15
+          seed: 1
+
+          workers: 10
+          method: "matrixprod"
+
+          cpu_request_mcpu: 10000
+          cpu_limit_mcpu: 0
+
+    # ------------------------------------------------------------
+    # CPU: cooldown to return to idle
+    # ------------------------------------------------------------
+    - name: "cooldown"
+      type: "sleep"
+      duration_sec: 20
+
+    # ------------------------------------------------------------
+    # CPU: discrimination (concurrent methods)
+    # Goal: choose two methods expected to be far apart in behavior.
+    # ------------------------------------------------------------
+    # Analysis:
+    #   - Discrimination: compare per-3s bucket CPU dynamic energy distributions for MatrixProd vs FFT (same duration, same cpu_request).
+    #   - Effect size: compute (FFT - MatrixProd) mean/median difference and confidence interval across repetitions.
+    #   - Share sanity: compare each workload's attributed energy fraction; ensure both are non-zero and totals sum to the phase total (within tolerance).
+    # Hypothesis:
+    #   - Different cpu-methods can yield measurably different energy per time even under similar nominal CPU allocation.
+    # Expected (good Tycho behavior):
+    #   - Both workloads show stable non-zero dynamic energy; a consistent separation between FFT and MatrixProd (direction may be hardware-dependent); minimal cross-attribution; repeatable per-phase totals.
+    - name: "cpu_discrimination_concurrent"
+      type: "workload_set"
+      workloads:
+        - name: "MatrixProd"
+          template: "stressng-cpu"
+          params:
+            duration_sec: 180
+            workers: 1
+            method: "matrixprod"
+            cpu_request_mcpu: 2000
+
+        - name: "FFT"
+          template: "stressng-cpu"
+          params:
+            duration_sec: 180
+            workers: 1
+            method: "fft"
+            cpu_request_mcpu: 2000
+
+    # ------------------------------------------------------------
+    # CPU: cooldown to return to idle
+    # ------------------------------------------------------------
+    - name: "cooldown"
+      type: "sleep"
+      duration_sec: 20
+
+    # ------------------------------------------------------------
+    # CPU: discrimination (concurrent, alternative pair)
+    # ------------------------------------------------------------
+    # Analysis:
+    #   - Discrimination: compare per-3s bucket CPU dynamic energy distributions for BitOps vs MatrixProd (same duration, same cpu_request).
+    #   - Effect size: compute (MatrixProd - BitOps) mean/median difference and CI across repetitions.
+    #   - Share sanity: ensure both workloads are non-zero and their sum matches the phase total (within tolerance).
+    # Hypothesis:
+    #   - Simple integer/bitwise stress (bitops) yields a different energy signature than compute+memory-heavy matrix multiplication.
+    # Expected (good Tycho behavior):
+    #   - Stable non-zero attribution for both; consistent separation between methods; minimal cross-attribution; repeatable phase totals.
+    - name: "cpu_discrimination_concurrent_alt"
+      type: "workload_set"
+      workloads:
+        - name: "BitOps"
+          template: "stressng-cpu"
+          params:
+            duration_sec: 180
+            workers: 1
+            method: "bitops"
+            cpu_request_mcpu: 2000
+
+        - name: "MatrixProd"
+          template: "stressng-cpu"
+          params:
+            duration_sec: 180
+            workers: 1
+            method: "matrixprod"
+            cpu_request_mcpu: 2000
+   
+    # ------------------------------------------------------------
+    # CPU: cooldown to return to idle
+    # ------------------------------------------------------------
+    - name: "cooldown"
+      type: "sleep"
+      duration_sec: 20
+
+    # ------------------------------------------------------------
+    # GPU: idle baseline (optional but useful drift check)
+    # ------------------------------------------------------------
+    # Analysis:
+    #   - GPU idle baseline: compute per-3s bucket GPU energy variance with no GPU workloads present.
+    #   - Compare against cpu-only phases to ensure GPU energy remains near idle during CPU activity.
+    # Hypothesis:
+    #   - In absence of GPU workloads, GPU dynamic energy stays ~0 and total GPU energy reflects stable idle power.
+    # Expected (good Tycho behavior):
+    #   - Near-zero workload-attributed GPU energy; low-variance idle GPU energy; no coupling to prior CPU activity.
+    - name: "idle_baseline_gpu_start"
+      type: "sleep"
+      duration_sec: 120
+
+    # ------------------------------------------------------------
+    # CPU: cooldown to return to idle
+    # ------------------------------------------------------------
+    - name: "cooldown"
+      type: "sleep"
+      duration_sec: 20
+
+    # ------------------------------------------------------------
+    # GPU: steady baseline reference
+    # NOTE: gpu-burn-steady must have a working image behind the template.
+    # ------------------------------------------------------------
+    # Analysis:
+    #   - Baseline GPU workload: compute mean/variance of GPU dynamic energy per 3s bucket during steady burn.
+    #   - Stability check: verify flat time series (no drift) and repeatability across repetitions.
+    #   - Separation check: confirm CPU dynamic energy remains near CPU-only baseline (GPU work does not leak into CPU attribution).
+    # Hypothesis:
+    #   - A steady GPU workload produces stable, repeatable GPU dynamic energy attributed to the correct workload label.
+    # Expected (good Tycho behavior):
+    #   - Consistent non-zero GPU dynamic energy; low bucket variance; correct attribution to this workload; minimal cross-talk into CPU domains.
+    - name: "gpu_steady_burn"
+      type: "workload"
+      workload:
+        template: "gpu-burn-steady"
+        params:
+          duration_sec: 180
+          gpu_request_count: 1
+          gpu_burn_list_gpus: true
+          gpu_burn_mem_pct: 90
+          gpu_burn_use_doubles: false
+          gpu_burn_use_tensor_cores: true
+          cpu_request_mcpu: 1000
+          cpu_limit_mcpu: 0
+
+    # ------------------------------------------------------------
+    # CPU: cooldown to return to idle
+    # ------------------------------------------------------------
+    - name: "cooldown"
+      type: "sleep"
+      duration_sec: 20
+
+    # ------------------------------------------------------------
+    # GPU: burst train (3s on / 3s off)
+    # ------------------------------------------------------------
+    # Analysis:
+    #   - Pattern check: compare GPU dynamic energy per 3s bucket between on and off intervals (classify buckets by overlap with on/off schedule).
+    #   - Duty-cycle scaling: verify average GPU dynamic energy aligns with expected ~50% duty cycle relative to gpu_steady_burn.
+    #   - Leakage check: during off intervals, GPU dynamic energy should approach idle_baseline_gpu_start.
+    # Hypothesis:
+    #   - GPU burst activity is visible and attributable under 3s aggregation; energy concentrates in on-windows and drops in off-windows.
+    # Expected (good Tycho behavior):
+    #   - Clear high/low alternation in GPU energy; near-zero dynamic during off; integrated energy proportional to on-time; stable across repetitions.
+    - name: "gpu_burst_train_3s"
+      type: "workload"
+      workload:
+        template: "gpu-burn-burst"
+        params:
+          total_duration_sec: 240
+          on_sec: 3
+          off_sec: 3
+          gpu_request_count: 1
+          gpu_burn_mem_pct: 90
+          gpu_burn_use_doubles: false
+          gpu_burn_use_tensor_cores: true
+          cpu_request_mcpu: 1000
+          cpu_limit_mcpu: 0
+
+    # ------------------------------------------------------------
+    # CPU: cooldown to return to idle
+    # ------------------------------------------------------------
+    - name: "cooldown"
+      type: "sleep"
+      duration_sec: 20
+
+    # ------------------------------------------------------------
+    # GPU: concurrency / slicing robustness (2 pods)
+    # ------------------------------------------------------------
+    # Analysis:
+    #   - Attribution split: compare per-3s bucket GPU dynamic energy for pod-1 vs pod-2; check relative shares.
+    #   - Sum check: verify pod-1 + pod-2 ≈ total GPU dynamic energy for the phase (energy conservation).
+    #   - Symmetry check: identical kernels should yield similar per-pod distributions (within variance).
+    #   - Placement note: record whether both pods landed on the same physical GPU (slicing) or different GPUs and stratify analysis.
+    # Hypothesis:
+    #   - Under concurrent GPU use, Tycho attributes GPU energy proportionally and consistently across workloads.
+    # Expected (good Tycho behavior):
+    #   - Both pods show non-zero GPU dynamic energy; roughly even split; no single pod absorbs most energy; stable across repetitions.
+    - name: "gpu_concurrent_2pods"
+      type: "workload_set"
+      workloads:
+        - name: "gpu-burn-steady-a"
+          template: "gpu-burn-steady"
+          params:
+            duration_sec: 180
+            gpu_request_count: 1
+            gpu_burn_list_gpus: true
+            gpu_burn_mem_pct: 90
+            gpu_burn_use_doubles: false
+            gpu_burn_use_tensor_cores: true
+            cpu_request_mcpu: 1000
+            cpu_limit_mcpu: 0
+
+        - name: "gpu-burn-steady-b"
+          template: "gpu-burn-steady"
+          params:
+            duration_sec: 180
+            gpu_request_count: 1
+            gpu_burn_list_gpus: true
+            gpu_burn_mem_pct: 90
+            gpu_burn_use_doubles: false
+            gpu_burn_use_tensor_cores: true
+            cpu_request_mcpu: 1000
+            cpu_limit_mcpu: 0
+
+    # ------------------------------------------------------------
+    # CPU: cooldown to return to idle
+    # ------------------------------------------------------------
+    - name: "cooldown"
+      type: "sleep"
+      duration_sec: 20
+
+    # ------------------------------------------------------------
+    # GPU: concurrency / slicing robustness
+    # Identical workloads concurrently; expect roughly even split.
+    # (If one ends up on a different physical GPU, that's still OK;
+    # analysis should record device identity from labels/metrics.)
+    # ------------------------------------------------------------
+    # Analysis:
+    #   - Attribution split: compare per-3s bucket GPU dynamic energy for each pod; check relative shares.
+    #   - Sum check: verify sum of all three workloads ≈ total GPU dynamic energy for the phase (energy conservation).
+    #   - Symmetry check: for identical kernels, per-pod energy distributions should be similar (within variance).
+    #   - Placement note: record whether pods land on same or different physical GPUs and stratify analysis accordingly.
+    # Hypothesis:
+    #   - Under concurrent GPU use (slicing), Tycho attributes GPU energy proportionally and consistently to each workload.
+    # Expected (good Tycho behavior):
+    #   - All pods show non-zero GPU dynamic energy; roughly even split for identical workloads; no single pod absorbs most energy; totals stable across repetitions.
+    - name: "gpu_concurrent_3pods"
+      type: "workload_set"
+      workloads:
+        - name: "gpu-burn-steady-1"
+          template: "gpu-burn-steady"
+          params:
+            duration_sec: 180
+            gpu_request_count: 1
+            gpu_burn_list_gpus: true
+            gpu_burn_mem_pct: 90
+            gpu_burn_use_doubles: false
+            gpu_burn_use_tensor_cores: true
+            cpu_request_mcpu: 1000
+            cpu_limit_mcpu: 0
+
+        - name: "gpu-burn-steady-2"
+          template: "gpu-burn-steady"
+          params:
+            duration_sec: 180
+            gpu_request_count: 1
+            gpu_burn_list_gpus: true
+            gpu_burn_mem_pct: 90
+            gpu_burn_use_doubles: false
+            gpu_burn_use_tensor_cores: true
+            cpu_request_mcpu: 1000
+            cpu_limit_mcpu: 0
+
+        - name: "gpu-burn-steady-3"
+          template: "gpu-burn-steady"
+          params:
+            duration_sec: 180
+            gpu_request_count: 1
+            gpu_burn_list_gpus: true
+            gpu_burn_mem_pct: 90
+            gpu_burn_use_doubles: false
+            gpu_burn_use_tensor_cores: true
+            cpu_request_mcpu: 1000
+            cpu_limit_mcpu: 0
+
+    - name: "idle_baseline_end"
+      type: "sleep"
+      duration_sec: 180
