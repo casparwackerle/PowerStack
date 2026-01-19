@@ -59,8 +59,8 @@ fi
 # PLAN_ID="gpu-burst-train-3s-1-v1"
 # PLAN_ID="gpu-burn-steady-set"
 # PLAN_ID="all-tests-v1"
-# PLAN_ID="tycho-testing"
-PLAN_ID="tycho-testing-short"
+PLAN_ID="tycho-testing"
+# PLAN_ID="tycho-testing-short"
 
 
 # -------------------------

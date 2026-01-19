@@ -12,7 +12,7 @@ spec:
   # Start with count=2 to validate logging/metrics completeness.
   # After validation, increase count for unattended statistical runs.
   repetitions:
-    count: 2
+    count: 50
 
   timing:
     margin_before_sec: 10
