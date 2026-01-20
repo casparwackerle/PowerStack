@@ -803,173 +803,110 @@ Redfish metrics are consequently treated as coarse, low-resolution signals
 suitable for slow global trends, with temporal consistency enforced through
 separate freshness and scheduling mechanisms.
 
-\section{Analysis and Attribution Model}
-\label{sec:analysis_model}
+\section{Analysis and Attribution Architecture}
+\label{sec:analysis_attribution_arch}
 
-% OVERALL LENGTH:
-%   ~3 pages for the placeholder structure in its current vague state.
-%   This section MUST remain deliberately non-committal because the actual
-%   analysis architecture has not been designed yet. The purpose of this
-%   placeholder is to define *what kinds of content belong here*, not how
-%   they will ultimately be realised.
+\subsection{Purpose and Scope}
+% WHAT is computed and WHY (not HOW).
+% Per-node, per-window reasoning.
+% High-level statement of outputs: windowed node and workload attributions.
 
-% GUIDING NOTE:
-%   Every subsection must avoid implying a specific algorithmic choice.
-%   The text here should describe the *space of responsibilities* and the
-%   *conceptual relationships* that the analysis model will eventually need
-%   to address. No assumptions about regression models, ratio models,
-%   interpolation schemes, fairness models, or uncertainty propagation may
-%   be embedded in the placeholder until the real architecture is defined.
+\subsection{Attribution Goals and Non-Goals}
+% Goals: accuracy-first, conservation, temporal consistency.
+% Non-goals: instantaneous attribution, cross-node attribution, fairness, exporter concerns.
 
+\subsection{Analysis Engine as an Architectural Actor}
+% Define the analysis engine as the component that triggers per-window analysis,
+% applies the attribution pipeline, and produces derived metrics.
 
-% ----------------------------------------------------------------------
-\subsection{Problem Definition}
-\label{subsec:analysis_problem_definition}
+\subsection{Attribution Windows and Timebase Assumptions}
+\label{subsec:attrib_windows}
+% Event-time perspective and monotonic timebase assumption.
+% Define attribution windows conceptually and motivate windowed attribution.
 
-% LENGTH:
-%   ~0.5 page.
+\subsection{Stage 1: Component Metric Construction}
+\label{subsec:stage1_component_metrics}
+% Define the derived per-window component metrics that serve as inputs to attribution stages.
+% Present domains in canonical order BPF -> RAPL -> Redfish -> GPU.
 
-% MUST INCLUDE (conceptually):
-%   - A broad definition of the attribution task: given per-domain metric
-%     samples organised into analysis windows (constructed by the timing
-%     engine), the analysis phase must reconstruct estimates of:
-%         * window-level domain energies,
-%         * their temporal alignment,
-%         * and their assignment to workloads.
-%   - Clarification that this involves:
-%         * combining heterogeneous signals,
-%         * interpreting incomplete or uncertain data,
-%         * and generating per-container or per-pod energy estimates.
-%   - Emphasise that the analysis engine is a *model* that interprets
-%     measurements, not a mere aggregator.
+\subsubsection{eBPF Utilization Metrics (Totals and Aggregates)}
+% Architectural definition of utilization signals.
+% Distinguish node-level totals from workload-aggregated utilization.
 
-% MUST NOT INCLUDE:
-%   - Any specific modelling approach (e.g. ratio models, regressions).
-%   - Any concrete algorithmic steps or formulas other than purely symbolic.
+\subsubsection{RAPL Domain Energy Metrics}
+% Architectural definition of per-domain energy over a window (package, core, DRAM, uncore).
+% Treat domains as independent energy sources.
 
+\subsubsection{Redfish-Corrected System Energy Metric}
+% Define redfish_corrected as a fused, authoritative system energy metric.
 
-% ----------------------------------------------------------------------
-\subsection{Energy Reconstruction Across Domains}
-\label{subsec:energy_reconstruction}
+\subsubsection{GPU-Corrected Energy Metric}
+% Define gpu_corrected as an intra-domain fusion producing a higher-quality GPU energy signal.
 
-% LENGTH:
-%   ~0.75 page.
+\subsection{Stage 2: System-Level Energy Model and Residual}
+\label{subsec:stage2_residual}
+% Define the conservation relationship and residual energy as a first-class quantity.
 
-% MUST INCLUDE (conceptually):
-%   - Statement that the analysis model must combine CPU, GPU, uncore,
-%     memory, and total-node power (e.g. Redfish) into a coherent picture
-%     of energy consumption in each window.
-%   - A generic decomposition identity (symbolic, not algorithmic):
-%       \[
-%           P_{\text{total}}(t)
-%           =
-%           P_{\text{cpu}}(t)
-%           +
-%           P_{\text{gpu}}(t)
-%           +
-%           P_{\text{uncore}}(t)
-%           +
-%           P_{\text{other}}(t)
-%           + \varepsilon(t),
-%       \]
-%     where \(\varepsilon(t)\) symbolises modelling uncertainty.
-%   - Explanation that this decomposition is conceptual only: the exact
-%     interpretation, estimation steps, and domain interactions will be
-%     defined later when the actual architecture is available.
-%   - Mention that samples may arrive at different temporal resolutions, so
-%     reconstruction must interpret them within analysis windows.
+\subsubsection{Global Energy Decomposition}
+% sum(RAPL domains) + sum(gpu\_corrected) + Residual = redfish\_corrected
+% Per-node, per-window.
 
-% MUST NOT INCLUDE:
-%   - Any discussion of how “other” or “uncore” will be computed.
-%   - Any concrete rules for combining domains (e.g. prioritisation,
-%     proportionality, ratios, filtering).
+\subsubsection{Residual Definition and Interpretation Limits}
+% Residual as unassigned remainder; limits of interpretation.
 
+\subsubsection{Negative Residuals as a Temporal Consequence}
+% Accepted architectural consequence due to lag/delay and response dynamics.
 
-% ----------------------------------------------------------------------
-\subsection{Container-Level Attribution}
-\label{subsec:container_attribution}
+\subsubsection{Conservation and Consistency Constraints}
+% Precisely stated constraints: conservation, no double counting, scope constraints.
+% Clarify what may be negative and what must not.
 
-% LENGTH:
-%   ~1 page.
+\subsection{Stage 3: Idle and Dynamic Energy Semantics}
+\label{subsec:stage3_idle_dynamic}
+% Define idle vs dynamic energy semantics for energy domains.
+% Present in canonical order where applicable (RAPL -> Redfish -> GPU).
+% (BPF has no energy split.)
 
-% MUST INCLUDE (conceptually):
-%   - High-level role of utilisation metrics, metadata, and domain energies:
-%       * utilisation data describes workload behaviour,
-%       * metadata maps processes and cgroups to containers,
-%       * domain windows describe where energy originates,
-%     and attribution must relate these.
-%   - State that the analysis model must eventually produce per-container
-%     energy estimates for each window.
-%   - Clarify that:
-%       * attribution may depend on utilisation patterns,
-%       * attribution must support partial and uncertain data,
-%       * attribution must remain stable under short-lived containers.
+\subsubsection{RAPL Idle and Dynamic Semantics}
+% Define idle/dynamic for each RAPL domain.
 
-% DIAGRAM PLACEHOLDER:
-%   - A conceptual attribution-flow diagram:
-%       * Inputs: domain-window energies, utilisation metrics, metadata.
-%       * Outputs: per-container energy contributions.
-%       * No arrows showing mathematical rules — only conceptual flows.
-%     The final diagram will be drawn once the architecture is fixed.
+\subsubsection{Redfish-Corrected Idle and Dynamic Semantics}
+% Define whether and how redfish\_corrected participates in idle/dynamic interpretation.
 
-% MUST NOT INCLUDE:
-%   - Any allocation rules (e.g. proportional, residual-split, regression).
-%   - Any equations mapping utilisation to energy.
+\subsubsection{GPU Idle and Dynamic Semantics}
+% Define dynamic GPU attribution basis; state GPU idle handling policy explicitly.
 
+\subsection{Stage 4: Workload Attribution and Aggregation}
+\label{subsec:stage4_workload_attrib}
+% Define how node-level quantities are allocated to workloads.
+% Centralize all hierarchy and mapping concepts here to avoid redundancy.
 
-% ----------------------------------------------------------------------
-\subsection{Residual Power Attribution}
-\label{subsec:residual_power}
+\subsubsection{Attribution Identity and Join Contract}
+% Architectural requirement: stable mapping between process/cgroup activity and Kubernetes objects.
+% Validity conditions and degradation conceptually when identity is missing.
 
-% LENGTH:
-%   ~0.5 page.
+\subsubsection{CPU Dynamic Attribution to Workloads}
+% Conceptual proportional attribution driven by eBPF utilization signals.
 
-% MUST INCLUDE (conceptually):
-%   - Statement that some portion of node-level power may not be explained
-%     directly by CPU or GPU domains.
-%   - Clarification that the analysis model must provide a *conceptual*
-%     mechanism to:
-%         * quantify residual energy,
-%         * distribute it meaningfully or mark it as uncertainty,
-%     but without specifying how this will be done.
-%   - Acknowledgement that residual handling is central to transparency and
-%     must make implicit assumptions explicit.
+\subsubsection{CPU Idle Energy Allocation to Workloads}
+% Architectural rule for allocating idle CPU energy to workloads.
 
-% MUST NOT INCLUDE:
-%   - Any specific strategy for distributing residual energy.
-%   - Any mathematical formulas for residual modelling.
+\subsubsection{GPU Dynamic Attribution to Workloads}
+% Conceptual allocation using gpu\_corrected and GPU utilization signals.
 
+\subsubsection{GPU Idle Attribution to Workloads}
+% Conceptual allocation using gpu\_corrected and GPU utilization signals.
 
-% ----------------------------------------------------------------------
-\subsection{Requirements Satisfaction}
-\label{subsec:analysis_requirements}
+\subsubsection{Workload-Level Utilization and Energy Aggregates}
+% Define which aggregates are produced at workload/pod/container levels and their semantics.
 
-% LENGTH:
-%   ~0.5 page.
+\subsection{Stability, Validity Conditions, and Architectural Limits}
+\label{subsec:analysis_limits}
+% Temporal stability expectations, assumptions, and explicit non-guarantees.
 
-% MUST INCLUDE:
-%   - A *forward-looking* statement that the analysis engine, once designed
-%     and implemented, must satisfy the requirements in Ch.~3, especially:
-%         * temporal coherence,
-%         * domain-level consistency,
-%         * transparency of assumptions,
-%         * lifecycle robustness,
-%         * uncertainty awareness.
-%   - Indicate that these requirements constrain the future design of:
-%         * how windows are interpreted,
-%         * how uncertainty is propagated,
-%         * how attribution is stabilised for container churn,
-%         * and how assumptions must be externally visible.
-%   - Emphasise that this subsection is not a proof — it merely establishes
-%     the criteria by which the final analysis design will later be judged.
+\subsection{Architectural Consequences}
+% What this enables for implementation and evaluation; no exporter details.
 
-% MUST NOT INCLUDE:
-%   - Any premature claims about how the analysis will satisfy requirements.
-%   - Any commitments to specific algorithms or models.
-
-
-
-% ----------------------------------------------------------------------
 
 \section{Architectural Trade-Offs and Alternatives Considered}
 \label{sec:tradeoffs}
