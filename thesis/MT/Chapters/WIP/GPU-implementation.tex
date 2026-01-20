@@ -250,136 +250,136 @@ phase-locked regime; and the bottom lane shows the resulting GPU ticks,
 demonstrating the one-to-one mapping between fresh device updates and emitted
 \code{GpuTick} events.
 
-\begin{figure}[H]
-\centering
-\begin{tikzpicture}[
-    >=stealth,
-    publish/.style={circle,fill=black,inner sep=2pt},
-    poll-calib/.style={circle,draw=black,inner sep=1.5pt},
-    poll-base/.style={circle,fill=black,inner sep=1.5pt},
-    poll-burst/.style={circle,draw=black,inner sep=1.5pt},
-    tick/.style={circle,fill=black,inner sep=2pt},
-    timeline/.style={thick},
-    label/.style={font=\footnotesize}
-]
+% \begin{figure}[H]
+% \centering
+% \begin{tikzpicture}[
+%     >=stealth,
+%     publish/.style={circle,fill=black,inner sep=2pt},
+%     poll-calib/.style={circle,draw=black,inner sep=1.5pt},
+%     poll-base/.style={circle,fill=black,inner sep=1.5pt},
+%     poll-burst/.style={circle,draw=black,inner sep=1.5pt},
+%     tick/.style={circle,fill=black,inner sep=2pt},
+%     timeline/.style={thick},
+%     label/.style={font=\footnotesize}
+% ]
 
-% Horizontal extents
-\def\xmin{0}
-\def\xmax{12}
+% % Horizontal extents
+% \def\xmin{0}
+% \def\xmax{12}
 
-% Y positions for the three lanes
-\def\ygpu{3.2}
-\def\ysampler{1.7}
-\def\ytick{0.2}
+% % Y positions for the three lanes
+% \def\ygpu{3.2}
+% \def\ysampler{1.7}
+% \def\ytick{0.2}
 
-% ------------------------------------------------------------------
-% 1) GPU publish lane (ground truth)
-% ------------------------------------------------------------------
-\draw[timeline] (\xmin,\ygpu) -- (\xmax,\ygpu);
-\node[label,anchor=east] at (\xmin,\ygpu) {GPU publishes};
+% % ------------------------------------------------------------------
+% % 1) GPU publish lane (ground truth)
+% % ------------------------------------------------------------------
+% \draw[timeline] (\xmin,\ygpu) -- (\xmax,\ygpu);
+% \node[label,anchor=east] at (\xmin,\ygpu) {GPU publishes};
 
-% True publish events (roughly equidistant), last one early at 11.3
-\foreach \x in {2.5,5.5,8.5} {
-  \node[publish] at (\x,\ygpu) {};
-}
+% % True publish events (roughly equidistant), last one early at 11.3
+% \foreach \x in {2.5,5.5,8.5} {
+%   \node[publish] at (\x,\ygpu) {};
+% }
 
-% Actual early publish
-\node[publish] at (11.3,\ygpu) {};
-\node[label,anchor=south] at (11.3,\ygpu+0.05) {early publish};
+% % Actual early publish
+% \node[publish] at (11.3,\ygpu) {};
+% \node[label,anchor=south] at (11.3,\ygpu+0.05) {early publish};
 
-% Expected publish (ghost marker) at 11.5
-\node[circle,fill=gray!50,inner sep=2pt] at (11.5,\ygpu) {};
+% % Expected publish (ghost marker) at 11.5
+% \node[circle,fill=gray!50,inner sep=2pt] at (11.5,\ygpu) {};
 
-% Annotate approximate period between two publishes
-\draw[<->] (2.5,\ygpu+0.4) --
-    node[label,above] {$\hat{T}$}
-    (5.5,\ygpu+0.4);
+% % Annotate approximate period between two publishes
+% \draw[<->] (2.5,\ygpu+0.4) --
+%     node[label,above] {$\hat{T}$}
+%     (5.5,\ygpu+0.4);
 
-% Mark t_last and t_next for illustration
-\node[label,anchor=north] at (5.5,\ygpu-0.05) {$t_{\text{last}}$};
-\node[label,anchor=north] at (8.5,\ygpu-0.05) {$t_{\text{next}}$};
+% % Mark t_last and t_next for illustration
+% \node[label,anchor=north] at (5.5,\ygpu-0.05) {$t_{\text{last}}$};
+% \node[label,anchor=north] at (8.5,\ygpu-0.05) {$t_{\text{next}}$};
 
-% ------------------------------------------------------------------
-% 2) Sampler lane (calibration + phase-locked polls with burst window)
-% ------------------------------------------------------------------
-\draw[timeline] (\xmin,\ysampler) -- (\xmax,\ysampler);
-\node[label,anchor=east] at (\xmin,\ysampler) {Sampler polls};
+% % ------------------------------------------------------------------
+% % 2) Sampler lane (calibration + phase-locked polls with burst window)
+% % ------------------------------------------------------------------
+% \draw[timeline] (\xmin,\ysampler) -- (\xmax,\ysampler);
+% \node[label,anchor=east] at (\xmin,\ysampler) {Sampler polls};
 
-% Calibration phase block (left)
-\def\xcalibStart{0.0}
-\def\xcalibEnd{3.6}
-\fill[blue!10] (\xcalibStart,\ysampler-0.3) rectangle (\xcalibEnd,\ysampler+0.3);
-\node[label] at ({0.5*(\xcalibStart+\xcalibEnd)},\ysampler+0.50) {calibration};
+% % Calibration phase block (left)
+% \def\xcalibStart{0.0}
+% \def\xcalibEnd{3.6}
+% \fill[blue!10] (\xcalibStart,\ysampler-0.3) rectangle (\xcalibEnd,\ysampler+0.3);
+% \node[label] at ({0.5*(\xcalibStart+\xcalibEnd)},\ysampler+0.50) {calibration};
 
-% Calibration-phase polls (irregular, more frequent)
-\foreach \x in {0.3,0.8,1.3,1.8,2.3,2.8,3.3} {
-  \node[poll-calib] at (\x,\ysampler) {};
-}
+% % Calibration-phase polls (irregular, more frequent)
+% \foreach \x in {0.3,0.8,1.3,1.8,2.3,2.8,3.3} {
+%   \node[poll-calib] at (\x,\ysampler) {};
+% }
 
-% Burst-style windows around predicted publish times in phase-locked regime
-\def\tpred{5.5}
-\def\whalf{0.4}
-\fill[blue!10] (\tpred-\whalf,\ysampler-0.3) rectangle (\tpred+\whalf,\ysampler+0.3);
+% % Burst-style windows around predicted publish times in phase-locked regime
+% \def\tpred{5.5}
+% \def\whalf{0.4}
+% \fill[blue!10] (\tpred-\whalf,\ysampler-0.3) rectangle (\tpred+\whalf,\ysampler+0.3);
 
-\def\tpred{8.5}
-\def\whalf{0.4}
-\fill[blue!10] (\tpred-\whalf,\ysampler-0.3) rectangle (\tpred+\whalf,\ysampler+0.3);
-\node[label,anchor=north] at (\tpred,\ysampler-0.35)
-  {$[t_{\text{next}}-w,\,t_{\text{next}}+w]$};
+% \def\tpred{8.5}
+% \def\whalf{0.4}
+% \fill[blue!10] (\tpred-\whalf,\ysampler-0.3) rectangle (\tpred+\whalf,\ysampler+0.3);
+% \node[label,anchor=north] at (\tpred,\ysampler-0.35)
+%   {$[t_{\text{next}}-w,\,t_{\text{next}}+w]$};
 
-\def\tpred{11.5}
-\def\whalf{0.4}
-\fill[blue!10] (\tpred-\whalf,\ysampler-0.3) rectangle (\tpred+\whalf,\ysampler+0.3);
+% \def\tpred{11.5}
+% \def\whalf{0.4}
+% \fill[blue!10] (\tpred-\whalf,\ysampler-0.3) rectangle (\tpred+\whalf,\ysampler+0.3);
 
-% Phase-locked base polls: successful observation polls
-\node[poll-base,draw=red,thick] at (5.5,\ysampler) {};
-\node[poll-base,draw=red,thick] at (8.5,\ysampler) {};
-% Last window: successful observation comes slightly early
-\node[poll-base,draw=red,thick] at (11.3,\ysampler) {};
-\node[label,anchor=south] at (11.1,\ysampler+0.2) {self-healing tick};
+% % Phase-locked base polls: successful observation polls
+% \node[poll-base,draw=red,thick] at (5.5,\ysampler) {};
+% \node[poll-base,draw=red,thick] at (8.5,\ysampler) {};
+% % Last window: successful observation comes slightly early
+% \node[poll-base,draw=red,thick] at (11.3,\ysampler) {};
+% \node[label,anchor=south] at (11.1,\ysampler+0.2) {self-healing tick};
 
-% Additional burst-mode polls around t_next (denser sampling inside window)
-\foreach \x in {5.3,5.7,8.3,8.7,11.5,11.7} {
-  \node[poll-burst] at (\x,\ysampler) {};
-}
+% % Additional burst-mode polls around t_next (denser sampling inside window)
+% \foreach \x in {5.3,5.7,8.3,8.7,11.5,11.7} {
+%   \node[poll-burst] at (\x,\ysampler) {};
+% }
 
-% Polls that get skipped AFTER a successful observation:
-% - in the first two windows: the late burst poll
-% - in the last window: the scheduled base poll at 11.5 and the late burst poll at 11.7
-\foreach \x in {5.7,8.7,11.5,11.7} {
-  \draw[red,thick] (\x-0.10,\ysampler-0.10) -- (\x+0.10,\ysampler+0.10);
-  \draw[red,thick] (\x-0.10,\ysampler+0.10) -- (\x+0.10,\ysampler-0.10);
-}
+% % Polls that get skipped AFTER a successful observation:
+% % - in the first two windows: the late burst poll
+% % - in the last window: the scheduled base poll at 11.5 and the late burst poll at 11.7
+% \foreach \x in {5.7,8.7,11.5,11.7} {
+%   \draw[red,thick] (\x-0.10,\ysampler-0.10) -- (\x+0.10,\ysampler+0.10);
+%   \draw[red,thick] (\x-0.10,\ysampler+0.10) -- (\x+0.10,\ysampler-0.10);
+% }
 
-% Optional annotation: phase-locked region
-\node[label,anchor=west] at (4.0,\ysampler+0.50) {phase-locked operation};
+% % Optional annotation: phase-locked region
+% \node[label,anchor=west] at (4.0,\ysampler+0.50) {phase-locked operation};
 
-% ------------------------------------------------------------------
-% 3) Tycho GPU tick lane (two phases)
-% ------------------------------------------------------------------
-\draw[timeline] (\xmin,\ytick) -- (\xmax,\ytick);
-\node[label,anchor=east] at (\xmin,\ytick) {Tycho GPU ticks};
+% % ------------------------------------------------------------------
+% % 3) Tycho GPU tick lane (two phases)
+% % ------------------------------------------------------------------
+% \draw[timeline] (\xmin,\ytick) -- (\xmax,\ytick);
+% \node[label,anchor=east] at (\xmin,\ytick) {Tycho GPU ticks};
 
-% Phase 1: same cadence as publishes, but not phase-aligned (during calibration)
-\foreach \x in {0.8,3.8} {
-  \node[tick] at (\x,\ytick) {};
-}
+% % Phase 1: same cadence as publishes, but not phase-aligned (during calibration)
+% \foreach \x in {0.8,3.8} {
+%   \node[tick] at (\x,\ytick) {};
+% }
 
-% Phase 2: phase-locked, one tick per fresh device update
-\foreach \x in {5.5,8.5,11.3} {
-  \node[tick] at (\x,\ytick) {};
-}
+% % Phase 2: phase-locked, one tick per fresh device update
+% \foreach \x in {5.5,8.5,11.3} {
+%   \node[tick] at (\x,\ytick) {};
+% }
 
-\node[label,anchor=west] at (0.0,\ytick-0.45)
-  {Phase 1: unsynchronised \code{GpuTick}s};
+% \node[label,anchor=west] at (0.0,\ytick-0.45)
+%   {Phase 1: unsynchronised \code{GpuTick}s};
 
-\node[label,anchor=west] at (6.5,\ytick-0.45)
-  {Phase 2: one \code{GpuTick} per fresh publish};
+% \node[label,anchor=west] at (6.5,\ytick-0.45)
+%   {Phase 2: one \code{GpuTick} per fresh publish};
 
-\end{tikzpicture}
-\caption{Phase-aware GPU polling timeline}
-\label{fig:gpu_phaseaware_timeline}
-\end{figure}
+% \end{tikzpicture}
+% \caption{Phase-aware GPU polling timeline}
+% \label{fig:gpu_phaseaware_timeline}
+% \end{figure}
 
 \subsection{Event Lifecycle}
 \label{subsec:gpu_event_lifecycle}
