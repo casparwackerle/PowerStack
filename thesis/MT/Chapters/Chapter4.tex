@@ -807,105 +807,448 @@ separate freshness and scheduling mechanisms.
 \label{sec:analysis_attribution_arch}
 
 \subsection{Purpose and Scope}
-% WHAT is computed and WHY (not HOW).
-% Per-node, per-window reasoning.
-% High-level statement of outputs: windowed node and workload attributions.
+% This section defines the architectural semantics of Tycho’s analysis and attribution layer.
+% It specifies WHAT quantities are computed and WHY they are defined this way,
+% independent of any implementation, algorithms, or data structures.
+%
+% The analysis operates strictly on a per-node basis and over discrete attribution windows.
+% No cross-node aggregation or coordination is assumed or required.
+%
+% The primary outputs of this layer are windowed energy and utilization quantities,
+% defined both at node level and, where applicable, attributed to workloads.
+% These outputs form the basis for all subsequent evaluation and interpretation.
+%
+% This section deliberately excludes:
+% - how windows are constructed
+% - how metrics are sampled or aligned
+% - how results are exported or visualized
+% These concerns are deferred to implementation and later chapters.
 
 \subsection{Attribution Goals and Non-Goals}
-% Goals: accuracy-first, conservation, temporal consistency.
-% Non-goals: instantaneous attribution, cross-node attribution, fairness, exporter concerns.
+% This subsection defines the explicit objectives that guide Tycho’s attribution design,
+% as well as the boundaries of what the architecture intentionally does not provide.
+%
+% Primary goals include:
+% - accuracy-first attribution, prioritizing physical plausibility over smoothness
+% - strict energy conservation within each attribution window
+% - temporal consistency across windows under stable workloads
+%
+% Explicit non-goals include:
+% - instantaneous or sub-window attribution guarantees
+% - attribution across nodes or distributed workloads
+% - fairness, scheduling, or resource accounting claims
+% - any guarantees related to exporter behavior or visualization stability
+%
+% Stating non-goals is essential to prevent misinterpretation of attribution results
+% and to clearly separate architectural intent from downstream use cases.
 
 \subsection{Analysis Engine as an Architectural Actor}
-% Define the analysis engine as the component that triggers per-window analysis,
-% applies the attribution pipeline, and produces derived metrics.
+% This subsection introduces the analysis engine as a conceptual system component.
+%
+% Architecturally, the analysis engine is responsible for:
+% - selecting attribution windows based on the global temporal model
+% - orchestrating the staged attribution pipeline
+% - applying the analysis semantics defined in this chapter
+% - producing derived, window-scoped metrics
+%
+% The analysis engine is not concerned with:
+% - metric collection
+% - timestamp generation
+% - storage or export mechanisms
+%
+% It is modeled as a logical actor that consumes already-available metric signals
+% and applies deterministic transformations defined by the attribution architecture.
+% Implementation details such as scheduling, concurrency, or lifecycle management
+% are intentionally excluded here.
 
 \subsection{Attribution Windows and Timebase Assumptions}
 \label{subsec:attrib_windows}
-% Event-time perspective and monotonic timebase assumption.
-% Define attribution windows conceptually and motivate windowed attribution.
+% This subsection defines the temporal foundation on which all attribution operates.
+%
+% Tycho adopts an event-time perspective based on a monotonic timebase.
+% All attribution quantities are defined relative to this timebase,
+% and comparisons between metrics assume monotonic ordering, not synchronization.
+%
+% Attribution windows are defined as bounded time intervals over which
+% energy and utilization quantities are aggregated and interpreted.
+% Windowed attribution is required because:
+% - energy measurements are inherently integrated over time
+% - instantaneous attribution is physically ill-defined
+% - different metric sources exhibit heterogeneous latency and update behavior
+%
+% This subsection defines attribution windows conceptually and motivates their necessity,
+% but does not specify how windows are constructed, aligned, or triggered in practice.
 
 \subsection{Stage 1: Component Metric Construction}
 \label{subsec:stage1_component_metrics}
-% Define the derived per-window component metrics that serve as inputs to attribution stages.
-% Present domains in canonical order BPF -> RAPL -> Redfish -> GPU.
+% This stage defines the construction of the fundamental, window-scoped component metrics
+% that form the basis for all subsequent attribution steps.
+%
+% Architecturally, component metric construction transforms raw, time-continuous
+% measurements into semantically well-defined quantities over an attribution window.
+% These metrics are not yet attributed to workloads and do not encode idle or dynamic
+% semantics. They represent node-level facts that later stages operate on.
+%
+% This stage establishes clear contracts:
+% - all component metrics are scoped to a single node
+% - all quantities are defined over the same attribution window
+% - no cross-domain attribution or redistribution occurs here
+%
+% Domains are presented in the canonical order used throughout this thesis:
+% eBPF (utilization) -> RAPL (CPU energy) -> Redfish (system energy) -> GPU (accelerator energy).
+% This order reflects both conceptual dependency and increasing scope of measurement.
+%
+% Implementation details such as sampling frequency, counter handling, or delay correction
+% are explicitly deferred to the implementation chapter.
 
 \subsubsection{eBPF Utilization Metrics (Totals and Aggregates)}
-% Architectural definition of utilization signals.
-% Distinguish node-level totals from workload-aggregated utilization.
+% This subsection defines the architectural role of eBPF-derived utilization metrics.
+%
+% eBPF metrics provide time-resolved measurements of CPU activity and serve as the
+% primary utilization signals used for proportional attribution in later stages.
+% They are not energy measurements and do not encode power or energy directly.
+%
+% Architecturally, two classes of utilization quantities are defined:
+% - node-level utilization totals over an attribution window
+% - workload-level utilization aggregates derived from the same underlying signals
+%
+% These utilization metrics establish a quantitative basis for answering
+% "how CPU time was distributed" during a window, independent of energy measurement.
+%
+% This subsection defines the semantic meaning of these quantities and their scope,
+% but does not describe how utilization is observed, aggregated, or mapped in practice.
 
 \subsubsection{RAPL Domain Energy Metrics}
-% Architectural definition of per-domain energy over a window (package, core, DRAM, uncore).
-% Treat domains as independent energy sources.
+% This subsection defines the architectural semantics of CPU energy measurements
+% obtained from RAPL domains.
+%
+% For each attribution window, energy consumption is defined independently for
+% each relevant RAPL domain (e.g., package, core, DRAM, uncore).
+% Each domain is treated as a distinct energy source with its own physical meaning.
+%
+% Architecturally, RAPL domain metrics represent total energy consumed over a window.
+% No attribution, redistribution, or idle/dynamic separation is performed at this stage.
+%
+% This subsection establishes the interpretation of RAPL domain energies as
+% window-integrated quantities and prepares them for later semantic decomposition.
+% Details such as counter deltas, wraparound handling, or synchronization
+% are outside the scope of this section.
 
 \subsubsection{Redfish-Corrected System Energy Metric}
-% Define redfish_corrected as a fused, authoritative system energy metric.
+% This subsection defines the architectural role of the redfish_corrected metric.
+%
+% redfish_corrected represents a fused, window-scoped system-level energy quantity
+% derived from Redfish measurements and treated as the authoritative total energy
+% consumed by the node over an attribution window.
+%
+% Architecturally, this metric serves as a ground-truth reference against which
+% component-level energy accounting is constrained.
+% It is not attributed to workloads directly and does not encode domain-level structure.
+%
+% The fusion process that produces redfish_corrected is defined conceptually here,
+% but all realization details, including calibration and delay handling,
+% are deferred to the implementation chapter.
 
 \subsubsection{GPU-Corrected Energy Metric}
-% Define gpu_corrected as an intra-domain fusion producing a higher-quality GPU energy signal.
+% This subsection defines the architectural semantics of the gpu_corrected metric.
+%
+% gpu_corrected represents a window-scoped GPU energy quantity obtained through
+% intra-domain fusion of multiple GPU-internal measurements.
+% The purpose of this fusion is to improve signal quality and interpretability,
+% not to perform attribution.
+%
+% Architecturally, gpu_corrected is treated as the total GPU energy consumed
+% by all accelerators on a node during an attribution window.
+% It forms a distinct component energy source in later attribution stages.
+%
+% This subsection defines what gpu_corrected represents and why such a fused metric
+% is required, but does not specify how individual GPU signals are combined in practice.
 
 \subsection{Stage 2: System-Level Energy Model and Residual}
 \label{subsec:stage2_residual}
-% Define the conservation relationship and residual energy as a first-class quantity.
+% This stage defines the architectural energy model that constrains all attribution.
+% It establishes a system-level conservation relationship and introduces residual energy
+% as a first-class quantity rather than an error term.
+%
+% All quantities defined in this stage are scoped to a single node and a single
+% attribution window. No workload-level attribution occurs here.
+%
+% The purpose of this stage is to define what it means, architecturally, for
+% Tycho’s attribution to be energy-conserving and physically plausible.
 
 \subsubsection{Global Energy Decomposition}
-% sum(RAPL domains) + sum(gpu\_corrected) + Residual = redfish\_corrected
-% Per-node, per-window.
+% This subsection defines the core conservation relationship of Tycho’s analysis model.
+%
+% Architecturally, total system energy over an attribution window is expressed as:
+%   sum(RAPL domain energies) + sum(gpu_corrected energies) + Residual = redfish_corrected
+%
+% Each term in this equation represents a window-integrated, node-scoped quantity.
+% The equation defines a constraint that must hold conceptually, independent of
+% how individual terms are measured or realized in practice.
+%
+% This decomposition establishes redfish_corrected as the authoritative system-level
+% energy reference and defines residual energy as the quantity required to close
+% the system-level energy budget.
 
 \subsubsection{Residual Definition and Interpretation Limits}
-% Residual as unassigned remainder; limits of interpretation.
+% This subsection defines residual energy as the unassigned remainder of the
+% system-level energy budget after accounting for explicitly modeled components.
+%
+% Architecturally, residual energy represents all energy contributions that are
+% not attributed to modeled RAPL or GPU domains, including but not limited to:
+% platform components, measurement mismatches, and modeling gaps.
+%
+% Residual is defined, not inferred, and must not be interpreted as noise or error.
+% At the same time, it is not attributed to workloads and carries no utilization
+% semantics.
+%
+% This subsection explicitly limits how residual energy should be interpreted
+% and prevents misuse of residual values in downstream analysis.
 
 \subsubsection{Negative Residuals as a Temporal Consequence}
-% Accepted architectural consequence due to lag/delay and response dynamics.
+% This subsection addresses the architectural possibility of negative residual energy.
+%
+% Negative residuals are permitted as a conceptual consequence of temporal effects,
+% including heterogeneous response times, integration delays, and window alignment
+% between component energy sources and system-level measurements.
+%
+% Architecturally, temporary negative residuals do not violate conservation,
+% provided the global energy decomposition holds over each attribution window.
+% Their presence reflects timing dynamics rather than physical impossibility.
+%
+% This subsection establishes that negative residuals are acceptable within
+% defined bounds and must be interpreted in a temporal, not instantaneous, context.
 
 \subsubsection{Conservation and Consistency Constraints}
-% Precisely stated constraints: conservation, no double counting, scope constraints.
-% Clarify what may be negative and what must not.
+% This subsection summarizes the architectural constraints that govern the
+% system-level energy model.
+%
+% These constraints include:
+% - conservation of total energy within each attribution window
+% - absence of double counting across energy domains
+% - consistent scoping of all quantities to a single node and window
+%
+% It is explicitly stated which quantities may assume negative values
+% (e.g., residual energy under temporal misalignment) and which must not
+% (e.g., total system energy).
+%
+% These constraints define the correctness envelope of the attribution architecture
+% and serve as reference points for later implementation and evaluation.
 
 \subsection{Stage 3: Idle and Dynamic Energy Semantics}
 \label{subsec:stage3_idle_dynamic}
-% Define idle vs dynamic energy semantics for energy domains.
-% Present in canonical order where applicable (RAPL -> Redfish -> GPU).
-% (BPF has no energy split.)
+% This stage defines the architectural semantics used to distinguish idle and dynamic
+% portions of energy consumption for modeled energy domains.
+%
+% The purpose of this stage is interpretive rather than attributive:
+% it assigns meaning to component energy quantities but does not yet distribute
+% energy to workloads.
+%
+% Idle and dynamic semantics are defined only for energy domains where such a
+% distinction is physically meaningful and architecturally required.
+% Utilization-only signals (e.g. eBPF metrics) do not participate in this stage.
+%
+% Domain-specific semantics are presented in the canonical order used throughout
+% this thesis: RAPL -> Redfish -> GPU.
+% All definitions are scoped per node and per attribution window.
 
 \subsubsection{RAPL Idle and Dynamic Semantics}
-% Define idle/dynamic for each RAPL domain.
+% This subsection defines the architectural interpretation of idle and dynamic
+% energy for RAPL domains.
+%
+% Dynamic RAPL energy represents the portion of CPU energy consumption that varies
+% in response to computational activity during an attribution window.
+% Idle RAPL energy represents baseline consumption that persists independently
+% of workload execution.
+%
+% Idle and dynamic components are defined per RAPL domain and together sum to the
+% total RAPL energy of that domain within a window.
+%
+% These semantics establish the conceptual basis for later workload attribution
+% of dynamic CPU energy and for the allocation of idle CPU energy.
+% The mechanism by which idle and dynamic components are identified or separated
+% is intentionally deferred to the implementation chapter.
 
 \subsubsection{Redfish-Corrected Idle and Dynamic Semantics}
-% Define whether and how redfish\_corrected participates in idle/dynamic interpretation.
+% This subsection defines the role of redfish_corrected within idle and dynamic
+% energy interpretation.
+%
+% Architecturally, redfish_corrected represents total system energy and serves as
+% a global constraint rather than a directly attributable domain.
+% As such, it does not participate in workload-level idle or dynamic attribution.
+%
+% Where idle and dynamic terminology is applied to redfish_corrected, it is used
+% only at a system level to support consistency checks and residual interpretation,
+% not to drive proportional allocation.
+%
+% This subsection clarifies the limited and supportive role of redfish_corrected
+% in idle/dynamic semantics and prevents its misuse as a workload-attributable signal.
 
 \subsubsection{GPU Idle and Dynamic Semantics}
-% Define dynamic GPU attribution basis; state GPU idle handling policy explicitly.
+% This subsection defines the architectural semantics of idle and dynamic energy
+% for GPU domains.
+%
+% Dynamic GPU energy represents energy consumption directly associated with
+% accelerator activity during an attribution window and forms the basis for
+% workload-level GPU attribution.
+%
+% GPU idle energy represents baseline accelerator consumption that is not driven
+% by active workloads.
+% Architecturally, GPU idle energy is not attributed to workloads and remains
+% assigned at the system level.
+%
+% These semantics explicitly separate GPU domains from CPU domains with respect
+% to idle energy handling and establish clear rules for later attribution stages.
 
 \subsection{Stage 4: Workload Attribution and Aggregation}
 \label{subsec:stage4_workload_attrib}
-% Define how node-level quantities are allocated to workloads.
-% Centralize all hierarchy and mapping concepts here to avoid redundancy.
+% This stage defines how node-level energy and utilization quantities are
+% attributed to workloads and aggregated across hierarchy levels.
+%
+% Architecturally, this stage is the first point at which workload identity,
+% utilization signals, and energy semantics are combined.
+% All attribution decisions are made with respect to the semantics defined
+% in earlier stages.
+%
+% To avoid redundancy and inconsistency, all hierarchy, identity, and mapping
+% assumptions are centralized in this stage.
+% Earlier stages define only node-level quantities and interpretations.
 
 \subsubsection{Attribution Identity and Join Contract}
-% Architectural requirement: stable mapping between process/cgroup activity and Kubernetes objects.
-% Validity conditions and degradation conceptually when identity is missing.
+% This subsection defines the architectural contract that enables workload-level
+% attribution.
+%
+% Attribution requires a stable and unambiguous mapping between:
+% - low-level execution context (e.g. process or cgroup activity)
+% - higher-level workload entities (container, pod, namespace, workload)
+%
+% Architecturally, this join contract must satisfy:
+% - uniqueness: each unit of activity maps to at most one workload
+% - temporal validity: mappings remain stable within an attribution window
+% - completeness: unmapped activity is explicitly accounted for
+%
+% When identity information is missing or ambiguous, attribution degrades
+% in a defined manner, typically by retaining energy at the node level
+% rather than forcing incorrect workload assignment.
+%
+% This subsection defines the requirements and consequences of the join contract,
+% but does not describe how identity is collected or maintained in practice.
 
 \subsubsection{CPU Dynamic Attribution to Workloads}
-% Conceptual proportional attribution driven by eBPF utilization signals.
+% This subsection defines the architectural semantics of dynamic CPU energy
+% attribution to workloads.
+%
+% Dynamic CPU energy is distributed proportionally to workloads based on
+% their relative CPU utilization during an attribution window, as expressed
+% by eBPF-derived utilization signals.
+%
+% The attribution is constrained such that:
+% - the sum of workload-attributed dynamic CPU energy equals total dynamic CPU energy
+% - attribution respects the scope of the attribution window
+%
+% This subsection defines proportionality and conservation at a semantic level.
+% The precise computation of utilization shares and normalization is deferred
+% to the implementation chapter.
 
 \subsubsection{CPU Idle Energy Allocation to Workloads}
-% Architectural rule for allocating idle CPU energy to workloads.
+% This subsection defines the architectural rule for allocating idle CPU energy
+% to workloads.
+%
+% Idle CPU energy represents baseline consumption that is not driven by active
+% computation, but which is nonetheless incurred while workloads are present.
+%
+% Architecturally, idle CPU energy is allocated to workloads according to a
+% defined policy that ensures conservation and consistency.
+% The specific allocation rule reflects a modeling choice rather than a
+% physical measurement and is stated explicitly at the semantic level.
+%
+% This subsection defines what idle CPU allocation means and what properties
+% it must satisfy, without prescribing implementation details.
 
 \subsubsection{GPU Dynamic Attribution to Workloads}
-% Conceptual allocation using gpu\_corrected and GPU utilization signals.
+% This subsection defines the architectural semantics of dynamic GPU energy
+% attribution to workloads.
+%
+% Dynamic GPU energy, as represented by gpu_corrected, is attributed to
+% workloads that actively utilize GPU resources during an attribution window.
+%
+% Attribution is based on GPU utilization signals and constrained by conservation:
+% the sum of workload-attributed GPU dynamic energy equals total dynamic GPU energy.
+%
+% This subsection defines the conceptual basis for GPU workload attribution,
+% independent of how utilization is observed or normalized.
 
-\subsubsection{GPU Idle Attribution to Workloads}
-% Conceptual allocation using gpu\_corrected and GPU utilization signals.
+\subsubsection{GPU Idle Energy Handling}
+% This subsection defines the architectural handling of GPU idle energy.
+%
+% GPU idle energy represents baseline accelerator consumption that occurs
+% independently of active workload execution.
+%
+% Architecturally, GPU idle energy is not attributed to workloads.
+% It remains assigned at the system level and contributes to residual or
+% system-level energy interpretation.
+%
+% This explicit choice distinguishes GPU handling from CPU handling and
+% reflects both modeling intent and practical observability constraints.
 
 \subsubsection{Workload-Level Utilization and Energy Aggregates}
-% Define which aggregates are produced at workload/pod/container levels and their semantics.
+% This subsection defines the aggregation of attributed quantities into
+% workload-level metrics.
+%
+% Architecturally, workload-level aggregates may be produced at multiple
+% hierarchy levels (e.g. container, pod, workload), provided the join contract
+% defined earlier is satisfied.
+%
+% Aggregates preserve attribution semantics and conservation properties
+% established in previous stages.
+% This subsection defines which aggregate quantities exist and how they
+% should be interpreted, without describing storage or export mechanisms.
 
 \subsection{Stability, Validity Conditions, and Architectural Limits}
 \label{subsec:analysis_limits}
-% Temporal stability expectations, assumptions, and explicit non-guarantees.
+% This subsection summarizes the conditions under which the analysis and attribution
+% architecture is expected to behave consistently, as well as its explicit limits.
+%
+% Architectural stability is defined in a temporal sense:
+% while short-term fluctuations and window-to-window variability are expected,
+% the attribution model is designed to converge to consistent behavior under
+% stable workloads and sustained operating conditions.
+%
+% This subsection explicitly states the validity conditions required for the
+% architectural semantics defined earlier to hold. These include assumptions such as:
+% - monotonicity of underlying counters and timestamps
+% - bounded delays between component-level and system-level measurements
+% - validity and stability of workload identity mappings within attribution windows
+%
+% Architectural limits are stated explicitly to prevent over-interpretation.
+% These include, but are not limited to:
+% - lack of instantaneous attribution guarantees
+% - absence of cross-node or distributed attribution semantics
+% - dependence on the fidelity of available measurement sources
+%
+% By stating these limits explicitly, this subsection defines the scope of
+% correctness claims made by the architecture and frames the interpretation
+% of results in later chapters.
 
 \subsection{Architectural Consequences}
-% What this enables for implementation and evaluation; no exporter details.
+% This subsection summarizes the consequences of the analysis and attribution
+% architecture for system realization and evaluation.
+%
+% Architecturally, the staged pipeline defined in this chapter:
+% - enables an accuracy-first implementation that prioritizes physical plausibility
+% - constrains implementation choices to preserve conservation and consistency
+% - supports heterogeneous metric sources with differing temporal behavior
+%
+% The architecture deliberately separates semantic definition from realization,
+% allowing implementation to focus on correct handling of timing, buffering,
+% and robustness without reinterpreting attribution logic.
+%
+% These architectural consequences directly inform the structure of the
+% implementation chapter and define the expectations against which the
+% evaluation and results chapters are interpreted.
+%
+% Export mechanisms, visualization, and operational concerns are intentionally
+% excluded here and addressed in subsequent chapters where appropriate.
 
 
 \section{Architectural Trade-Offs and Alternatives Considered}
