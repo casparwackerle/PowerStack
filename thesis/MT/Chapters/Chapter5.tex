@@ -163,65 +163,54 @@ This interaction model deliberately excludes feedback paths, implicit coordinati
 
 The remainder of this chapter elaborates on how each subsystem realises its assigned responsibility in practice, addressing temporal realisation, collection mechanics, identity handling, calibration, attribution, and robustness in turn (\S~\ref{sec:impl_temporal}–\S~\ref{sec:impl_tradeoffs}).
 
-
-
-
-
-
-
-
-
-
 \section{Temporal Infrastructure and Window Realization}
 \label{sec:impl_temporal}
-% Implementation of the architectural temporal model under real-world constraints.
-% Focus on how event-time assumptions are upheld with heterogeneous and delayed sources.
 
-\subsection{Monotonic Time Realization}
+\subsection{Architectural Context and Implementation Problem}
 
-\subsubsection{Timestamp Acquisition and Normalization}
-% Explain how monotonic timestamps are acquired from different subsystems.
-% Describe normalization into a common internal timebase.
-% Emphasize avoidance of wall-clock time for analysis-critical logic.
+\S~\ref{sec:timing_engine} defines Tycho’s temporal model in abstract terms: a single monotonic time base, independently operating collectors, and fixed-duration analysis windows triggered by a timing engine. The implementation task is to realize this model under real execution constraints while preserving its guarantees, rather than restating its semantics.
 
-\subsubsection{Event-Time Alignment Across Sources}
-% Describe how observations from independent sources are aligned in event time.
-% Explain the role of timestamps and calibrated delays.
-% State that alignment is approximate but bounded by architectural assumptions.
+Collectors are scheduled by a general-purpose operating system and are subject to jitter, preemption and variable execution latency. Polling callbacks may execute late, at uneven intervals, or out of phase with one another. Analysis must therefore not depend on execution order, callback timing, or implicit synchronization effects. Temporal correctness must derive exclusively from explicit timestamps attached to observations, not from when code happens to execute. The temporal infrastructure enforces this separation rigorously.
 
-\subsection{Independent Collector Schedules in Practice}
+\subsection{Global Monotonic Time Realization}
 
-\subsubsection{Decoupling and Coordination Constraints}
-% Explain that collectors operate on independent schedules.
-% Describe why global synchronization is neither assumed nor enforced.
-% Emphasize architectural motivation for loose coupling.
+The architectural event-time model relies on a single system-wide monotonic time base. Its implementation elevates monotonic time to a first-class dependency rather than treating it as an incidental property of the runtime environment. All collectors, the timing engine and the analysis engine obtain temporal information exclusively through a dedicated clock abstraction.
 
-\subsubsection{Implications for Window Construction}
-% Explain how independent schedules affect data availability per window.
-% Describe why windows must tolerate uneven sampling and gaps.
+Wall-clock time is excluded from analysis-critical paths and appears only where external representation is unavoidable. The clock abstraction provides monotonic timestamps for observations and analysis boundaries, mediates conversion between real-time and monotonic representations where required, and is injected into downstream components to ensure consistent and testable temporal behavior across subsystems.
 
-\subsection{Window Construction and Analysis Triggering}
+As a result, scheduling jitter becomes an explicit input to analysis rather than a hidden source of error. A collector that executes late produces a correspondingly late timestamp. No corrective action is taken at collection time; timestamps are interpreted during analysis according to the delay and freshness assumptions defined in \S~\ref{sec:timing_engine}. Monotonic timestamps thus constitute the sole temporal authority within the system.
 
-\subsubsection{Window Selection and Bounding}
-% Describe how attribution windows are selected and bounded in practice.
-% Explain how window boundaries relate to event-time rather than observation-time.
-% Emphasize consistency guarantees over precision.
+\subsection{Timing Engine and Hierarchical Cadence Alignment}
 
-\subsubsection{Triggering Policy and Coordination}
-% Explain what triggers an analysis cycle.
-% Describe coordination between window availability and analysis execution.
-% Avoid implementation-specific scheduling details.
+Independent collector schedules are a central architectural principle. Realizing this independence without sacrificing determinism requires a controlled mechanism for initiating periodic actions. Tycho employs a centralized timing engine to which all periodic activities register during system initialization.
 
-\subsection{Correctness Under Delay and Partial Observation}
+Each registration specifies a period expressed as an integer multiple of a global base quantum (default: 1\,ms). All registrations are aligned to a shared epoch defined by this quantum, establishing deterministic phasing across the system. Collector and analysis triggers are hierarchically derived from this common cadence rather than started opportunistically, ensuring that identical configurations produce identical temporal behavior across runs. Alignment does not impose a shared frequency: collectors with different periods remain independent, but their triggers occur at deterministic offsets on the global monotonic axis.
 
-\subsubsection{Delay Tolerance Mechanisms}
-% Describe how delayed observations are tolerated without violating invariants.
-% Explain reliance on calibrated delay bounds rather than exact alignment.
+The timing engine is deliberately non-semantic. It does not inspect collected data, adapt schedules, or coordinate collectors. Its sole responsibility is to emit triggers at predetermined monotonic times. Work performed in response to a trigger is constrained to be minimal and non-blocking, typically limited to recording an observation and placing it into a buffer, preventing local execution delays from propagating into global timing behavior.
 
-\subsubsection{Partial Window Semantics}
-% Explain how incomplete windows are handled.
-% Describe what guarantees are weakened under partial observation.
-% Emphasize explicit and controlled degradation of correctness.
+Analysis triggering is implemented using the same registration mechanism. The analysis engine registers a periodic trigger alongside collectors, making analysis execution subject to the same alignment and determinism guarantees. This design enforces single-cycle exclusivity by construction: a new analysis cycle cannot begin before the previous trigger boundary has been established, without requiring additional synchronization logic.
+
+\subsection{Analysis Window Realization and Trigger Semantics}
+
+Analysis windows are realized when an analysis trigger fires. At that instant, the timing engine provides a single monotonic timestamp \(t_{\text{now}}\), which defines the upper boundary of the current window. This timestamp is captured exactly once and propagated unchanged throughout the entire analysis cycle. All metrics are evaluated against windows derived from this shared boundary, and no component recomputes or refines the window definition during analysis. Consequently, all attribution decisions within a cycle refer to an identical temporal interval, independent of execution order or internal processing latency.
+
+Window boundaries are defined by trigger times rather than sample arrival. Samples collected before \(t_{\text{now}}\) may be included or excluded according to domain-specific delay and freshness rules as defined in \S~\ref{sec:timing_engine}. Samples arriving after the trigger are attributed to subsequent windows. This separation prevents double-counting and omission even under heterogeneous collector rates.
+
+Temporal complexity is intentionally confined to timestamping and delay interpretation. Window construction itself remains simple and predictable, providing a stable temporal substrate on which later analysis stages can reason about delay, partial observation and attribution correctness without embedding scheduling assumptions or compensating for execution artifacts.
+
+
+\section{Historical Observation Retention}
+\label{sec:impl_history}
+
+Tycho retains a bounded history of raw observations in order to support downstream analysis that requires temporal context beyond a single attribution window. This retention is an explicit implementation responsibility derived from the temporal model in \S~\ref{sec:timing_engine}. Rather than operating exclusively on window-local samples, Tycho preserves historical signal to mitigate discretization effects, tolerate heterogeneous collector cadences, and enable mathematically stable downstream interpretation.
+
+\subsubsection{Metric Observation Retention}
+Historical retention is realized through per-collector observation buffers with time-based semantics. Each collector appends observations to its own buffer, which retains a fixed-duration history with a default horizon of approximately 90\,s. This horizon deliberately exceeds the nominal analysis window length and is chosen to provide substantial temporal context for downstream analysis. Buffer capacity is computed at startup from the collector’s polling interval and the configured analysis window, ensuring that retained history covers at least twice the longer of these durations, augmented by a small safety margin. Under Tycho’s default configuration for high-frequency analysis, this corresponds to retention spanning approximately 18 full analysis windows, providing substantial historical context for downstream analysis models. Retention is bounded and fixed for the lifetime of the process.
+
+Buffered samples are append-only and immutable once written. Downstream components access buffered data strictly in a read-only manner. No guarantee is made that all collectors contribute samples to every window or that samples are temporally aligned across collectors. Partial observability and heterogeneous update patterns are therefore preserved explicitly and interpreted by the analysis engine rather than hidden by synchronization.
+
+\subsubsection{Metadata Retention}
+In addition to metric observations, Tycho maintains a bounded cache of metadata describing process, cgroup and workload identities. This cache employs a time-based retention policy aligned with the metric retention horizon to ensure that buffered observations can be joined with valid identity information during analysis. Metadata history is not used for long-term modeling and is removed once it exceeds the retention window.
 
 \section{Metric Collection Subsystems}
 \label{sec:impl_collectors}
@@ -229,49 +218,464 @@ The remainder of this chapter elaborates on how each subsystem realises its assi
 % This section covers observation capture and materialization only.
 % No fusion, no corrected metrics, no attribution or interpretation semantics.
 
-\subsection{eBPF and Software Counter Collection}
+\subsection{eBPF Collector Implementation}
+\label{subsec:impl_ebpf}
+This section describes how Tycho realises the event-driven CPU ownership and activity model introduced in \S~\ref{subsec:ebpf_temporal}.  
+The eBPF collector implements a kernel-level acquisition path that captures execution boundaries precisely and exposes the resulting activity as bounded, per-window deltas for downstream analysis.
 
-\subsubsection{Signal Capture and Materialization}
-% Describe how execution-related signals are captured via eBPF and software counters.
-% Emphasize event-driven nature and high temporal resolution.
-% Clarify that outputs represent raw utilization signals, not workload attribution.
+\subsubsection{Implementation Strategy}
+The implementation follows a split-surface strategy that separates \emph{attributable} activity from \emph{non-attributable} CPU time.  
+Attributable activity is accumulated per process at scheduler boundaries, together with stable identity and classification metadata.  
+Non-attributable activity, including idle time and interrupt handling, is accumulated per CPU and exported independently.  
+This separation reflects Tycho’s attribution requirements: process-level ownership must be preserved without ambiguity, while certain CPU time categories cannot be meaningfully assigned to workloads.  
+All kernel programs operate strictly locally, without cross-CPU or cross-process aggregation; consolidation and interpretation are deferred to userspace and later analysis stages.
 
-\subsubsection{Aggregation Readout as Raw Observations}
-% Explain how low-level eBPF signals are read out into observable counters.
-% Describe the form in which these counters are exposed to the analysis layer.
-% State explicitly that aggregation here is source-local and non-attributional.
+\subsubsection{Core Mechanisms}
+Process-level accounting is driven by scheduler transitions.  
+At each context switch, the outgoing execution interval is closed and its duration is accumulated into the corresponding process aggregate, together with hardware performance counters sampled at the same boundary.  
+Process identity, control-group association, and kernel-thread classification are captured at these execution boundaries and stored alongside the counters.  
+By aligning accumulation with actual ownership changes, the implementation preserves the architectural guarantee that execution intervals form precise attribution boundaries.
 
-\subsection{RAPL Domain Collection}
+CPU-local accounting handles activity that is not attributable to individual processes.  
+Each CPU maintains a local state machine that tracks the currently active context and the timestamp of the last transition.  
+Idle time is detected explicitly via the scheduler’s idle task and accumulated when the CPU executes in this state.  
+Hard interrupt and soft interrupt handling are measured as outermost intervals using entry and exit hooks, with durations accumulated into per-CPU bins.  
+This design avoids double counting under nested interrupts while preserving a complete partition of CPU time at the node level.
 
-\subsubsection{Per-Domain Observation Materialization}
-% Describe how RAPL energy counters are read and materialized per domain.
-% Emphasize uniform treatment of package, core, uncore, and DRAM domains.
-% Clarify that observations are cumulative and domain-local.
+Userspace collection materialises kernel-side accumulation into analysis-ready deltas.  
+At a fixed polling cadence, the collector snapshots all process aggregates and resets only their counter fields while preserving identity metadata.  
+This stable-key snapshot design avoids missing-entry artefacts that can occur if keys are deleted while scheduler updates are in flight.  
+CPU-level bins are read and reset in the same cycle, defining a clear collection boundary for idle and interrupt time.  
+The result of each collection cycle is a single tick record that represents all observed activity since the previous boundary, without overlap or double counting.
 
-\subsubsection{Counter Semantics Relevant to Correctness}
-% Explain architectural assumptions about RAPL counter monotonicity and wraparound.
-% Describe which counter properties are relied upon by later analysis stages.
+\subsubsection{Robustness and Edge Cases}
+Several implementation choices ensure robustness under concurrent kernel activity.  
+Process aggregates persist across collection cycles, and only delta-relevant fields are reset, preventing transient key loss under concurrent scheduler updates.  
+All kernel-side state is bounded through per-CPU arrays, bounded per-process maps, and fixed-size histograms for interrupt vector enrichment.  
+Reset failures or map evictions are treated as non-fatal; correctness is restored automatically in subsequent cycles.  
+A fundamental observability limit remains: processes that execute entirely between two collection boundaries may not be observed.  
+This limitation is inherent to discrete materialisation and is not compensated by inference.
 
-\subsection{Redfish System Power Collection}
+\subsubsection{Implementation Consequences}
+In practice, the eBPF collector produces a fixed-resolution utilisation and activity surface that preserves execution-boundary accuracy and stable process identity.  
+Per-window deltas are exported without imposing additional timing constraints on the analysis engine, enabling proportional attribution and energy modelling in later stages.
 
-\subsubsection{Observation Acquisition and Identification}
-% Describe how system-level power observations are acquired via Redfish.
-% Explain identification of the power source and association with a node.
-% Emphasize that observations are treated as raw system-level inputs.
+\subsubsection{Collected Metrics}
+The process-level and CPU-level metrics exported by the eBPF collector are listed in table Table~\ref{tab:ebpf-collector-metrics}.
 
-\subsubsection{Latency and Sampling Constraints at the Source}
-% Describe inherent latency and coarse sampling characteristics of Redfish.
-% Explain why these constraints are tolerated at the collection layer.
+\begin{table}[h]
+    \centering
+    \begin{tabular}{p{3cm} p{3.4cm} p{6.2cm}}
+    \toprule
+    \textbf{Metric} & \textbf{Source hook} & \textbf{Description} \\
+    \midrule
+    \multicolumn{3}{l}{\textit{Time-based metrics}} \\[4pt]
+    Process runtime & \code{tp\_btf/sched\_switch} & Per process. Elapsed on-CPU time accumulated at context switches. \\
+    Idle time & Derived from \code{sched\_switch} & Per node. Aggregated idle time across CPUs. \\
+    IRQ time & \code{irq\_handler\_{\{entry,exit\}}} & Per node. Aggregated duration spent in hardware interrupt handlers. \\
+    SoftIRQ time & \code{softirq\_{\{entry,exit\}}} & Per node. Aggregated duration spent in deferred kernel work. \\[4pt]
+    
+    \multicolumn{3}{l}{\textit{Hardware-based metrics}} \\[4pt]
+    CPU cycles & PMU (\code{perf\_event\_array}) & Per process. Retired CPU cycle count during task execution. \\
+    Instructions & PMU (\code{perf\_event\_array}) & Per process. Retired instruction count. \\
+    Cache misses & PMU (\code{perf\_event\_array}) & Per process. Last-level cache misses; indicator of memory intensity. \\[4pt]
+    
+    \multicolumn{3}{l}{\textit{Classification and enrichment metrics}} \\[4pt]
+    Cgroup ID & \code{sched\_switch} & Per process. Control group identifier for container attribution. \\
+    Kernel thread flag & \code{sched\_switch} & Per process. Marks kernel threads executing in system context. \\
+    Page cache hits & \code{mark\_page\_accessed} & Per process. Read or write access to cached pages; proxy for I/O activity. \\
+    IRQ vectors & \code{softirq\_entry} & Per process. Frequency of specific soft interrupt vectors. \\
+    \bottomrule
+    \end{tabular}
+    \caption{Metrics collected by the kernel \code{eBPF} subsystem.}
+    \label{tab:ebpf-collector-metrics}
+\end{table}
 
-\subsection{GPU Telemetry Collection}
+\subsection{RAPL Collector Implementation}
+\label{sec:rapl_collector}
 
-\subsubsection{GPU Observation Acquisition}
-% Describe how GPU energy and utilization observations are collected.
-% Emphasize per-device observation without attribution semantics.
+This section realizes the architectural model of cumulative CPU-domain energy sampling described in \S~\ref{subsec:rapl_temporal}.  
+The collector’s responsibility is strictly limited to observing hardware-provided cumulative energy counters at tick boundaries and preserving their semantics.  
 
-\subsubsection{Multi-GPU Identification and Source Constraints}
-% Explain how multiple GPUs are identified and distinguished.
-% Describe source-level constraints relevant for later fusion and attribution.
+\subsubsection{Implementation Strategy}
+To preserve domain-consistent CPU energy measurement across vendors, the collector employs a dual-backend strategy selected at runtime via CPUID.  
+On Intel systems, energy is obtained through the RAPL interface exposed via the \texttt{powercap} subsystem.  
+On AMD systems, the collector preferentially uses \texttt{amd\_energy} via the \texttt{hwmon} interface, which provides accurate CPU energy telemetry on these platforms.  
+The powercap path is used on AMD only if no CPU-labeled hwmon energy source is present.  
+This strategy ensures that the architectural RAPL domain abstraction is realized consistently, independent of vendor-specific exposure mechanisms.
+
+\subsubsection{Core Mechanisms}
+At each tick, the collector obtains a single snapshot of cumulative energy counters for all available CPU domains and sockets and records them unchanged.  
+All values are stored as cumulative microjoule counters, matching the native units of the underlying sources.  
+Supported domains include package and core on all platforms, with uncore (PP1) and DRAM recorded when exposed by the hardware.  
+On AMD systems, \texttt{amd\_energy} publishes per-logical-core energy values; these are aggregated by summation into a single cumulative core-domain counter to preserve domain semantics.  
+Domains not provided by the platform are recorded as zero to maintain a stable domain set across ticks.
+
+\subsubsection{Robustness and Edge Cases}
+Powercap-backed RAPL counters may wrap and are corrected at collection time to maintain monotonicity.  
+The hwmon-backed \texttt{amd\_energy} counters do not wrap and require no correction.
+Each sample is tagged exclusively with a monotonic timestamp provided by Tycho’s timing engine.  
+Partial reads are permitted and result in partial ticks; no backend instability was observed in practice.
+
+\subsubsection{Implementation Consequences}
+In practice, the collector guarantees exactly one cumulative energy sample per supported domain and socket at each tick, with vendor-independent domain semantics and bounded noise.  
+The resulting time series form a stable input for downstream differencing and attribution.  
+The only remaining limitation is platform-dependent domain availability, which is intentionally exposed rather than approximated.
+
+\subsubsection{Collected Metrics}
+The RAPL collector exports raw cumulative energy counters once per tick.  
+Table~\ref{tab:rapl-metrics} summarizes the metrics recorded per \texttt{RaplTick}.
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{p{3.5cm} p{0.9cm} p{8.6cm}}
+\toprule
+\textbf{Metric} & \textbf{Unit} & \textbf{Description} \\
+\midrule
+\multicolumn{3}{l}{\textit{Per-socket energy counters}} \\[4pt]
+\code{Pkg}    & mJ & Cumulative package energy per socket\newline(RAPL \code{PKG} domain). \\
+\code{Core}   & mJ & Cumulative core energy per socket\newline (RAPL \code{PP0} domain), when available. \\
+\code{Uncore} & mJ & Cumulative uncore energy per socket\newline (RAPL \code{PP1} or uncore domain), when available. \\
+\code{DRAM}   & mJ & Cumulative DRAM energy per socket\newline (RAPL \code{DRAM} domain), if the platform exposes it. \\[6pt]
+
+\multicolumn{3}{l}{\textit{Metadata}} \\[4pt]
+\code{Source}    & -- & Identifier of the active RAPL backend (for example \code{powercap})\\
+\code{Sockets}   & -- & Map from socket identifier to the corresponding set of domain counters. \\
+\code{SampleMeta.Mono} & -- & Monotonic timestamp assigned by Tycho's timing engine at the moment of collection. \\
+\bottomrule
+\end{tabular}
+\caption{Metrics exported by the RAPL collector per \code{RaplTick}.}
+\label{tab:rapl-metrics}
+\end{table}
+
+\subsection{Redfish Collector Implementation}
+\label{subsec:impl_redfish}
+
+This section describes how Tycho realizes the Redfish power source defined in \S~\ref{subsec:redfish_temporal}.  
+Redfish is treated as an externally clocked, latently published observation whose update cadence and timing semantics are controlled by the Baseboard Management Controller.  
+The implementation must therefore tolerate missing observations, expose temporal uncertainty explicitly, and avoid manufacturing samples while still enabling a coherent downstream power timeline.
+
+\subsubsection{Implementation Strategy}
+The Redfish collector issues at most one query per engine tick and emits a record only when a power value can be obtained reliably or when an explicit continuity fallback is required.  
+The collector is permitted to emit no record for a tick.  
+This choice reflects the architectural intent to avoid speculative continuity and to preserve the distinction between absence of information and persistence of state.  
+Temporal alignment to Tycho’s monotonic timebase is achieved by timestamping at collection time, without attempting synchronization or correction of BMC time.
+
+\subsubsection{Freshness Realization and Semantics}
+Freshness is realized as a best-effort quality annotation computed as the difference between the local monotonic collection time and the timestamp provided by the BMC, when available.  
+Given the limited and vendor-specific semantics of BMC timestamps, the collector applies no correction, filtering, or normalization.  
+Freshness therefore represents observed latency and staleness rather than a validity constraint.
+
+When continuation records are emitted, the collector reuses the most recent BMC timestamp and recomputes freshness accordingly.  
+As a consequence, freshness increases during prolonged publication gaps, making temporal uncertainty explicit.  
+The collector never suppresses, alters, or reclassifies samples based on freshness.  
+All values are forwarded unchanged as downstream quality indicators.
+
+\subsubsection{Heartbeat-Based Continuity as Fallback}
+Irregular Redfish publication implies that fixed-cadence sampling may observe extended periods without new measurements.  
+The collector therefore supports an optional heartbeat mechanism whose role is explicitly fallback-oriented.  
+Heartbeat does not operate on every missed tick.  
+Instead, it re-emits a specially marked continuation record only when no fresh observation has been obtained for a comparatively long interval relative to the engine cadence.
+
+By default, this interval substantially exceeds the collection period, ensuring that short-lived access failures or transient gaps result in silence rather than artificial continuity.  
+If enabled, the heartbeat threshold may be configured statically or derived adaptively from observed inter-arrival times of fresh Redfish updates, with conservative bounds to avoid pathological behavior under highly irregular BMC implementations.  
+Heartbeat emission never invents new measurements.  
+It explicitly signals persistence of the last known value when prolonged absence would otherwise break temporal continuity.
+
+\subsubsection{Robustness Under Partial Observation}
+Redfish access failures and missing timestamps are treated as normal operating conditions.  
+If a Redfish query fails, the collector emits no record for that tick.  
+No retries, backoff strategies, or suppression mechanisms influence the semantic output.  
+Only when the heartbeat threshold is exceeded does the collector emit a continuation record, clearly distinguishing prolonged absence from transient failure.
+
+Multiple chassis are handled independently.  
+Freshness computation, heartbeat state, and continuation decisions are maintained per chassis and never synchronized across nodes.  
+This preserves architectural assumptions about the independence of Redfish power sources in multi-node deployments.
+
+\subsubsection{Implementation Consequences}
+In practice, the collector emits at most one record per chassis per engine tick, with zero records as a valid and expected outcome.  
+Continuity is preserved only when absence becomes prolonged, and even then without obscuring staleness.  
+The resulting stream provides a stable, monotonic reference for total node power while exposing uncertainty rather than masking it.
+
+This implementation anchors Tycho’s global energy view and supports later reconciliation with in-band estimates without conflating observation authority or temporal semantics.  
+Its limitations are deliberate.  
+Temporal resolution and accuracy are bounded by the BMC, and no component-level attribution is attempted at this stage.
+
+\subsubsection{Collected Metrics}
+The Redfish collector emits instantaneous chassis power together with identity and temporal metadata.  
+Only raw observations are produced.  
+Derived quantities such as energy are computed by downstream analysis stages.  
+The exported fields are summarized in Table~\ref{tab:redfish-metrics}.
+\begin{table}[h]
+\centering
+\begin{tabular}{p{3cm} p{1cm} p{9cm}}
+\toprule
+\textbf{Metric} & \textbf{Unit} & \textbf{Description} \\
+\midrule
+\multicolumn{3}{l}{\textit{Primary power metric}} \\[4pt]
+\code{PowerWatts} & W & Instantaneous chassis power reported by the BMC. \\[4pt]
+
+\multicolumn{3}{l}{\textit{Temporal and identity metadata}} \\[4pt]
+\code{ChassisID} & - & Identifier of the chassis or enclosure. \\
+\code{Seq} & - & Server-provided sequence number indicating new measurements. \\
+\code{SourceTime} & s & Timestamp provided by the BMC, if available. \\
+\code{CollectorTime} & s & Local collection time of the measurement. \\
+\code{FreshnessMs} & ms & Difference between \code{SourceTime} and \code{CollectorTime}. \\
+\bottomrule
+\end{tabular}
+\caption{Metrics collected by the Redfish collector.}
+\label{tab:redfish-metrics}
+\end{table}
+
+\subsection{GPU Collector Implementation}
+\label{subsec:gpu_implementation}
+
+The GPU collector realises the architecture described in
+\S~\ref{subsec:gpu_architecture} and integrates accelerator telemetry into
+Tycho’s unified temporal framework.
+In contrast to other energy domains, GPU telemetry is published at discrete,
+driver-controlled moments that are neither continuous nor externally observable.
+The implementation is therefore responsible for enforcing phase-aligned,
+event-driven sampling under partial observability, backend variability, and
+timing jitter, while preserving strict monotonic ordering across all domains.
+
+The central implementation invariant is that at most one \code{GpuTick} is
+emitted per confirmed hardware publish, and that no tick is emitted without a
+detectable device update.
+All mechanisms described in this section exist to uphold this invariant in
+practice, including the integration of retrospective process-level telemetry
+under wall-clock semantics.
+
+\subsubsection{Implementation Strategy}
+
+The implementation treats GPU sampling as an inference problem rather than a
+periodic measurement task.
+Because the driver’s publish cadence is implicit, polling is used only as a
+means to detect new hardware updates, not as a proxy for time.
+Sampling effort is modulated according to the phase-aware timing model defined
+in \S~\ref{subsec:gpu_phaseaware_formal}, concentrating observation near predicted
+publish moments while suppressing redundant reads elsewhere.
+
+Freshness detection and event emission are deliberately decoupled.
+Polling may occur at high frequency, but a \code{GpuTick} is emitted only when a
+previously unseen device update is detected and can be placed monotonically into
+Tycho’s multi-domain buffer.
+This separation ensures that increased polling density improves detection
+latency without inflating the event stream or distorting temporal structure.
+
+Device-level and process-level telemetry are integrated asymmetrically.
+Device snapshots define the temporal anchor of each \code{GpuTick}, while
+process-level records are attached retrospectively to confirmed device updates
+to accommodate backend-imposed wall-clock windows.
+This strategy preserves the architectural timing guarantees while enabling
+multi-tenant attribution under heterogeneous backend constraints.
+
+\subsubsection{Phase-Aware Sampling Realisation}
+
+The phase-aware timing model defined in \S~\ref{subsec:gpu_phaseaware_formal} is
+realised through a conservative observation pipeline that separates sampling
+attempts from update confirmation.
+Polling is driven by predicted publish moments, but observations are accepted
+only when they provide evidence of a previously unseen hardware update.
+This prevents both aliasing and redundant emission under irregular driver
+cadence.
+
+Freshness detection prioritises the strongest available backend signal.
+When reliable cumulative energy counters are present, monotonic advancement of
+these counters serves as the authoritative indicator of a new publish.
+On devices lacking such counters, freshness is inferred from instantaneous power
+changes exceeding a noise-tolerant threshold.
+In both cases, snapshots that do not satisfy freshness criteria are discarded
+without affecting estimator state or downstream timelines.
+
+Duplicate suppression is enforced by conditioning all state updates on confirmed
+freshness.
+Period and phase estimators are advanced only when a new publish is detected,
+ensuring that redundant polls neither bias cadence inference nor generate
+spurious alignment corrections.
+This guarantees that increased polling density reduces detection latency without
+inflating the logical event stream.
+
+\subsubsection{Event Construction and Emission}
+
+When a fresh device update is confirmed, the collector constructs a
+\code{GpuTick} that represents the accelerator state at a single monotonic
+timestamp.
+The device snapshot defines the temporal anchor of the event.
+If process-level telemetry is available, the corresponding utilisation records,
+aggregated over a backend-defined wall-clock window, are attached
+retrospectively to the same tick.
+
+Tick emission is strictly conditional on update confirmation.
+No \code{GpuTick} is produced for redundant or ambiguous observations, and no
+tick is emitted retroactively.
+Each emitted tick is inserted into Tycho’s multi-domain buffer in monotonic
+order, preserving causal alignment with RAPL, Redfish, and eBPF data without
+interpolation or reordering.
+
+This construction enforces a one-to-one correspondence between hardware publishes
+and GPU events.
+As a result, the GPU timeline reflects device behaviour rather than sampling
+artefacts and provides a temporally consistent input to subsequent attribution
+stages.
+
+\subsubsection{Process Telemetry Integration}
+
+Process-level GPU telemetry is exposed by the backend only as utilisation
+aggregated over an explicit wall-clock interval.
+This constraint is external to Tycho’s timing model and cannot be eliminated at
+the architectural level.
+The implementation therefore treats process telemetry as a retrospective signal
+that must be aligned to, but not conflated with, the device-level event timeline.
+
+To preserve temporal consistency, process queries are issued in conjunction with
+device polling, but their results are attached only to confirmed device updates.
+Each process record is associated with the monotonic timestamp of the
+corresponding device snapshot, establishing a clear temporal anchor without
+implying instantaneous semantics.
+Wall-clock durations are tracked independently per device or MIG instance to
+ensure that backend windows advance correctly regardless of monotonic tick
+spacing.
+
+Failure handling is deliberately non-blocking.
+If a process query fails or returns incomplete data, the collector advances the
+wall-clock origin to avoid repeated zero-length windows, while device-level
+sampling proceeds unaffected.
+This ensures that transient backend failures degrade attribution fidelity
+locally without destabilising cadence inference or event emission.
+
+\subsubsection{Robustness and Failure Modes}
+
+GPU telemetry exhibits substantial variability across hardware generations,
+driver versions, and backend capabilities.
+The implementation is therefore designed to preserve architectural guarantees
+under incomplete or degraded signals rather than to assume uniform availability.
+
+Missing cumulative energy counters are handled through per-device capability
+tracking.
+When authoritative counters are unavailable or non-monotonic, freshness
+detection falls back to power-based inference with conservative thresholds,
+preventing noise-induced duplicate events at the cost of increased uncertainty.
+Backend-specific differences between NVML and DCGM are treated as input
+variability, not as control flow, ensuring that sampling and emission semantics
+remain consistent.
+
+Publish cadence jitter is absorbed by the
+phase-aware inference mechanism.
+Because estimators are updated only on confirmed publishes, short-term timing
+irregularities do not propagate into spurious alignment corrections or event
+duplication.
+At worst, detection latency increases temporarily, while the one-tick-per-publish
+invariant remains intact.
+
+MIG instances are handled uniformly as independent telemetry sources during
+collection.
+No additional analytical assumptions are introduced at this stage, and MIG
+metadata is propagated without special treatment.
+This conservative stance avoids overstating attribution guarantees in
+configurations where downstream analysis does not explicitly model MIG
+topologies.
+
+\subsubsection{Implementation Consequences}
+
+The GPU collector implementation enforces the architectural timing guarantees in
+the presence of implicit publish cadences, heterogeneous backend capabilities,
+and partial observability.
+In practice, this ensures that the GPU event stream is free of redundant samples,
+causally ordered with respect to all other measurement domains, and aligned to
+genuine hardware updates rather than to polling artefacts.
+The one-to-one correspondence between confirmed device publishes and emitted
+\code{GpuTick} events is preserved even under jitter, missing counters, or
+transient backend failures.
+
+At the same time, the implementation inherits unavoidable limitations from the
+telemetry ecosystem.
+Publish cadence inference is necessarily approximate, and process-level
+utilisation remains aggregated over backend-defined wall-clock windows.
+These constraints bound the temporal precision of attribution but do not violate
+the correctness or ordering guarantees of the GPU timeline.
+
+By producing a temporally consistent, event-driven GPU measurement stream, the
+collector enables downstream analysis stages to correlate accelerator activity
+with CPU, memory, and platform power without resampling or heuristic alignment.
+This integration is a prerequisite for accurate cross-domain attribution and
+allows later stages to reason about GPU energy consumption under the same
+invariants that govern all other Tycho subsystems.
+
+\subsubsection{Collected Metrics}
+
+The GPU collector reports both device-level and process-level telemetry for each
+emitted \code{GpuTick}.
+Device metrics capture the instantaneous operational state of the accelerator at
+the time of a confirmed publish, while process metrics describe aggregated
+utilisation over the corresponding backend window.
+Tables~\ref{tab:gpu-device-metrics} and~\ref{tab:gpu-process-metrics} summarise the
+metrics collected at each level.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{p{3.5cm} p{0.7cm} p{8.8cm}}
+\toprule
+\textbf{Metric} & \textbf{Unit} & \textbf{Description} \\
+\midrule
+\multicolumn{3}{l}{\textit{Utilisation metrics}} \\[4pt]
+\code{SMUtilPct}      & \%   & Streaming multiprocessor (SM) utilisation. \\
+\code{MemUtilPct}     & \%   & Memory controller utilisation. \\
+\code{EncUtilPct}     & \%   & Hardware video encoder utilisation. \\
+\code{DecUtilPct}     & \%   & Hardware video decoder utilisation. \\[4pt]
+
+\multicolumn{3}{l}{\textit{Energy and thermal metrics}} \\[4pt]
+\code{PowerMilliW}        & mW & Instantaneous power via NVML/DCGM (1s average). \\
+\code{InstantPowerMilliW} & mW & High-frequency instantaneous power from NVIDIA field APIs. \\
+\code{CumEnergyMilliJ}    & mJ & Cumulative energy counter (preferred freshness signal). \\
+\code{TempC}              & °C & GPU temperature. \\[4pt]
+
+\multicolumn{3}{l}{\textit{Memory and frequency metrics}} \\[4pt]
+\code{MemUsedBytes}   & bytes & Allocated framebuffer memory. \\
+\code{MemTotalBytes}  & bytes & Total framebuffer memory. \\
+\code{SMClockMHz}     & MHz   & SM clock frequency. \\
+\code{MemClockMHz}    & MHz   & Memory clock frequency. \\[4pt]
+
+\multicolumn{3}{l}{\textit{Topology and metadata}} \\[4pt]
+\code{DeviceIndex}    & --    & Numeric device identifier. \\
+\code{UUID}           & --    & Stable device UUID. \\
+\code{PCIBusID}       & --    & PCI bus identifier. \\
+\code{IsMIG}          & --    & Indicates a MIG instance. \\
+\code{MIGParentID}    & --    & Parent device index for MIG instances. \\
+\code{Backend}        & --    & Backend type (\code{NVML} or \code{DCGM}). \\
+\bottomrule
+\end{tabular}
+\caption{Device- and MIG-level metrics collected by the GPU subsystem.}
+\label{tab:gpu-device-metrics}
+\end{table}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{p{3.5cm} p{0.7cm} p{8.8cm}}
+\toprule
+\textbf{Metric} & \textbf{Unit} & \textbf{Description} \\
+\midrule
+\code{Pid}              & --   & Process identifier. \\
+\code{ComputeUtil}      & \%   & Per-process SM utilisation aggregated over the query window. \\
+\code{MemUtil}          & \%   & Per-process memory controller utilisation. \\
+\code{EncUtil}          & \%   & Per-process encoder utilisation. \\
+\code{DecUtil}          & \%   & Per-process decoder utilisation. \\[4pt]
+
+\code{GpuIndex}         & --   & Device or MIG instance to which the sample belongs. \\
+\code{GpuUUID}          & --   & Corresponding device UUID. \\
+\code{TimeStampUS}      & µs   & Backend timestamp associated with the utilisation record. \\[4pt]
+
+\multicolumn{3}{l}{\textit{MIG metadata (when applicable)}} \\[4pt]
+\code{GpuInstanceID}     & --  & MIG GPU instance identifier. \\
+\code{ComputeInstanceID} & --  & MIG compute-instance identifier. \\
+\bottomrule
+\end{tabular}
+\caption{Process-level metrics collected over a backend-defined time window.}
+\label{tab:gpu-process-metrics}
+\end{table}
+
 
 \section{Metadata and Identity Infrastructure}
 \label{sec:impl_metadata}

@@ -83,11 +83,16 @@ Exposes the results of the analysis engine to external monitoring systems as met
 
 Before Tycho enters normal operation, external calibration scripts determine approximate delay characteristics for all relevant metric sources. At startup, Tycho’s internal calibration component derives suitable polling frequencies for metric collectors and metadata acquisition, providing the initial operating parameters for the system.
 
-During runtime, control flow originates in the timing engine. It triggers each collector according to its calibrated polling frequency, but collectors operate independently: they sample their respective domains without synchronising with each other, and each sample is appended to the appropriate buffer together with its timestamp and quality indicators. In parallel, metadata acquisition proceeds on its own schedule, refreshing the mappings between processes, cgroups and workload identities in the metadata cache.
+During runtime, control flow originates in the timing engine. It triggers each collector according to its calibrated polling frequency, but collectors operate independently: they sample their respective domains without synchronising with each other, and each observation is timestamped and appended to a buffering layer together with its associated quality indicators. This buffering layer retains a bounded history of raw observations per metric domain, with a default retention duration of approximately 90\,s. The retained history deliberately exceeds the duration of a single analysis window, providing extended temporal context for downstream analysis and modeling rather than limiting interpretation to window-local samples.
 
-The timing engine also governs when analysis occurs. At regular intervals—constituting fixed-length analysis windows—it initiates a new evaluation cycle irrespective of how many samples have been collected. Each cycle begins by estimating idle behaviour for the relevant hardware domains based on the buffered observations. The analysis engine then interprets the buffered metric samples, the metadata cache and the idle characterisations, taking calibrated delays into account when reconstructing the temporal structure of the window. It produces per-window energy estimates for all domains and workloads.
+In parallel, metadata acquisition proceeds on its own schedule, refreshing the mappings between processes, cgroups and workload identities in the metadata cache. Metadata is not synchronised with metric collection but is interpreted jointly with buffered observations during analysis.
+
+The timing engine also governs when analysis occurs. At regular intervals, constituting fixed-length analysis windows, it initiates a new evaluation cycle irrespective of how many samples have been collected within the most recent window. Each cycle begins by estimating idle behaviour for the relevant hardware domains based on the buffered observation history. The analysis engine then interprets buffered metric samples, metadata and idle characterisations, taking calibrated delay characteristics into account when reconstructing the temporal structure of the window. Although attribution is performed only for the current window, historical observations within the retention horizon inform delay interpretation, baseline estimation and other modeling steps.
 
 Once analysis completes, the exporter publishes the resulting metrics in a form suitable for ingestion by external monitoring systems. Calibration remains active in the background throughout the system’s lifetime: it observes collector behaviour and derived quantities over longer time spans and refines its characterisations when needed, informing both the timing and analysis components without altering any collected data.
+
+Figure~\ref{vt1_fig:tycho_architecture_high} provides a consolidated view of Tycho’s control flow and data flow, highlighting the buffering layer as the bounded temporal substrate that decouples collection, analysis and export.
+
 
 \begin{figure}[H]
     \centering
@@ -386,7 +391,8 @@ accelerator, including power, utilisation, memory, thermals, and clock data.
 Process-level metrics describe backend-aggregated utilisation over a defined
 wall-clock window.  Both streams are combined into a single \code{GpuTick} that
 represents the accelerator state at a specific moment in Tycho's global
-timeline.  GPUs and MIG instances are treated as independent logical devices.
+timeline. GPUs and MIG instances are treated as independent logical devices for the purpose
+of telemetry collection.
 
 A central architectural design choice is the use of high-frequency
 \emph{instantaneous} power fields exposed through NVIDIA’s field interfaces,
@@ -430,8 +436,48 @@ the device's cadence.
 In \emph{phase-aware sampling} mode, the subsystem temporarily increases its sampling frequency when
 Tycho's timebase approaches a predicted publish moment.  This concentrates
 sampling effort where a fresh update is expected and reduces latency between the
-hardware update and Tycho's observation of it. As a result, a new sample can be dected earlier (and hence, with a more accurate timestamp), while avoiding additional overhead introduced by constant hyperpolling.
-The architecture guarantees that sampling remains event-driven rather than periodic.
+hardware update and Tycho's observation of it. As a result, a new sample can be detected earlier (and hence, with a more accurate timestamp), while avoiding additional overhead introduced by constant hyperpolling.
+The architecture guarantees that sampling remains event-driven rather than
+periodic, as formalised by the phase-aware timing model.
+
+\paragraph{Formal Timing Model}
+\label{subsec:gpu_phaseaware_formal}
+
+The GPU collector relies on a phase-aware timing model to align sampling with the
+implicit publish cadence of the device driver.
+Because this cadence is not exposed by the hardware or backend interface, it must
+be inferred from observed updates and expressed relative to Tycho’s global
+monotonic timebase.
+
+Let $t_{\text{obs},k}$ denote the monotonic timestamp of the $k$-th confirmed GPU
+publish event.
+Successive observations define inter-update intervals
+$\Delta t_k = t_{\text{obs},k} - t_{\text{obs},k-1}$, which serve as samples of the
+device’s publish period.
+The model maintains a smoothed period estimate $\hat{T}$ and a phase offset
+$\hat{\phi}$ that jointly predict the timing of future publishes.
+
+At any time $t$, the predicted next publish moment $t_{\text{next}}$ is obtained
+by advancing the most recent observation by an integer multiple of $\hat{T}$,
+adjusted by $\hat{\phi}$, such that $t_{\text{next}} \ge t$.
+Sampling effort is concentrated in a narrow window around $t_{\text{next}}$,
+while lower-frequency polling maintains coarse alignment and tracks long-term
+drift.
+
+This model establishes the following architectural guarantees:
+
+\begin{itemize}
+  \item GPU sampling is aligned to inferred publish events rather than to a fixed
+  polling interval.
+  \item Each hardware publish produces at most one logical GPU event.
+  \item No GPU event is emitted without a detectable device update.
+\end{itemize}
+
+The model is intentionally agnostic to backend-specific mechanisms used to detect
+freshness or to refine period and phase estimates.
+These concerns are delegated to the implementation, which must realise the model
+under partial observability, jitter, and backend variability while preserving the
+guarantees above.
 
 Figure~\ref{fig:gpu_phaseaware_timeline} illustrates this behaviour at the
 architectural level, showing the relationship between the GPU’s implicit publish
@@ -577,7 +623,7 @@ This design ensures that GPU measurements participate in Tycho's
 cross-domain correlation without interpolation, resampling, or ad hoc
 realignment.  The one-to-one correspondence between hardware updates and GPU
 ticks is a core architectural guarantee and the primary distinction between
-Tycho's approach and traditional periodic sampling. This guarantee is visually summarised in Figure~\ref{fig:gpu_phaseaware_timeline}.
+Tycho's approach and traditional periodic sampling.
 
 \paragraph{Process Telemetry Integration.}
 Process-level metrics describe aggregated utilisation over a wall-clock window
