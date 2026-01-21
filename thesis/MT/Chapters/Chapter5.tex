@@ -1,2 +1,408 @@
 \chapter{Implementation}
-\label{ch:implemetation}
+\label{chap:implementation}
+
+\section{Purpose, Scope, and Structure}
+% Explain that this chapter describes HOW the architectural concepts are realized in Tycho.
+% Emphasize realization under delayed, partial, and heterogeneous observations.
+% State that the focus is on correctness, robustness, and invariant preservation.
+% Clarify that code structure, files, and low-level mechanics are intentionally abstracted.
+% Briefly outline how the chapter mirrors the architecture while diverging where necessary.
+
+\section{System Overview and Execution Boundaries}
+\label{sec:impl_system_overview}
+
+\subsection{Runtime Actors and Responsibilities}
+
+\subsubsection{Collectors}
+% Describe collectors as independent runtime actors responsible for raw observation capture.
+% Emphasize source-local responsibilities only: sampling, timestamping, identification.
+% State explicitly that collectors do not perform fusion, attribution, or interpretation.
+
+\subsubsection{Metadata Subsystem}
+% Describe the metadata subsystem as providing identity and hierarchy information.
+% Explain its role in maintaining stable joins across attribution windows.
+% Emphasize separation from both collectors and analysis logic.
+
+\subsubsection{Calibration Mechanisms}
+% Describe calibration as a supporting runtime actor.
+% Explain its role in measuring polling characteristics and delays.
+% State that calibration informs analysis but does not perform attribution itself.
+
+\subsubsection{Analysis Engine}
+% Describe the analysis engine as the central orchestrator of per-window analysis.
+% Emphasize its responsibility for stage ordering, fusion, and attribution.
+% State that it consumes materialized inputs and produces attribution outputs.
+
+\subsubsection{Export and Downstream Consumption}
+% Describe exporting as a downstream concern.
+% Clarify that export does not influence analysis decisions or collector behavior.
+% Emphasize non-blocking and non-authoritative nature of export.
+
+\subsection{Execution-Time Boundaries of Responsibility}
+
+\subsubsection{What Collectors Guarantee}
+% List guarantees provided by collectors: raw signal fidelity, timestamp consistency, identity tagging.
+% Explicitly state what collectors do not guarantee (alignment, completeness, attribution correctness).
+
+\subsubsection{What the Analysis Engine Guarantees}
+% Describe guarantees provided by the analysis engine.
+% Emphasize enforcement of architectural invariants and conservation.
+% State responsibility for fusion, residual handling, and attribution correctness.
+
+\subsubsection{Non-Responsibilities and Separation Constraints}
+% Explicitly document responsibilities that are intentionally excluded.
+% Clarify that analysis does not control collection schedules or retroactively alter observations.
+% Emphasize strict separation to avoid hidden coupling.
+
+\subsection{End-to-End Dataflow at Runtime}
+% Provide a high-level narrative of how data flows from collectors to analysis to export.
+% Emphasize decoupling, asynchronous interaction, and window-based processing.
+% Avoid control-flow, threading, or code-level descriptions.
+
+
+\section{Temporal Infrastructure and Window Realization}
+\label{sec:impl_temporal}
+% Implementation of the architectural temporal model under real-world constraints.
+% Focus on how event-time assumptions are upheld with heterogeneous and delayed sources.
+
+\subsection{Monotonic Time Realization}
+
+\subsubsection{Timestamp Acquisition and Normalization}
+% Explain how monotonic timestamps are acquired from different subsystems.
+% Describe normalization into a common internal timebase.
+% Emphasize avoidance of wall-clock time for analysis-critical logic.
+
+\subsubsection{Event-Time Alignment Across Sources}
+% Describe how observations from independent sources are aligned in event time.
+% Explain the role of timestamps and calibrated delays.
+% State that alignment is approximate but bounded by architectural assumptions.
+
+\subsection{Independent Collector Schedules in Practice}
+
+\subsubsection{Decoupling and Coordination Constraints}
+% Explain that collectors operate on independent schedules.
+% Describe why global synchronization is neither assumed nor enforced.
+% Emphasize architectural motivation for loose coupling.
+
+\subsubsection{Implications for Window Construction}
+% Explain how independent schedules affect data availability per window.
+% Describe why windows must tolerate uneven sampling and gaps.
+
+\subsection{Window Construction and Analysis Triggering}
+
+\subsubsection{Window Selection and Bounding}
+% Describe how attribution windows are selected and bounded in practice.
+% Explain how window boundaries relate to event-time rather than observation-time.
+% Emphasize consistency guarantees over precision.
+
+\subsubsection{Triggering Policy and Coordination}
+% Explain what triggers an analysis cycle.
+% Describe coordination between window availability and analysis execution.
+% Avoid implementation-specific scheduling details.
+
+\subsection{Correctness Under Delay and Partial Observation}
+
+\subsubsection{Delay Tolerance Mechanisms}
+% Describe how delayed observations are tolerated without violating invariants.
+% Explain reliance on calibrated delay bounds rather than exact alignment.
+
+\subsubsection{Partial Window Semantics}
+% Explain how incomplete windows are handled.
+% Describe what guarantees are weakened under partial observation.
+% Emphasize explicit and controlled degradation of correctness.
+
+\section{Metric Collection Subsystems}
+\label{sec:impl_collectors}
+% Realization of raw metric collection as defined architecturally.
+% This section covers observation capture and materialization only.
+% No fusion, no corrected metrics, no attribution or interpretation semantics.
+
+\subsection{eBPF and Software Counter Collection}
+
+\subsubsection{Signal Capture and Materialization}
+% Describe how execution-related signals are captured via eBPF and software counters.
+% Emphasize event-driven nature and high temporal resolution.
+% Clarify that outputs represent raw utilization signals, not workload attribution.
+
+\subsubsection{Aggregation Readout as Raw Observations}
+% Explain how low-level eBPF signals are read out into observable counters.
+% Describe the form in which these counters are exposed to the analysis layer.
+% State explicitly that aggregation here is source-local and non-attributional.
+
+\subsection{RAPL Domain Collection}
+
+\subsubsection{Per-Domain Observation Materialization}
+% Describe how RAPL energy counters are read and materialized per domain.
+% Emphasize uniform treatment of package, core, uncore, and DRAM domains.
+% Clarify that observations are cumulative and domain-local.
+
+\subsubsection{Counter Semantics Relevant to Correctness}
+% Explain architectural assumptions about RAPL counter monotonicity and wraparound.
+% Describe which counter properties are relied upon by later analysis stages.
+
+\subsection{Redfish System Power Collection}
+
+\subsubsection{Observation Acquisition and Identification}
+% Describe how system-level power observations are acquired via Redfish.
+% Explain identification of the power source and association with a node.
+% Emphasize that observations are treated as raw system-level inputs.
+
+\subsubsection{Latency and Sampling Constraints at the Source}
+% Describe inherent latency and coarse sampling characteristics of Redfish.
+% Explain why these constraints are tolerated at the collection layer.
+
+\subsection{GPU Telemetry Collection}
+
+\subsubsection{GPU Observation Acquisition}
+% Describe how GPU energy and utilization observations are collected.
+% Emphasize per-device observation without attribution semantics.
+
+\subsubsection{Multi-GPU Identification and Source Constraints}
+% Explain how multiple GPUs are identified and distinguished.
+% Describe source-level constraints relevant for later fusion and attribution.
+
+\section{Metadata and Identity Infrastructure}
+\label{sec:impl_metadata}
+% Implementation of the architectural metadata subsystem.
+% Provides stable identities and hierarchy required for attribution.
+% No interpretation of metrics or attribution logic is performed here.
+
+\subsection{Hierarchy Modeling}
+
+\subsubsection{Node, Workload, Pod, Container Identities}
+% Describe how identities at different hierarchy levels are represented in practice.
+% Emphasize consistency with the architectural attribution hierarchy.
+% Clarify that identities are treated as labels for joining, not as attribution decisions.
+
+\subsubsection{Join Keys and Referential Stability}
+% Explain which identifiers are used to join metrics to identities.
+% Describe how referential stability is ensured within attribution windows.
+% Emphasize avoidance of ambiguous or time-unstable joins.
+
+\subsection{Identity Lifetime Management}
+
+\subsubsection{Stability Within Attribution Windows}
+% Explain how identity changes are prevented or controlled within a window.
+% Emphasize window-local consistency guarantees required for correct attribution.
+
+\subsubsection{Controlled Evolution Across Windows}
+% Describe how identity creation, deletion, and changes are handled across windows.
+% Emphasize explicit transitions rather than silent reinterpretation.
+
+\subsection{Degradation Under Metadata Incompleteness}
+
+\subsubsection{Missing Joins and Fallback Semantics}
+% Describe behavior when identity information is missing or incomplete.
+% Explain fallback attribution behavior and its limitations.
+% Emphasize explicit degradation rather than incorrect attribution.
+
+\section{Calibration Mechanisms}
+\label{sec:impl_calibration}
+% Realization of architectural calibration concepts.
+% Calibration supports correctness of temporal alignment and metric construction.
+% Calibration does not perform attribution or interpretation.
+
+\subsection{Polling-Frequency Calibration}
+
+\subsubsection{Motivation and Correctness Role}
+% Explain why effective polling frequency matters for windowed analysis.
+% Describe how polling characteristics influence temporal coverage and bias.
+% Emphasize calibration as a correctness prerequisite, not an optimization.
+
+\subsubsection{Application to Collector Scheduling}
+% Describe how calibrated polling information is applied in practice.
+% Clarify that collectors remain independently scheduled.
+% Emphasize that calibration informs analysis assumptions, not collector control.
+
+\subsection{Delay Calibration}
+
+\subsubsection{Delay Estimation}
+% Describe how source-specific observation delays are estimated.
+% Explain the role of calibration runs or measurements.
+% Emphasize bounded, approximate delay characterization.
+
+\subsubsection{Use of Calibrated Delays in Analysis}
+% Describe how calibrated delays are applied during event-time alignment.
+% Clarify that delays are used to shift or bound observations, not to reorder causality.
+
+\subsection{Calibration Failure Modes}
+
+\subsubsection{Stale Calibration and Safety Constraints}
+% Describe behavior when calibration data becomes stale or unavailable.
+% Explain safety constraints and conservative fallback behavior.
+% Emphasize explicit degradation rather than silent misuse of invalid calibration.
+
+
+\section{Analysis and Attribution Pipeline}
+\label{sec:impl_analysis_pipeline}
+
+\subsection{Pipeline Orchestration and Stage Execution}
+\subsubsection{Stage Ordering and Dependencies}
+\subsubsection{Per-Window Execution Contract}
+
+\subsection{Stage 1: Component Metric Construction}
+% This is where *_corrected metrics belong (implementation of architectural Stage 1).
+
+\subsubsection{Aligned Per-Window Inputs}
+% How raw observations are selected per window and aligned consistently.
+
+\subsubsection{eBPF Utilization Metrics (Totals and Aggregates)}
+% Construction of utilization totals and workload aggregates used downstream.
+
+\subsubsection{RAPL Domain Energy Metrics}
+% Construction of per-window domain energies from raw RAPL observations.
+
+\subsubsection{Redfish-Corrected System Energy Metric}
+% Implementation of cross-domain fusion producing redfish_corrected.
+% Treated as ground truth for subsequent stages.
+
+\subsubsection{GPU-Corrected Energy Metric}
+% Implementation of intra-domain GPU fusion producing gpu_corrected.
+
+\subsection{Stage 2: System-Level Energy Model and Residual}
+% Realization of the architectural system-level energy model.
+% This stage establishes a conserved energy budget per window and derives the residual.
+
+\subsubsection{Global Energy Decomposition Realization}
+% Describe how per-window component energies are combined.
+% Explain realization of the global decomposition:
+% RAPL domains + GPU energy + residual = redfish_corrected system energy.
+% Emphasize per-node scope and window-local consistency.
+
+\subsubsection{Residual Computation}
+% Describe how residual energy is computed as the unassigned remainder.
+% Explain ordering dependencies on Stage 1 outputs.
+% Clarify that residual is a first-class output, not an error term.
+
+\subsubsection{Handling of Negative Residuals in Practice}
+% Describe how temporary negative residuals can arise due to delayed system response.
+% Explain why negative residuals are tolerated and not clamped aggressively.
+% Emphasize recovery over subsequent windows.
+
+\subsubsection{Conservation and Consistency Checks}
+% Describe checks enforcing conservation and internal consistency.
+% Explain how violations are detected and handled.
+% Emphasize invariant preservation over local precision.
+
+\subsection{Stage 3: Idle and Dynamic Energy Semantics}
+% Realization of architectural idle and dynamic energy definitions.
+% This stage decomposes per-component energy without workload attribution.
+
+\subsubsection{RAPL Idle and Dynamic Realization}
+% Describe separation of RAPL domain energy into idle and dynamic parts.
+% Explain reliance on utilization signals and window semantics.
+% Emphasize consistency with architectural definitions.
+
+\subsubsection{Redfish-Corrected Idle and Dynamic Realization}
+% Describe idle and dynamic separation at the system level.
+% Explain how redfish_corrected is decomposed without workload semantics.
+% Clarify relationship to residual energy.
+
+\subsubsection{GPU Idle and Dynamic Realization}
+% Describe separation of GPU energy into idle and dynamic components.
+% Emphasize that GPU idle is not attributed to workloads.
+% State that idle GPU energy is assigned to the system.
+\subsection{Stage 4: Workload Attribution and Aggregation}
+% Realization of architectural workload attribution.
+% This stage assigns dynamic and idle energy to workloads and aggregates results hierarchically.
+
+\subsubsection{Attribution Identity Join and Join Failure Handling}
+% Describe how component metrics are joined with workload identities.
+% Explain join assumptions and required consistency within a window.
+% Describe explicit handling of join failures and missing identities.
+
+\subsubsection{CPU Dynamic Attribution}
+% Describe proportional attribution of dynamic CPU energy to workloads.
+% Explain reliance on utilization-derived weights.
+% Emphasize window-local correctness and conservation.
+
+\subsubsection{CPU Idle Allocation}
+% Describe allocation of CPU idle energy to workloads.
+% Explain architectural rationale for idle distribution.
+% Emphasize consistency with idle+dynamic conservation.
+
+\subsubsection{GPU Dynamic Attribution}
+% Describe attribution of dynamic GPU energy to workloads.
+% Explain handling of multiple GPUs and concurrent workloads.
+% Emphasize separation from GPU idle handling.
+
+\subsubsection{GPU Idle Handling (\texttt{\_\_system\_\_})}
+% State explicitly that GPU idle energy is not attributed to workloads.
+% Describe assignment of GPU idle energy to the system identity.
+% Clarify implications for workload-level totals.
+
+\subsubsection{Workload-Level and Hierarchical Aggregation}
+% Describe aggregation of attributed energy across hierarchy levels.
+% Explain construction of workload, pod, and node-level totals.
+% Emphasize preservation of conservation across aggregations.
+
+\section{Correctness, Robustness, and Degradation Behavior}
+\label{sec:impl_robustness}
+% Cross-cutting implementation concerns.
+% This section explains how architectural guarantees are preserved under non-ideal conditions.
+
+\subsection{Architectural Invariant Enforcement}
+
+\subsubsection{Conservation Enforcement Strategy}
+% Describe how energy conservation is enforced at each analysis stage.
+% Explain detection and handling of conservation violations.
+% Emphasize window-local enforcement and recovery behavior.
+
+\subsubsection{Idle+Dynamic Consistency Enforcement}
+% Describe enforcement of idle+dynamic=total relationships.
+% Explain how inconsistencies are detected and bounded.
+% Emphasize consistency across domains and hierarchy levels.
+
+\subsection{Partial Observability and Missing Data}
+
+\subsubsection{Missing Source Samples}
+% Describe behavior when one or more metric sources are missing for a window.
+% Explain conservative handling to avoid incorrect attribution.
+% Emphasize explicit marking of reduced validity.
+
+\subsubsection{Missing Metadata Joins}
+% Describe behavior when workload identities cannot be resolved.
+% Explain fallback attribution semantics.
+% Emphasize avoidance of silent misattribution.
+
+\subsection{Transient Pathologies}
+
+\subsubsection{Temporary Drops in Idle Signals}
+% Describe observed transient drops in idle metrics.
+% Explain why these are tolerated and non-permanent.
+% Emphasize recovery over subsequent windows.
+
+\subsubsection{Residual Negativity and Recovery}
+% Describe transient negative residual behavior.
+% Explain why this does not violate architectural correctness.
+% Emphasize convergence and bounded impact.
+
+\subsection{Graceful Degradation Paths}
+% Summarize explicit degradation behaviors under sustained invalid conditions.
+% Emphasize predictable and transparent fallback rather than failure.
+
+\section{Implementation Trade-Offs and Design Decisions}
+\label{sec:impl_tradeoffs}
+% Reflection on major implementation choices that are not obvious from the architecture alone.
+% Focus on trade-offs required to realize correctness under practical constraints.
+
+\subsection{Accuracy vs Complexity}
+% Discuss trade-offs between model fidelity and implementation complexity.
+% Explain why Tycho favors accuracy-first designs even at higher complexity.
+% Clarify which simplifications were intentionally avoided.
+
+\subsection{Timing Precision vs System Overhead}
+% Discuss trade-offs between temporal precision and runtime overhead.
+% Explain why certain timing resolutions or calibration strategies were chosen.
+% Emphasize bounded imprecision over uncontrolled overhead.
+
+\subsection{Alternatives Considered}
+% Briefly summarize alternative implementation strategies that were evaluated.
+% Explain why they were rejected in favor of the chosen design.
+% Keep discussion high-level and Tycho-specific.
+
+\section{Summary}
+% Summarize how the implementation realizes the architectural concepts.
+% Reinforce preservation of correctness and invariants.
+% Prepare the reader for the evaluation and results chapters.
+
