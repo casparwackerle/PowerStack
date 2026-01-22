@@ -137,6 +137,14 @@ This chapter explains how Tycho’s architectural abstractions are realised at r
 
 At execution time, Tycho is structured as a set of long-lived subsystems with strictly separated responsibilities and unidirectional interaction. Each subsystem exercises authority over a narrow concern, and no subsystem compensates implicitly for the behaviour of others. This execution-time separation forms the foundation for correctness, auditability, and robustness throughout the implementation.
 
+% Additional implementation detail that is not required for understanding the
+% runtime structure or correctness arguments is intentionally deferred to
+% \hyperref[sec:tycho_sysenv]{Appendix~C}.
+% The appendix collects auxiliary material such as extended configuration
+% descriptions, supporting scripts, and low-level operational notes that aid
+% reproducibility and inspection without obscuring the main implementation
+% narrative.
+
 \subsection{Runtime Subsystems and Responsibilities}
 
 Tycho’s runtime consists of the following subsystems, each of which is examined in detail later in this chapter:
@@ -198,7 +206,6 @@ Window boundaries are defined by trigger times rather than sample arrival. Sampl
 
 Temporal complexity is intentionally confined to timestamping and delay interpretation. Window construction itself remains simple and predictable, providing a stable temporal substrate on which later analysis stages can reason about delay, partial observation and attribution correctness without embedding scheduling assumptions or compensating for execution artifacts.
 
-
 \section{Historical Observation Retention}
 \label{sec:impl_history}
 
@@ -214,9 +221,6 @@ In addition to metric observations, Tycho maintains a bounded cache of metadata 
 
 \section{Metric Collection Subsystems}
 \label{sec:impl_collectors}
-% Realization of raw metric collection as defined architecturally.
-% This section covers observation capture and materialization only.
-% No fusion, no corrected metrics, no attribution or interpretation semantics.
 
 \subsection{eBPF Collector Implementation}
 \label{subsec:impl_ebpf}

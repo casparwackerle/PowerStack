@@ -203,3 +203,22 @@
 }
 
 \usetikzlibrary{arrows.meta, positioning, shapes.misc, calc}
+
+
+\defbibheading{bibintocunnum}[\bibname]{%
+  \cleardoublepage
+  \phantomsection
+  \addcontentsline{toc}{part}{#1}% or {chapter} if you prefer
+  \chapter*{#1}%
+}
+
+\newcommand{\IntentionallyBlankPage}{%
+  \cleardoublepage
+  \thispagestyle{empty}%
+  \vspace*{\fill}%
+  \begin{center}
+    This page was intentionally left blank.
+  \end{center}%
+  \vspace*{\fill}%
+  \clearpage
+}

@@ -1,0 +1,170 @@
+\chapter*{System Environment for Development, Build, and Debugging}
+\label{sec:tycho_sysenv}
+
+This chapter documents the system environment used to develop, build, and debug
+\textit{Tycho}.
+It establishes the experimental and operational context required for
+reproducibility and auditability.
+Detailed operational instructions and scripts are maintained in the project
+repository and are referenced where appropriate \cite{TychoRepo}.
+
+\section{Host Environment and Assumptions}
+\label{sec:tycho_sysenv_host}
+
+All development and debugging activities were conducted on bare-metal systems
+rather than virtualized instances in order to preserve direct access to hardware
+telemetry interfaces, including RAPL, NVML, and BMC Redfish.
+Two physical servers were used with strictly separated roles.
+An auxiliary node hosted the Kubernetes control plane and supporting services,
+explicitly isolating orchestration overhead from the system under test.
+
+The system under test was a dedicated compute node (product name
+\texttt{G494-ZU0-AAP1-000}, DALCO-integrated, MegaRAC SP-X BMC) equipped with an AMD
+EPYC~9554 64-core processor, 192\,GB of DDR5 memory (12\,$\times$\,16\,GB), dual
+NVMe storage devices, and two GPUs (NVIDIA RTX~4000 Ada and NVIDIA~T4).
+This node executed only workload pods and the \textit{Tycho} exporter, ensuring
+that collected measurements reflect application and system behaviour rather than
+control-plane activity.
+
+The node ran Ubuntu~22.04~LTS with a Linux~6.8 kernel
+(\texttt{6.8.0-90-generic}, \texttt{PREEMPT\_DYNAMIC}) on \texttt{x86\_64}.
+GPU support was provided by the NVIDIA proprietary driver
+(\texttt{580.95.05}) with CUDA~13.0.
+This software stack reflects a contemporary production configuration and
+provides access to recent kernel-level telemetry interfaces and current NVIDIA
+management APIs.
+Full root access was available and required, particularly for eBPF-based
+instrumentation.
+Kubernetes was installed directly on the servers using PowerStack
+\cite{PowerStack} and served as the execution platform for all experiments.
+Access to the systems was provided via VPN and SSH within the university network.
+
+\section{Build and Deployment Toolchain}
+\label{sec:tycho_sysenv_build}
+
+Development follows two complementary workflows.
+A local development path builds and runs the exporter directly on a target node
+to support interactive debugging.
+A deployment-oriented path builds container images, publishes them to a registry,
+and deploys the exporter as a privileged DaemonSet using PowerStack.
+
+\subsection{Local Builds}
+
+The implementation language is Go, using \code{go version go1.25.1} on
+\code{linux/amd64}.
+A project-level \code{Makefile} orchestrates routine tasks.
+The target \code{make build} compiles the exporter to
+\path{_output/bin/<os>_<arch>/tycho}.
+Cross-compilation targets are provided for \code{linux/amd64} and
+\code{linux/arm64}.
+
+Builds inject version metadata at link time via \code{LDFLAGS}, including source
+revision, branch, and build platform.
+This supports traceability when comparing binaries and container images across
+experiments.
+
+\subsection{Container Images and Continuous Integration}
+
+Container images are built using Docker Buildx with multi-architecture output for
+\code{linux/amd64} and \code{linux/arm64} and are published to the GitHub
+Container Registry under the project namespace.
+Build targets exist for a base image and optional variants that selectively
+enable additional software components when required.
+
+Continuous integration is implemented using GitHub Actions.
+Builds produce deterministic images tagged with an immutable commit identifier,
+a timestamped development tag, and a \code{latest} tag for the \code{main} branch.
+Buildx caching is used to reduce build times without compromising
+reproducibility.
+
+\subsection{Versioning and Reproducibility}
+
+Development proceeds on feature branches with pull requests merged into
+\code{main}.
+Release images are produced automatically for commits on \code{main}, while
+development images are built for \code{dev} and selected feature branches.
+
+Dependency management uses Go modules with a populated \path{vendor/} directory.
+The files \path{go.mod} and \path{go.sum} pin module versions, and
+\code{go mod vendor} materializes the full dependency tree to support offline and
+reproducible builds.
+
+\section{Debugging Environment}
+\label{sec:tycho_sysenv_debug}
+
+Interactive debugging uses the Delve debugger in headless mode with a Debug
+Adapter Protocol (DAP) listener.
+Delve was selected because it is purpose-built for Go, supports remote attach,
+and integrates reliably with common editors without requiring nonstandard build
+configuration beyond debug symbols.
+
+Debug sessions are executed directly on a Kubernetes worker node.
+The exporter binary is started under Delve with a DAP listener bound to a
+dedicated TCP port.
+The developer workstation connects via an authenticated channel, typically using
+an SSH tunnel to forward the listener port.
+This keeps the debugger inaccessible from the wider network and avoids the need
+for additional cluster-level access controls.
+
+To prevent measurement interference, the debug node excludes the deployed
+DaemonSet, ensuring that only the debug instance of the exporter is active on
+that host.
+Editor integration is minimal: the editor attaches to the forwarded DAP endpoint,
+enabling breakpoints, variable inspection, stepping, and log capture without
+container-specific tooling.
+When the goal is system-level validation rather than interactive debugging, the
+deployment-oriented workflow is used and observation relies on logs and metrics
+instead of an attached debugger.
+
+\subsection{Limitations and Practical Constraints}
+
+Headless remote debugging introduces practical constraints.
+Interactive sessions depend on network reachability and SSH tunnelling, which
+adds minor latency.
+The debugged process must retain the privileges required for eBPF and hardware
+counter access, limiting where sessions can run in multi-tenant environments.
+Running multiple exporter instances on the same node would distort measurements,
+necessitating the exclusion of the DaemonSet during debugging.
+Container-based debugging is possible but less convenient due to the need to
+coordinate with cluster security policies.
+As a result, most active debugging is performed using locally built binaries
+running directly on the node, while container-based deployments are reserved for
+integration testing and evaluation runs.
+
+\section{Supporting Tools and Utilities}
+\label{sec:tycho_sysenv_util}
+
+A lightweight configuration file \path{config.yaml} consolidates development
+toggles used for local runs, debugging sessions, and selective deployments.
+Repository scripts translate high-level configuration options into explicit
+command-line flags and environment variables for the exporter and auxiliary
+components.
+This avoids ad hoc modification of manifests or source code and aligns with the
+dual workflow described in \S~\ref{sec:tycho_sysenv_build}.
+
+The surrounding toolchain includes Docker, \code{kubectl}, Helm, k3s, Rancher,
+Ansible, Prometheus, and Grafana.
+Each tool is used only where it reduces operational friction, for example Docker
+for image builds, \code{kubectl} for cluster interaction, and
+Prometheus and Grafana for observability.
+
+\section{Relevance, Scope, and Omissions}
+\label{sec:tycho_sysenv_relevance}
+
+The environment described in this chapter constitutes enabling infrastructure
+rather than a scientific contribution.
+Its purpose is to make modifications to \textit{Tycho} feasible and to support
+controlled evaluation, not to advance methodology in software engineering or
+tooling.
+
+Documenting the environment supports reproducibility and auditability.
+A reader can verify that results were obtained on bare-metal systems with access
+to the required telemetry and can reconstruct the build pipeline from source to
+binary and container image.
+Operational detail is intentionally omitted from the main text and is provided
+in the repository documentation referenced at the start of this chapter.
+
+Installation procedures, editor-specific configuration, system administration,
+security hardening, and multi-tenant policy are out of scope for this thesis.
+Where concrete commands are required for reproducibility, they are available in
+the repository documentation cited in \S~\ref{sec:tycho_sysenv}.
