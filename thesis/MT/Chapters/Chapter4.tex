@@ -852,78 +852,77 @@ separate freshness and scheduling mechanisms.
 \section{Analysis and Attribution Architecture}
 \label{sec:analysis_attribution_arch}
 
-\subsection{Purpose and Scope}
-% This section defines the architectural semantics of Tycho’s analysis and attribution layer.
-% It specifies WHAT quantities are computed and WHY they are defined this way,
-% independent of any implementation, algorithms, or data structures.
-%
-% The analysis operates strictly on a per-node basis and over discrete attribution windows.
-% No cross-node aggregation or coordination is assumed or required.
-%
-% The primary outputs of this layer are windowed energy and utilization quantities,
-% defined both at node level and, where applicable, attributed to workloads.
-% These outputs form the basis for all subsequent evaluation and interpretation.
-%
-% This section deliberately excludes:
-% - how windows are constructed
-% - how metrics are sampled or aligned
-% - how results are exported or visualized
-% These concerns are deferred to implementation and later chapters.
+\subsection{Pipeline Orchestration and Stage Execution}
+\label{sec:arch_analysis_orchestration}
 
-\subsection{Attribution Goals and Non-Goals}
-% This subsection defines the explicit objectives that guide Tycho’s attribution design,
-% as well as the boundaries of what the architecture intentionally does not provide.
-%
-% Primary goals include:
-% - accuracy-first attribution, prioritizing physical plausibility over smoothness
-% - strict energy conservation within each attribution window
-% - temporal consistency across windows under stable workloads
-%
-% Explicit non-goals include:
-% - instantaneous or sub-window attribution guarantees
-% - attribution across nodes or distributed workloads
-% - fairness, scheduling, or resource accounting claims
-% - any guarantees related to exporter behavior or visualization stability
-%
-% Stating non-goals is essential to prevent misinterpretation of attribution results
-% and to clearly separate architectural intent from downstream use cases.
+\subsubsection{Problem Statement}
+Tycho’s analysis layer must transform heterogeneous, asynchronous observations into window-scoped attribution results under three constraints.
+Inputs originate from independent sources with bounded but non-uniform delays and may be temporarily unavailable.
+Attribution further requires interdependent derived quantities, imposing strict ordering constraints.
+Finally, analysis must remain online, deterministic, and non-retrospective, excluding retrospective reinterpretation and any semantic coupling to exporter behavior.
+The orchestration problem is therefore to execute a deterministic, dependency-respecting transformation pipeline per attribution window while tolerating partial observability and enforcing the invariants defined in \S~\ref{subsec:attrib_windows}.
 
-\subsection{Analysis Engine as an Architectural Actor}
-% This subsection introduces the analysis engine as a conceptual system component.
-%
-% Architecturally, the analysis engine is responsible for:
-% - selecting attribution windows based on the global temporal model
-% - orchestrating the staged attribution pipeline
-% - applying the analysis semantics defined in this chapter
-% - producing derived, window-scoped metrics
-%
-% The analysis engine is not concerned with:
-% - metric collection
-% - timestamp generation
-% - storage or export mechanisms
-%
-% It is modeled as a logical actor that consumes already-available metric signals
-% and applies deterministic transformations defined by the attribution architecture.
-% Implementation details such as scheduling, concurrency, or lifecycle management
-% are intentionally excluded here.
+\subsubsection{Conceptual Model}
+Analysis proceeds as a sequence of discrete \emph{cycles}.
+Each cycle selects a single attribution window, instantiates a self-contained execution context, executes a fixed set of transformations in a predefined order, and yields a logically atomic set of window-scoped derived quantities.
+The analysis engine acts solely as an orchestration authority.
+It determines the temporal scope of each cycle using the global monotonic timebase, enforces execution order, and commits results as a coherent unit.
+Collection, buffering, and metadata acquisition are upstream concerns and are assumed to have materialized raw observations into bounded-retention histories.
 
-\subsection{Attribution Windows and Timebase Assumptions}
-\label{subsec:attrib_windows}
-% This subsection defines the temporal foundation on which all attribution operates.
-%
-% Tycho adopts an event-time perspective based on a monotonic timebase.
-% All attribution quantities are defined relative to this timebase,
-% and comparisons between metrics assume monotonic ordering, not synchronization.
-%
-% Attribution windows are defined as bounded time intervals over which
-% energy and utilization quantities are aggregated and interpreted.
-% Windowed attribution is required because:
-% - energy measurements are inherently integrated over time
-% - instantaneous attribution is physically ill-defined
-% - different metric sources exhibit heterogeneous latency and update behavior
-%
-% This subsection defines attribution windows conceptually and motivates their necessity,
-% but does not specify how windows are constructed, aligned, or triggered in practice.
+The pipeline is expressed as a set of \emph{metrics}, each representing a typed transformation.
+Metrics consume raw observations or previously derived metrics and emit window-scoped results according to the semantic models defined in this chapter.
+Metrics may depend on earlier outputs within the same cycle but never on downstream publication state or future cycles.
+
+\subsubsection{Attribution Window Semantics}
+\label{sec:arch_analysis_orchestration_windows}
+Let \(t_k\) denote the monotonic timestamp associated with the start of analysis cycle \(k\).
+The attribution window for cycle \(k\) is defined as the half-open interval
+\[
+W_k = (t_{k-1},\, t_k] .
+\]
+Windows are defined on a global monotonic timebase, form a total order, and are non-overlapping.
+
+Window selection incorporates a fixed intentional lag relative to real-time execution.
+The window end \(t_k\) is chosen such that it lags the most recent observations by at least the maximum admissible metric delay plus a safety margin, derived from configuration and optional calibration (\S~\ref{sec:calibration}).
+This bound is an architectural precondition for window validity and guarantees that all metrics participating in a cycle can interpret their contributions over \(W_k\) under their declared delay semantics.
+As a result, attribution correctness is decoupled from collector jitter, speculative window closure is avoided, and causality is preserved.
+
+In steady state, attribution windows have a fixed duration.
+During startup, when insufficient history exists, the window start may be clamped to the beginning of the monotonic timeline.
+This is the only permitted deviation from the steady-state definition and preserves determinism.
+
+\subsubsection{Stage Model and Dependency Discipline}
+\label{sec:arch_analysis_orchestration_stages}
+Analysis is structured as an ordered sequence of conceptual stages reflecting semantic dependencies between derived quantities.
+A stage delineates computations whose outputs serve as prerequisites for subsequent modeling or attribution steps.
+Within a cycle, stages execute strictly in order.
+Metrics may depend on raw observations and on outputs from earlier stages in the same cycle, but must not depend on later stages, future cycles, or sink side effects.
+
+This discipline renders the pipeline compositional.
+Later attribution logic operates on materialized, window-scoped quantities rather than ad hoc joins over raw histories.
+Stages are semantic boundaries, not runtime entities, and exist to make dependency structure explicit when partial observability yields incomplete but internally consistent results.
+
+\subsubsection{Best-Effort Semantics Under Partial Observability}
+\label{sec:arch_analysis_orchestration_best_effort}
+The analysis architecture is accuracy-first but not completeness-first.
+For a given window, Tycho produces the most complete set of derived quantities that can be computed without violating architectural invariants.
+If required inputs are unavailable or inadmissible under a metric’s semantics, that metric is undefined for the window and does not materialize a result.
+Downstream metrics may still execute if their dependencies are satisfied, yielding partially populated but self-consistent outputs.
+As observability decreases, results degrade monotonically through omission or explicitly defined fallback semantics, and previously valid interpretations are never revised.
+
+\subsubsection{Output Commit and Sink Boundary}
+\label{sec:arch_analysis_orchestration_commit}
+All results produced during a cycle belong to the same attribution window \(W_k\) and are committed as a logical batch.
+Sinks are strictly downstream observers and lie outside the correctness boundary of attribution.
+Exporter behavior may delay or drop publication but does not affect the meaning of computed window-scoped quantities.
+This separation prevents exporter mechanics from becoming an implicit part of attribution semantics and preserves reproducibility.
+
+\subsubsection{Architectural Consequences}
+The orchestration model establishes a stable execution contract.
+Stage-local computations may assume a well-defined attribution window, deterministic ordering, and read-only access to upstream histories.
+In return, analysis is constrained to be window-scoped and non-retrospective.
+Each cycle yields a single, maximal, internally consistent interpretation of the evidence available for its window, and later cycles do not revise earlier results.
+This contract supports the staged construction of increasingly sophisticated attribution models without altering orchestration semantics.
 
 \subsection{Stage 1: Component Metric Construction}
 \label{subsec:stage1_component_metrics}
@@ -947,38 +946,109 @@ separate freshness and scheduling mechanisms.
 % Implementation details such as sampling frequency, counter handling, or delay correction
 % are explicitly deferred to the implementation chapter.
 
-\subsubsection{eBPF Utilization Metrics (Totals and Aggregates)}
-% This subsection defines the architectural role of eBPF-derived utilization metrics.
-%
-% eBPF metrics provide time-resolved measurements of CPU activity and serve as the
-% primary utilization signals used for proportional attribution in later stages.
-% They are not energy measurements and do not encode power or energy directly.
-%
-% Architecturally, two classes of utilization quantities are defined:
-% - node-level utilization totals over an attribution window
-% - workload-level utilization aggregates derived from the same underlying signals
-%
-% These utilization metrics establish a quantitative basis for answering
-% "how CPU time was distributed" during a window, independent of energy measurement.
-%
-% This subsection defines the semantic meaning of these quantities and their scope,
-% but does not describe how utilization is observed, aggregated, or mapped in practice.
+\subsubsection{Component-Level eBPF Utilization Metrics}
+\label{sec:arch_ebpf_util_metrics}
 
-\subsubsection{RAPL Domain Energy Metrics}
-% This subsection defines the architectural semantics of CPU energy measurements
-% obtained from RAPL domains.
+\paragraph{Problem Statement}
+eBPF exposes raw kernel execution signals and hardware event counts as per-tick deltas.
+These signals must be transformed into window-aligned utilization metrics with well-defined semantics and into cumulative counters suitable for direct export and downstream aggregation.
+
+\paragraph{Conceptual Model}
+Two classes of node-level metrics are constructed from eBPF observations.
+CPU execution time is expressed as normalized time-share ratios over a fixed analysis window.
+All other kernel and hardware signals are expressed as cumulative counters obtained by aggregating per-process deltas across the node.
+
+\paragraph{Formalization}
+Let a node expose $C$ logical CPUs and let an analysis window of duration $\Delta t$ define a total schedulable capacity
+\begin{equation}
+T_{\mathrm{cap}} = C \cdot \Delta t .
+\end{equation}
+Let $T_{\mathrm{idle}}$, $T_{\mathrm{irq}}$, and $T_{\mathrm{softirq}}$ denote the aggregated CPU time spent in idle, hardware interrupt, and software interrupt execution over the window.
+Normalized utilization ratios are defined as
+\begin{equation}
+r_x = \frac{T_x}{T_{\mathrm{cap}}}, \quad x \in \{\mathrm{idle}, \mathrm{irq}, \mathrm{softirq}\}.
+\end{equation}
+Active execution is defined as the residual
+\begin{equation}
+r_{\mathrm{active}} = 1 - (r_{\mathrm{idle}} + r_{\mathrm{irq}} + r_{\mathrm{softirq}}).
+\end{equation}
+By construction, all ratios are dimensionless, bounded in $[0,1]$, and satisfy
+\begin{equation}
+r_{\mathrm{idle}} + r_{\mathrm{irq}} + r_{\mathrm{softirq}} + r_{\mathrm{active}} = 1.
+\end{equation}
+
+For each kernel or hardware event type $j$, let $\Delta K_j$ denote the per-tick delta aggregated across all processes.
+The exported counter is defined as the cumulative sum
+\begin{equation}
+N_j(t) = \sum_{k \le t} \Delta K_j ,
+\end{equation}
+which is monotonically non-decreasing over the lifetime of the process.
+
+\paragraph{Design Decisions}
+CPU utilization is normalized to node capacity to make ratios invariant to window length and core count.
+Active CPU time is defined as a residual to enforce exact conservation of CPU capacity.
+All event-based metrics are exposed as cumulative counters to preserve monotonicity and allow rate derivation without reinterpreting window semantics.
+
+\paragraph{Architectural Consequences}
+The resulting metrics provide window-stable CPU utilization ratios and strictly monotonic kernel activity counters.
+These quantities can be consumed directly as observability metrics and reused unchanged by downstream attribution stages.
+
+\subsubsection{RAPL Component Metrics (Totals)}
+
+\paragraph{Problem Statement}
+RAPL exposes cumulative energy counters per hardware domain, but these counters are node-local, socket-scoped, and offset by an arbitrary hardware-defined origin.
+For Tycho, these signals must be transformed into a single, coherent component-level energy metric that is comparable across time and suitable as an authoritative input for later attribution stages.
+The core problem is therefore to define a metric that preserves the physical meaning of RAPL energy while eliminating hardware-specific offsets and remaining stable under windowed analysis.
+
+\paragraph{Conceptual Model}
+The RAPL component is modeled as a set of independent energy domains, treated as conceptually separate devices but belonging to the same component.
+For each domain, Tycho constructs a cumulative energy signal that represents the total physical energy consumed since Tycho start.
+This signal is defined independently of any windowing semantics and serves as the primary representation of RAPL energy within the system.
+A secondary, auxiliary power signal is derived from the same observations for user-facing inspection, but it is not authoritative.
+
+\paragraph{Formalization}
+Let $E_d^{\text{raw}}(t)$ denote the raw cumulative RAPL energy reading for domain $d$ at time $t$, as provided by the underlying measurement subsystem.
+These raw counters are assumed to be strictly monotonic and already corrected for hardware wraparound.
+
+For each domain $d$, Tycho defines an exported cumulative energy counter
+\begin{equation}
+E_d(t) = E_d^{\text{raw}}(t) - E_d^{\text{raw}}(t_0),
+\end{equation}
+where $t_0$ is the time of the first observed sample for that domain.
+This construction yields a zero-based, monotonic energy counter with $E_d(t_0)=0$.
+
+An auxiliary average power signal is defined over an analysis window $[t_i, t_{i+1}]$ as
+\begin{equation}
+P_d^{(i)} = \frac{E_d(t_{i+1}) - E_d(t_i)}{t_{i+1} - t_i}.
+\end{equation}
+This quantity is derived solely from the cumulative energy counter and has no independent physical authority.
+
+\paragraph{Design Decisions}
+The primary design choice is to treat cumulative energy as the first-class metric and to derive all other quantities from it.
+Using zero-based cumulative counters removes dependence on hardware-specific initial offsets and simplifies downstream reasoning.
+Power is intentionally modeled as a derived, window-local quantity rather than as a primary signal, reflecting its lower robustness and its lack of necessity for attribution.
+Domains are defined once and treated uniformly, avoiding domain-specific special cases in the metric definition.
+
+\paragraph{Architectural Consequences}
+The exported RAPL energy counters form the authoritative energy input for all later attribution and decomposition stages.
+Their monotonicity and zero-based semantics allow unambiguous differencing, aggregation, and conservation reasoning.
+By contrast, the power metrics are explicitly auxiliary, non-authoritative, and excluded from downstream attribution logic.
+This separation ensures that attribution correctness depends only on cumulative energy, while still permitting power-oriented inspection for diagnostic or user-facing purposes.
+
+\subsubsection{GPU-Corrected Energy Metric}
+% This subsection defines the architectural semantics of the gpu_corrected metric.
 %
-% For each attribution window, energy consumption is defined independently for
-% each relevant RAPL domain (e.g., package, core, DRAM, uncore).
-% Each domain is treated as a distinct energy source with its own physical meaning.
+% gpu_corrected represents a window-scoped GPU energy quantity obtained through
+% intra-domain fusion of multiple GPU-internal measurements.
+% The purpose of this fusion is to improve signal quality and interpretability,
+% not to perform attribution.
 %
-% Architecturally, RAPL domain metrics represent total energy consumed over a window.
-% No attribution, redistribution, or idle/dynamic separation is performed at this stage.
+% Architecturally, gpu_corrected is treated as the total GPU energy consumed
+% by all accelerators on a node during an attribution window.
+% It forms a distinct component energy source in later attribution stages.
 %
-% This subsection establishes the interpretation of RAPL domain energies as
-% window-integrated quantities and prepares them for later semantic decomposition.
-% Details such as counter deltas, wraparound handling, or synchronization
-% are outside the scope of this section.
+% This subsection defines what gpu_corrected represents and why such a fused metric
+% is required, but does not specify how individual GPU signals are combined in practice.
 
 \subsubsection{Redfish-Corrected System Energy Metric}
 % This subsection defines the architectural role of the redfish_corrected metric.
@@ -995,20 +1065,7 @@ separate freshness and scheduling mechanisms.
 % but all realization details, including calibration and delay handling,
 % are deferred to the implementation chapter.
 
-\subsubsection{GPU-Corrected Energy Metric}
-% This subsection defines the architectural semantics of the gpu_corrected metric.
-%
-% gpu_corrected represents a window-scoped GPU energy quantity obtained through
-% intra-domain fusion of multiple GPU-internal measurements.
-% The purpose of this fusion is to improve signal quality and interpretability,
-% not to perform attribution.
-%
-% Architecturally, gpu_corrected is treated as the total GPU energy consumed
-% by all accelerators on a node during an attribution window.
-% It forms a distinct component energy source in later attribution stages.
-%
-% This subsection defines what gpu_corrected represents and why such a fused metric
-% is required, but does not specify how individual GPU signals are combined in practice.
+
 
 \subsection{Stage 2: System-Level Energy Model and Residual}
 \label{subsec:stage2_residual}

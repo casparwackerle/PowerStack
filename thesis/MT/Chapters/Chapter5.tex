@@ -838,7 +838,6 @@ LastSeenWall & Controller timestamp & Wall-clock timestamp for GC. \\
 By centralizing lifecycle enforcement and treating sources as independently valid, the subsystem provides maximally fresh identity at analysis boundaries while remaining robust to partial observability and transient failures.
 Correctness relies on bounded freshness and explicit joins rather than on point-in-time snapshots or event histories.
 
-
 \section{Calibration}
 \label{sec:impl_calibration}
 
@@ -962,31 +961,353 @@ By resolving these uncertainties ahead of steady-state operation, Tycho preserve
 deterministic execution, bounded timing behavior, and strict separation between
 observation and analysis.
 
-\section{Analysis and Attribution Pipeline}
-\label{sec:impl_analysis_pipeline}
+\section{Analysis and Attribution Infrastructure}
 
-\subsection{Pipeline Orchestration and Stage Execution}
-\subsubsection{Stage Ordering and Dependencies}
-\subsubsection{Per-Window Execution Contract}
+\subsection{Analysis Engine Responsibilities and Cycle Lifecycle}
+\label{sec:impl_analysis_engine_lifecycle}
+
+This section describes how the orchestration model defined in \S~\ref{sec:arch_analysis_orchestration} is enforced at runtime.
+The analysis engine is a minimal orchestration authority whose sole responsibility is to execute window-scoped attribution deterministically and without hidden coupling.
+It constructs analysis cycles, selects attribution windows, enforces a fixed execution order, and establishes a materialization boundary for derived results.
+The engine does not participate in metric semantics, dependency inference, modeling decisions, result interpretation, or exporter interaction.
+
+Each invocation of the engine corresponds to exactly one analysis cycle.
+Cycles are triggered externally; the engine does not self-schedule, maintain timers, or perform background work.
+Invocation cadence and jitter are therefore treated as external concerns and do not affect correctness, provided that invocations are serialized and the monotonic timebase is strictly increasing.
+
+At cycle entry, the engine atomically constructs a fresh execution context that fully determines the behavior of the cycle.
+This context includes the selected attribution window, admissibility constraints for reading observations, read-only access to upstream buffers, access to node-local metadata, access to shared cross-window state, and a cycle-local materialization boundary.
+No additional execution context is injected after construction, and no global mutable analysis state is consulted during execution.
+
+Once constructed, the cycle is executed exactly once.
+The engine invokes all metrics sequentially according to a fixed execution plan.
+There is no re-entry into a partially executed cycle, no mid-cycle rescheduling, and no orchestration-level retry or backtracking.
+After execution completes, all cycle-local structures are discarded, including the materialization store, and no derived quantities persist implicitly into subsequent cycles.
+
+Failures are isolated to the cycle in which they occur.
+If an individual metric fails to produce a result, the failure is logged and execution continues for remaining metrics.
+Such failures affect only the completeness of results for the current window and do not abort the cycle.
+Each subsequent invocation constructs a new cycle with a fresh execution context, independent of prior errors or partial results.
+
+By enforcing atomic cycle construction, single-pass execution, and explicit teardown, the engine guarantees that each cycle yields at most one coherent set of window-scoped results.
+There is no opportunity for partial publication, retroactive correction, or cross-cycle interference.
+This execution discipline provides the structural foundation on which staging, materialization, and cross-window modeling are implemented while preserving determinism, auditability, and non-retrospective semantics.
+
+\subsection{Attribution Window Selection and Temporal Safety}
+\label{sec:impl_analysis_window_selection}
+
+This section describes how the attribution window defined in \S~\ref{sec:arch_analysis_orchestration_windows} is selected and enforced at runtime.
+Window selection is performed exactly once at cycle entry and is derived exclusively from the global monotonic timebase, which serves as the sole temporal authority.
+Wall-clock time, collector timestamps, and exporter behavior are not consulted, ensuring a strictly ordered and unambiguous temporal reference.
+
+The window end \(t_k\) is selected with a fixed intentional lag relative to real-time execution.
+This lag corresponds to the maximum admissible metric delay plus a safety margin obtained from configuration and optional calibration.
+By construction, each window is therefore placed in a region of the past where all participating metrics are guaranteed to have observed the samples required to interpret their contributions under their declared delay semantics.
+The lag is constant across cycles, yielding attribution windows with fixed duration and uniform semantics in steady state.
+
+During startup, when insufficient observation history exists to populate the intended window fully, the window start may be clamped to the beginning of the monotonic timeline.
+This behavior is explicit, deterministic, and confined to the initial phase of execution.
+No other deviations from the steady-state window definition are permitted.
+
+Window selection is deliberately decoupled from collector sampling behavior.
+Collectors may operate at different frequencies, with irregular timing or transient gaps, without influencing window boundaries.
+The engine does not impose an alignment grid or attempt to synchronize with sampling schedules.
+Instead, windows are defined purely in terms of monotonic ticks, and metrics interpret the contents of upstream buffers over the selected interval using interval semantics and metric-local delay correction.
+
+Once selected, the attribution window is immutable for the duration of the cycle.
+All metrics observe the same base window, and any effective windows derived through delay correction are computed deterministically from this reference.
+The engine does not revise window boundaries mid-cycle and does not reopen or reinterpret windows after execution.
+
+By combining a monotonic timebase, a fixed safety lag, and immutable window selection, the implementation enforces temporal admissibility by construction.
+Attribution correctness is insulated from collector jitter and delayed observations, speculative window closure is avoided, causality is preserved, and each cycle yields a single, final temporal interpretation of the available evidence.
+
+\subsection{Staged Pipeline Execution and Dependency Discipline}
+\label{sec:impl_analysis_staging}
+
+This section explains how the dependency discipline defined in \S~\ref{sec:arch_analysis_orchestration_stages} is enforced at runtime.
+Dependency correctness is not inferred dynamically and is not validated during execution.
+Instead, it is achieved by construction through a fixed execution order that reflects the semantic structure of the analysis pipeline.
+
+For each analysis cycle, the engine constructs a static execution plan consisting of an ordered list of metric invocations.
+This plan is invariant across cycles for a given build and configuration.
+Metrics are registered into the analysis registry in an order that encodes their semantic dependencies, and the engine preserves this order exactly during execution.
+As a result, metrics executed later in the plan may depend on outputs produced earlier in the same cycle, while reverse dependencies are structurally impossible.
+
+Stages are not represented as explicit runtime entities.
+Instead, stage boundaries are implicit and correspond to contiguous segments of the execution plan.
+Each segment groups metrics that operate at the same semantic level, such as aggregation, decomposition, or attribution.
+Downstream segments assume that all metrics in earlier segments have either materialized their window-scoped outputs or abstained from doing so due to missing or inadmissible inputs.
+
+The implementation deliberately avoids constructing dependency graphs, performing topological sorting, or validating dependency satisfaction at runtime.
+There are no per-metric dependency declarations and no control flow conditioned on the availability of upstream results.
+If a metric observes an undefined input, it degrades according to its semantics rather than triggering reordering, backtracking, or failure.
+
+This design treats dependency correctness as an architectural obligation rather than an algorithmic problem.
+The runtime enforces execution order faithfully but does not attempt to infer semantic validity.
+By resolving dependencies explicitly at composition time, the implementation preserves determinism, avoids hidden coupling between metrics, and ensures that degradation under partial observability propagates monotonically through the pipeline without compromising internal consistency.
+
+\subsection{Metric Materialization and Intra-Cycle Visibility}
+\label{sec:impl_analysis_materialization}
+
+This section describes how the materialization model defined in \S~\ref{sec:arch_analysis_metric_materialization} is enforced at runtime.
+At the beginning of each analysis cycle, the engine establishes a cycle-local materialization boundary that serves as the sole authoritative representation of all derived results for the current attribution window.
+All metric emissions during the cycle are routed through this boundary, ensuring that materialization is strictly window-scoped and isolated from other cycles.
+
+Derived results are recorded as immutable, window-scoped facts.
+Within a cycle, each metric is expected to materialize at most one final value per metric identity and label set.
+Multiple emissions for the same identity deterministically overwrite earlier ones, but such behavior is not relied upon for correctness.
+The effective semantic contract is therefore exactly-once materialization per window.
+
+All materialized results are conceptually visible to metrics executed later in the same cycle.
+There is no notion of stage-local visibility or scoped access control.
+Dependency correctness relies entirely on execution order rather than on restricting access to intermediate results.
+Metrics that consume undefined inputs must degrade according to their semantics rather than delaying execution or attempting recovery.
+
+Materialized results never persist implicitly across cycles.
+When a cycle completes, the materialization boundary is discarded in its entirety, and all derived quantities cease to exist from the perspective of subsequent cycles.
+Any dependence on prior windows must be mediated through explicit cross-window state owned and managed by the consuming metric.
+
+By enforcing a per-cycle materialization boundary with global intra-cycle visibility and strict teardown semantics, the implementation guarantees that each cycle yields a single, final, and internally consistent set of derived quantities for its attribution window.
+This prevents hidden cross-window coupling, eliminates incremental refinement of results, and allows later attribution stages to operate on materialized facts rather than raw observations while preserving determinism and auditability.
+
+\subsection{Cross-Window State and Explicit Memory}
+\label{sec:impl_analysis_cross_window_state}
+
+This section describes how limited cross-window memory is supported without violating the window-scoped and non-retrospective execution model defined in \S~\ref{sec:analysis_attribution_arch}.
+While derived results never persist across cycles, certain attribution models require controlled statefulness in order to converge or adapt over time.
+The implementation accommodates such models through an explicit and narrowly scoped state mechanism.
+
+Cross-window state is provided through a shared state store that persists for the lifetime of the analysis process and is made available to each cycle at construction time.
+The state store is passive and provides no execution logic or semantic interpretation.
+The analysis engine does not read from, write to, or reason about its contents; its sole responsibility is to supply access to metrics during cycle execution.
+
+All cross-window state is strictly metric-owned.
+Metrics that require memory across windows must explicitly retrieve, initialize, and update their own state entries.
+Metrics that do not access the state store remain purely window-scoped and stateless by construction.
+State entries are keyed by metric identity and labels, making ownership and scope explicit and preventing implicit sharing between unrelated metrics.
+
+Use of cross-window memory is an explicit opt-in.
+Any temporal coupling introduced by stateful behavior is therefore visible at the point of use and auditable in isolation.
+State is updated only after a cycle completes and influences only subsequent cycles.
+Previously materialized results are never revised, and no stateful mechanism can retroactively alter the interpretation of earlier windows.
+
+By confining cross-window memory to explicit, metric-owned state and maintaining strict cycle boundaries, the implementation supports stateful attribution models where required while preserving determinism, isolation, and the architectural guarantee that each cycle yields a single, final interpretation of its attribution window.
+
+\subsection{Output Commit and Sink Boundary}
+\label{sec:impl_analysis_sink_boundary}
+
+This section describes how analysis results are committed and published without allowing downstream mechanisms to influence attribution semantics.
+At cycle construction time, the engine establishes a collecting sink that serves as the sole emission boundary for all metrics executed during the cycle.
+All derived results emitted by metrics are routed through this boundary and are treated as belonging to the same attribution window.
+
+Result commitment occurs at the moment of materialization.
+Once a derived quantity is recorded within the cycle-local materialization boundary, it is final for the current window.
+Publication to downstream sinks is strictly observational and occurs after materialization without providing feedback into the analysis process.
+The engine never reads from sinks, waits for acknowledgements, or conditions execution on publication success.
+
+Sinks are therefore non-authoritative by design.
+Exporter behavior may delay, drop, aggregate, or reorder published results, but such behavior does not alter the meaning or validity of the computed window-scoped quantities.
+Attribution correctness is defined entirely within the analysis layer and is independent of downstream reliability or performance characteristics.
+
+All results produced during a cycle are committed as a logical batch.
+There is no partial publication of intermediate results and no distinction between provisional and final outputs.
+Once cycle execution completes, the set of materialized results represents the maximal, internally consistent interpretation achievable for the attribution window.
+
+By strictly separating analysis from publication, the implementation preserves reproducibility and robustness.
+Failures at the export layer degrade only the visibility of results, not their correctness, and cannot introduce hidden coupling or timing dependencies into the attribution process.
+This boundary ensures that attribution semantics remain stable, auditable, and invariant under changes to exporter implementation or behavior.
+
+\subsection{Implementation Consequences and Guarantees}
+\label{sec:impl_analysis_consequences}
+
+The implementation described in this chapter enforces the architectural contract of the analysis layer directly through execution structure rather than dynamic control logic.
+Each analysis cycle yields a single, deterministic, window-scoped interpretation of the available evidence, constructed under fixed temporal assumptions and executed in a strictly ordered, non-retrospective manner.
+All derived results are materialized explicitly, remain immutable for the duration of the cycle, and are isolated from both prior and subsequent cycles.
+
+Temporal correctness is ensured by construction.
+Attribution windows are selected once per cycle from a global monotonic timebase using a fixed safety lag, are immutable during execution, and are interpreted without reliance on collector sampling grids or exporter timing.
+As a result, causality is preserved and attribution semantics are insulated from collection jitter, delayed observations, and downstream publication behavior.
+
+Dependency correctness is enforced structurally.
+Metric execution order is fixed and reproducible, stages are implicit in the execution plan, and no runtime dependency inference or reordering occurs.
+Under partial observability, results degrade monotonically through omission or explicitly defined fallback semantics, and previously materialized interpretations are never revised.
+
+Stateful attribution models are supported exclusively through explicit, metric-owned cross-window state.
+No derived quantities persist implicitly across cycles, and any temporal coupling introduced by memory is localized, visible, and auditable.
+This preserves isolation between cycles while allowing convergence or adaptation where required.
+
+Equally important are the properties the implementation does not guarantee.
+The analysis layer does not ensure completeness of results for every window, does not backfill or reinterpret prior windows, does not validate semantic correctness of pipeline composition at runtime, and does not provide reliability guarantees for result publication.
+These non-guarantees are deliberate and reflect the prioritization of correctness, determinism, and transparency over forced coverage or convenience.
+
+Together, these consequences establish a stable execution contract for attribution.
+They enable later analysis stages to operate on materialized, window-scoped quantities with well-defined temporal and dependency semantics, while ensuring that increasing analytical sophistication does not compromise determinism, auditability, or adherence to the architectural model.
+
 
 \subsection{Stage 1: Component Metric Construction}
 % This is where *_corrected metrics belong (implementation of architectural Stage 1).
 
-\subsubsection{Aligned Per-Window Inputs}
-% How raw observations are selected per window and aligned consistently.
+\subsubsection{Component-Level eBPF Utilization Metrics (Totals)}
+\label{sec:impl_ebpf_util_metrics}
 
-\subsubsection{eBPF Utilization Metrics (Totals and Aggregates)}
-% Construction of utilization totals and workload aggregates used downstream.
+\paragraph{Problem Statement}
+The architectural definition of eBPF-based utilization metrics must be realized from discrete, per-tick kernel observations.
+The implementation must construct window-aligned CPU time-share ratios and cumulative counters while preserving monotonicity, conservation, and interpretability under discretization and partial window overlap.
 
-\subsubsection{RAPL Domain Energy Metrics}
-% Construction of per-window domain energies from raw RAPL observations.
+\paragraph{Conceptual Model}
+Implementation operates on streams of eBPF ticks exposing per-tick deltas for CPU execution classes and kernel or hardware events.
+For each analysis window, deltas are integrated over the effective window interval to produce window-scoped utilization quantities.
+CPU time is normalized against node capacity to obtain ratios, while all other signals are accumulated into persistent node-level counters.
+
+\paragraph{Formalization}
+Discrete eBPF deltas are integrated over window boundaries using overlap-aware aggregation to approximate the continuous quantities defined architecturally.
+CPU idle, interrupt, and soft-interrupt times are integrated independently and normalized by the product of window duration and logical CPU count.
+Active CPU utilization is materialized as the complement of the non-active components, ensuring exact conservation of total CPU capacity.
+Event-based signals are summed across all processes and accumulated over successive windows, yielding monotonic counters consistent with the architectural model.
+
+\paragraph{Design Decisions}
+Integration across window boundaries admits fractional contributions to preserve conservation in the presence of misaligned ticks.
+Internal accumulation is therefore performed using floating-point state, while exported counters are materialized as integer-valued quantities.
+Active CPU time is not measured directly but derived as a residual to avoid dependence on additional kernel signals and to guarantee ratio consistency.
+
+\paragraph{Implementation Consequences}
+The realized metrics uphold the architectural guarantees of strict monotonicity for counters and exact partitioning of CPU capacity across utilization classes.
+Counters are scoped to the lifetime of the Tycho process and may reset on restart.
+If insufficient samples are available to conservatively integrate a window, metric emission for that window is suppressed.
+These behaviors ensure correctness under sampling variability while maintaining stable semantics for downstream consumption.
+
+\paragraph{Exported Metrics}
+The metrics exported by this implementation are summarized in the table~\ref{tab:ebpf-util-exported-metrics}.
+Only fully materialized utilization metrics intended for external consumption are listed.
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{p{4.0cm} p{2.0cm} p{1.8cm} p{4.8cm}}
+    \toprule
+    \textbf{Metric} & \textbf{Type} & \textbf{Unit} & \textbf{Labels} \\
+    \midrule
+    \multicolumn{4}{l}{\textit{CPU time-share ratios}} \\[4pt]
+    \code{bpf\_cpu\_idle\_ratio} & Gauge & ratio & \code{source="ebpf"} \\
+    \code{bpf\_cpu\_irq\_ratio} & Gauge & ratio & \code{source="ebpf"} \\
+    \code{bpf\_cpu\_softirq\_ratio} & Gauge & ratio & \code{source="ebpf"} \\
+    \code{bpf\_cpu\_active\_ratio} & Gauge & ratio & \code{source="ebpf"} \\[4pt]
+
+    \multicolumn{4}{l}{\textit{Aggregated cumulative counters}} \\[4pt]
+    \code{bpf\_cpu\_instructions} & Counter & count & \code{source="ebpf"} \\
+    \code{bpf\_cpu\_cycles} & Counter & count & \code{source="ebpf"} \\
+    \code{bpf\_cache\_misses} & Counter & count & \code{source="ebpf"} \\
+    \code{bpf\_page\_cache\_hits} & Counter & count & \code{source="ebpf"} \\
+    \code{bpf\_irq\_net\_tx} & Counter & count & \code{source="ebpf"} \\
+    \code{bpf\_irq\_net\_rx} & Counter & count & \code{source="ebpf"} \\
+    \code{bpf\_irq\_block} & Counter & count & \code{source="ebpf"} \\
+    \bottomrule
+    \end{tabular}
+    \caption{Exported node-level utilization metrics derived from \code{eBPF} observations.}
+    \label{tab:ebpf-util-exported-metrics}
+\end{table}
+
+\subsubsection{RAPL Component Metrics (Totals)}
+
+\paragraph{Architectural Context}
+This section realises the cumulative RAPL energy model defined in the corresponding architecture subsubsection, producing zero-based, monotonic energy counters per RAPL domain and an auxiliary, window-averaged power signal.
+Only total energy and total power are constructed here; no decomposition or attribution is performed at this stage.
+
+\paragraph{Implementation Strategy}
+The implementation consumes time-ordered RAPL counter samples within the effective analysis window and aggregates them across sockets for each domain.
+Energy counters are constructed directly from native cumulative readings, while power is derived secondarily from in-window energy differences.
+All logic is structured to ensure that exported energy counters remain monotonic, zero-based, and independent of window boundaries.
+
+\paragraph{Core Mechanisms}
+For each domain, the implementation identifies the first and last available cumulative RAPL counters within the effective window.
+The last counter represents the native cumulative energy at window end.
+To eliminate hardware-defined initial offsets, the first observed native value per domain is stored once and subtracted from all subsequent exports, yielding a zero-based cumulative energy counter.
+
+Window-local energy increments are computed by differencing the first and last counters within the window.
+Because raw RAPL inputs are already corrected for wraparound upstream, no additional wraparound handling is required at this stage.
+Average power is then derived by dividing the in-window energy increment by the window duration.
+This power signal is emitted alongside the energy counter but is not used for any downstream computation.
+
+\paragraph{Robustness and Edge Cases}
+If fewer than two valid RAPL samples are available within a window, no metrics are emitted, avoiding partial or misleading updates.
+Non-positive or ill-defined window durations suppress emission entirely.
+All aggregation is performed per domain and summed across sockets conservatively, ensuring that missing socket data cannot inflate reported energy.
+Since cumulative energy is always derived from native counters and offset subtraction is monotonic, exported energy values never decrease.
+
+\paragraph{Implementation Consequences}
+The implementation guarantees that exported RAPL energy metrics are stable cumulative counters suitable as authoritative inputs for later stages.
+Auxiliary power metrics are provided solely for inspection and convenience and are explicitly excluded from attribution logic.
+Optional quality or diagnostic metadata may be emitted for debugging purposes, but it does not affect metric semantics.
+
+\paragraph{Exported Metrics}
+The metrics exported by this implementation are summarized in the table~\ref{tab:rapl-exported-metrics}.
+Only cumulative energy counters intended as authoritative inputs and their auxiliary, user-facing power counterparts are listed.
+
+\begin{center}
+\begin{tabular}{llll}
+\toprule
+\textbf{Metric} & \textbf{Type} & \textbf{Unit} & \textbf{Labels} \\
+\midrule
+\multicolumn{4}{l}{\textit{RAPL component totals (per domain; pkg, core, uncore, dram)}} \\
+\midrule
+\code{tycho\_energy\_mj} & Counter & mJ & \code{domain}, \code{kind="total"}, \code{source="rapl"} \\
+\code{tycho\_power\_mw}  & Gauge   & mW & \code{domain}, \code{kind="total"}, \code{source="rapl"} \\
+\bottomrule
+\end{tabular}
+\label{tab:rapl-exported-metrics}
+\end{center}
+
+\subsubsection{GPU Component Metrics (Totals)}
+
+\paragraph{Problem Statement}
+GPU telemetry exposes multiple power- and energy-related observations that describe the same physical process under incompatible temporal semantics.
+Instantaneous power samples, one-second averaged power values, and optional cumulative energy counters are delivered concurrently but cannot be combined by direct integration or signal selection without introducing temporal bias or discarding information.
+Using any single signal in isolation either preserves absolute correctness at coarse granularity or improves temporal resolution at the cost of systematic error.
+The problem addressed here is therefore not measurement scarcity, but the absence of a principled method to reconcile redundant GPU observations into a single, temporally refined, internally consistent power and energy signal suitable for corrected-time analysis.
+
+\paragraph{Conceptual Model}
+GPU power is modeled as a latent, non-negative, continuous-time signal that is reconstructed on a uniform corrected-time grid and treated as the authoritative representation of device power.
+All raw GPU observations are interpreted as constraints on this latent signal rather than as independent metrics.
+Instantaneous and averaged power samples impose soft consistency constraints, while cumulative energy counters, when available, act as dominant anchors that strongly shape the reconstructed signal without enforcing exact equality.
+Smoothness constraints encode physical plausibility by penalizing implausible curvature while preserving total energy.
+The resulting reconstructed power series serves as the sole basis for deriving windowed GPU energy and power metrics, ensuring maximal use of available information while explicitly acknowledging the modeled nature of the signal.
+
+\paragraph{Formalization}
+For each GPU device, power is represented by a reconstructed sequence
+\( p = \{p_k\}_{k=0}^{N-1} \), defined on a uniform corrected-time grid with spacing \( \Delta t \).
+The reconstruction is posed as a constrained optimization problem in which \( p \) minimizes a weighted discrepancy to observed telemetry while satisfying physical plausibility.
+Let \( \mathcal{R} \) denote the set of observation constraints derived from instantaneous power samples, one-second averaged power samples, and optional cumulative energy readings.
+Each constraint \( r \in \mathcal{R} \) is expressed by a linear operator \( a_r \) acting on \( p \) with target value \( y_r \) and weight \( w_r \).
+
+The architectural objective is defined as
+\begin{equation}
+\min_{p \ge 0}
+\;\sum_{r \in \mathcal{R}} w_r^2 \left(a_r^\top p - y_r\right)^2
+\;+\;
+\lambda_D \sum_{k=1}^{N-2}
+\left(p_{k+1} - 2p_k + p_{k-1}\right)^2 ,
+\end{equation}
+where the second-difference term penalizes curvature and encodes smoothness without imposing a prior on absolute magnitude.
+Non-negativity \( p_k \ge 0 \) enforces physical feasibility.
+Cumulative energy observations contribute constraints whose weights dominate when present, ensuring strong energy consistency over time without enforcing hard equality.
+The solution \( p \) defines the authoritative GPU power signal; windowed GPU energy is obtained by integrating \( p \) over the corresponding corrected-time interval.
+
+\paragraph{Design Decisions}
+Reconstruction by constrained fusion is chosen over signal selection to avoid privileging any single GPU telemetry source and to preserve all available information.
+Cumulative energy counters are assigned dominant weight when available because they encode absolute energy change, yet they remain soft constraints to tolerate counter gaps, resets, and delayed reporting.
+Instantaneous and averaged power samples are retained as complementary observations that improve temporal resolution and stabilize reconstruction in the absence of energy counters.
+Smoothness is imposed via second differences to suppress implausible oscillations without biasing total energy or absolute power level.
+No magnitude prior is introduced, as any bias toward lower power would conflict with the accuracy-first objective and distort sustained-load estimates.
+
+\paragraph{Architectural Consequences}
+This formulation yields a single corrected GPU power signal per device that is temporally finer than any raw input and internally consistent across power and energy representations.
+All downstream GPU metrics are derived exclusively from this reconstructed signal, eliminating ambiguity arising from heterogeneous raw telemetry.
+The architecture guarantees physical plausibility and maximal energy consistency given available observations, while explicitly acknowledging the modeled nature of the result.
+It deliberately trades modeling complexity for improved temporal fidelity and reproducibility, establishing a stable foundation for subsequent attribution and aggregation stages.
+
 
 \subsubsection{Redfish-Corrected System Energy Metric}
 % Implementation of cross-domain fusion producing redfish_corrected.
 % Treated as ground truth for subsequent stages.
-
-\subsubsection{GPU-Corrected Energy Metric}
-% Implementation of intra-domain GPU fusion producing gpu_corrected.
 
 \subsection{Stage 2: System-Level Energy Model and Residual}
 % Realization of the architectural system-level energy model.
