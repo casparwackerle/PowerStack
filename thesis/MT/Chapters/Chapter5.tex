@@ -137,13 +137,13 @@ This chapter explains how Tycho’s architectural abstractions are realised at r
 
 At execution time, Tycho is structured as a set of long-lived subsystems with strictly separated responsibilities and unidirectional interaction. Each subsystem exercises authority over a narrow concern, and no subsystem compensates implicitly for the behaviour of others. This execution-time separation forms the foundation for correctness, auditability, and robustness throughout the implementation.
 
-% Additional implementation detail that is not required for understanding the
-% runtime structure or correctness arguments is intentionally deferred to
-% \hyperref[sec:tycho_sysenv]{Appendix~C}.
-% The appendix collects auxiliary material such as extended configuration
-% descriptions, supporting scripts, and low-level operational notes that aid
-% reproducibility and inspection without obscuring the main implementation
-% narrative.
+Additional implementation detail that is not required for understanding the
+runtime structure or correctness arguments is intentionally deferred to
+\hyperref[sec:tycho_sysenv]{Appendix~C}.
+The appendix collects auxiliary material such as extended configuration
+descriptions, supporting scripts, and low-level operational notes that aid
+reproducibility and inspection without obscuring the main implementation
+narrative.
 
 \subsection{Runtime Subsystems and Responsibilities}
 
@@ -680,78 +680,287 @@ metrics collected at each level.
 \label{tab:gpu-process-metrics}
 \end{table}
 
-
 \section{Metadata and Identity Infrastructure}
 \label{sec:impl_metadata}
-% Implementation of the architectural metadata subsystem.
-% Provides stable identities and hierarchy required for attribution.
-% No interpretation of metrics or attribution logic is performed here.
 
-\subsection{Hierarchy Modeling}
+\subsection{Architectural Context}
+This section realises the metadata subsystem defined in \S~\ref{sec:arch_metadata_collection} as a refresh-driven, bounded cache that supplies joinable workload identity to the analysis engine.
+Metadata does not form a time series and is not evaluated over analysis windows.
+Its function is to provide sufficiently fresh identity state at analysis boundaries while remaining robust under partial observability, workload churn, and asynchronous sources.
 
-\subsubsection{Node, Workload, Pod, Container Identities}
-% Describe how identities at different hierarchy levels are represented in practice.
-% Emphasize consistency with the architectural attribution hierarchy.
-% Clarify that identities are treated as labels for joining, not as attribution decisions.
+\subsection{Controller-Orchestrated Refresh and Lifetime Enforcement}
+All metadata mutation is centralized in a metadata controller, which constitutes the sole authority over state updates and lifecycle management.
+Collectors never modify analysis-visible state directly and never delete entries.
+They submit observations to the controller, which serializes updates and enforces freshness and retention rules.
+This separation is required to ensure that identity state is maximally fresh at analysis boundaries while remaining bounded and deterministic under missing or partial updates.
 
-\subsubsection{Join Keys and Referential Stability}
-% Explain which identifiers are used to join metrics to identities.
-% Describe how referential stability is ensured within attribution windows.
-% Emphasize avoidance of ambiguous or time-unstable joins.
+At the start of every analysis cycle, the analysis engine triggers exactly one metadata refresh.
+This refresh dominates all other scheduling and ensures that identity state reflects the most recent observable system structure at the moment the analysis window is evaluated.
+Additional refreshes within the same cycle are unnecessary, as the window is closed at the cycle boundary and later identity changes cannot affect its evaluation.
 
-\subsection{Identity Lifetime Management}
+To bound metadata age when analysis cycles are long or sparse, the controller may execute collectors periodically.
+Each collector has an independent freshness target, with defaults of $1\,\mathrm{s}$ for the proc collector and $3\,\mathrm{s}$ for the kubelet collector.
+Background execution is suppressed when an analysis-triggered refresh is imminent, specifically when it lies within $250\,\mathrm{ms}$, ensuring that the cycle-start refresh dominates and that redundant collection near analysis boundaries is avoided.
 
-\subsubsection{Stability Within Attribution Windows}
-% Explain how identity changes are prevented or controlled within a window.
-% Emphasize window-local consistency guarantees required for correct attribution.
+Metadata collection is explicitly best-effort.
+Collectors do not define a notion of success and may submit partial updates.
+The controller accepts all updates without requiring a complete snapshot, and cache convergence is achieved through repeated refreshes.
+Missing observations are handled exclusively through horizon-based expiry rather than through collection-time interpretation, preserving a strict separation between identity acquisition and attribution logic.
 
-\subsubsection{Controlled Evolution Across Windows}
-% Describe how identity creation, deletion, and changes are handled across windows.
-% Emphasize explicit transitions rather than silent reinterpretation.
+\subsection{Metadata Store, Keys, and Temporal Alignment}
+Metadata is stored in an in-memory cache partitioned by entity type.
+Entries represent the most recent known identity state and are overwritten in place on update; historical versions are not retained.
+Pod entries are keyed by pod UID, container entries by normalized runtime container ID, and process entries by PID with the process start token (\texttt{StartJiffies}) retained for disambiguation.
 
-\subsection{Degradation Under Metadata Incompleteness}
+PID reuse is handled by treating the pair (PID, \texttt{StartJiffies}) as the effective process identity.
+When a PID is reused, a new entry is created rather than overwriting the prior instance, preventing stale process metadata from being joined with unrelated activity during overlapping analysis windows.
 
-\subsubsection{Missing Joins and Fallback Semantics}
-% Describe behavior when identity information is missing or incomplete.
-% Explain fallback attribution behavior and its limitations.
-% Emphasize explicit degradation rather than incorrect attribution.
+All metadata updates within a refresh are timestamped once using Tycho’s global monotonic timebase.
+The same timestamp is applied uniformly to all entries updated in that refresh, ensuring consistent temporal alignment with metric observations without introducing enumeration-induced skew.
+An auxiliary wall-clock timestamp is recorded for diagnostics but is not used in attribution logic.
 
-\section{Calibration Mechanisms}
+Garbage collection is executed periodically by the controller and independently of refresh scheduling.
+Entries whose last-seen timestamp falls outside the same retention horizon used for metric buffers are removed.
+This alignment guarantees that any retained metric observation remains joinable with identity metadata while providing deterministic memory bounds and natural cache drainage under missing updates.
+
+\subsection{Proc Collector}
+The proc collector provides the operating-system view required to associate process-level activity with container identity.
+It enumerates processes via the proc filesystem and records a deliberately minimal attribute set consisting of process identifiers, command name, and cgroup membership.
+This minimalism avoids unstable or expensive enrichment at collection time while retaining all information required for later joins.
+
+Process-to-container association is derived from cgroup membership and normalized into a runtime container identifier.
+Both cgroup version~1 and version~2 layouts are supported, and normalization targets containerd and CRI-O runtimes.
+Processes that cannot be mapped to a Kubernetes container are labeled with a sentinel container identifier stored directly in the process entry, avoiding synthetic container objects and keeping system activity explicit at analysis time.
+
+Process enumeration is inherently racy.
+Processes may disappear during traversal and individual reads may fail due to lifecycle races.
+Such failures are treated as normal; only successfully read entries are updated, and stale state is removed by horizon-based expiry.
+
+\subsection{Kubelet Collector}
+The kubelet collector supplies the authoritative Kubernetes node-local view required for correct pod and container attribution.
+It periodically retrieves the kubelet \code{/pods} endpoint and persists only identity information that cannot be reliably reconstructed after termination.
+
+Container identifiers are normalized at collection time, and only the normalized form is stored.
+Init containers and ephemeral containers are represented uniformly as container entries with lifecycle-dependent status categories.
+Termination state and exit codes are recorded when available, allowing analysis to avoid attributing energy to completed workloads without relying on event histories.
+
+The kubelet view is the sole stable source of resource specifications once workloads terminate.
+Tycho therefore stores CPU and memory requests and limits for both containers and aggregated pods.
+If the kubelet is temporarily unreachable, no updates are applied for that refresh.
+There is no explicit freshness gating in analysis; degradation manifests through missing or stale joins bounded by the retention horizon.
+
+\subsection{Metadata Contract and Join Surface}
+The metadata subsystem exposes a fixed set of identity fields that define the complete join surface available to the analysis engine.
+Tables~\ref{tab:process-metadata-collector-metrics}, \ref{tab:kubelet-metadata-pod}, and \ref{tab:kubelet-metadata-container} summarize the fields collected by the proc and kubelet collectors.
+This inventory constitutes an implementation contract: attribution feasibility and correctness depend directly on the presence and semantics of these fields, and no additional identity information is assumed downstream.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{p{3cm} p{3.4cm} p{6.6cm}}
+\toprule
+\textbf{Field} & \textbf{Source} & \textbf{Description} \\
+\midrule
+\multicolumn{3}{l}{\textit{Process identity}} \\[4pt]
+PID & \code{/proc} & Numeric process identifier; unique at any moment but reused over time. \\
+StartJiffies & \code{/proc/<pid>/stat} & Kernel start time of the process in clock ticks (jiffies), used to detect PID reuse. \\[4pt]
+\multicolumn{3}{l}{\textit{Container and system classification}} \\[4pt]
+Container ID & Kepler cgroup\newline resolver & Normalized container identifier for pod processes; \code{system\_processes} for host and kernel processes. \\
+Command & \code{/proc/<pid>/comm} & Short command name for debugging and manual inspection. \\[4pt]
+
+\multicolumn{3}{l}{\textit{Timestamps}} \\[4pt]
+LastSeenMono & Monotonic timebase & Timestamp aligned with metric collectors. \\
+LastSeenWall & Controller timestamp & Wall-clock timestamp for GC. \\
+\bottomrule
+\end{tabular}
+\caption{Process metadata collected by the process collector}
+\label{tab:process-metadata-collector-metrics}
+\end{table}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{p{2.6cm} p{3.8cm} p{6.6cm}}
+\toprule
+\textbf{Field} & \textbf{Source} & \textbf{Description} \\
+\midrule
+\multicolumn{3}{l}{\textit{Pod identity}} \\[4pt]
+PodUID & Kubelet PodList & Stable pod identifier for correlation\newline and container grouping. \\
+PodName,\newline Namespace & Kubelet PodList & Human-readable pod identity\newline and namespace. \\[4pt]
+
+\multicolumn{3}{l}{\textit{Lifecycle and scheduling context}} \\[4pt]
+Phase & PodStatus & Coarse pod state\newline (Pending, Running, Succeeded, Failed). \\
+QoSClass & PodStatus & Kubernetes QoS classification\newline (Guaranteed, Burstable, BestEffort). \\
+OwnerKind /\newline OwnerName & Pod metadata & Controller reference\newline (e.g.\ ReplicaSet, DaemonSet). \\[4pt]
+
+\multicolumn{3}{l}{\textit{Resource specifications}} \\[4pt]
+Requests\newline (CPU, Memory) & \code{pod.spec.containers} & Aggregate pod-level requests following Kubernetes scheduling semantics. \\
+Limits\newline (CPU, Memory) & \code{pod.spec.containers} & Aggregate pod-level limits following\newline Kubernetes scheduling semantics. \\[4pt]
+
+\multicolumn{3}{l}{\textit{Timestamps}} \\[4pt]
+LastSeenMono & Monotonic timebase & Timestamp aligned with metric collectors. \\
+LastSeenWall & Controller timestamp & Wall-clock timestamp for GC.\\
+\bottomrule
+\end{tabular}
+\caption{Pod metadata collected by the kubelet collector}
+\label{tab:kubelet-metadata-pod}
+\end{table}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{p{2.6cm} p{3.8cm} p{6.6cm}}
+\toprule
+\textbf{Field} & \textbf{Source} & \textbf{Description} \\
+\midrule
+\multicolumn{3}{l}{\textit{Container identity}} \\[4pt]
+ContainerID & PodStatus & Normalized container identifier. \\
+ContainerName & PodStatus & Declared container name within pod. \\[4pt]
+
+\multicolumn{3}{l}{\textit{Lifecycle state}} \\[4pt]
+State & ContainerStatus & Fine-grained state\newline (Running, Waiting, Terminated). \\
+ExitCode & ContainerStatus & Termination exit code when available. \\[4pt]
+
+\multicolumn{3}{l}{\textit{Resource specifications}} \\[4pt]
+Requests\newline (CPU, Memory) & \code{pod.spec.containers} & Container-level resource requests;\newline preserved for terminated containers. \\
+Limits\newline (CPU, Memory) & \code{pod.spec.containers} & Container-level resource limits. \\[4pt]
+
+\multicolumn{3}{l}{\textit{Timestamps}} \\[4pt]
+LastSeenMono & Monotonic timebase & Timestamp aligned with metric collectors. \\
+LastSeenWall & Controller timestamp & Wall-clock timestamp for GC. \\
+\bottomrule
+\end{tabular}
+\caption{Container metadata collected by the kubelet collector}
+\label{tab:kubelet-metadata-container}
+\end{table}
+
+\subsection{Design Consequences and Exclusions}
+By centralizing lifecycle enforcement and treating sources as independently valid, the subsystem provides maximally fresh identity at analysis boundaries while remaining robust to partial observability and transient failures.
+Correctness relies on bounded freshness and explicit joins rather than on point-in-time snapshots or event histories.
+
+
+\section{Calibration}
 \label{sec:impl_calibration}
-% Realization of architectural calibration concepts.
-% Calibration supports correctness of temporal alignment and metric construction.
-% Calibration does not perform attribution or interpretation.
 
-\subsection{Polling-Frequency Calibration}
+This section describes how the calibration architecture introduced in
+\S~\ref{sec:calibration} is realized in Tycho’s implementation.
+Calibration is implemented as a bounded, startup-time procedure whose sole role
+is to reduce temporal uncertainty in hardware-controlled metric publication
+before steady-state collection begins.
+It exists to improve the correctness of downstream timing and attribution under
+partial observability, without introducing runtime adaptation or feedback.
 
-\subsubsection{Motivation and Correctness Role}
-% Explain why effective polling frequency matters for windowed analysis.
-% Describe how polling characteristics influence temporal coverage and bias.
-% Emphasize calibration as a correctness prerequisite, not an optimization.
+Calibration is optional and can be disabled via configuration.
+When enabled, it is executed at most once per Tycho process lifetime and is not
+re-entered or repeated.
+All calibration results are node-local and apply only to the process instance
+that performed them.
 
-\subsubsection{Application to Collector Scheduling}
-% Describe how calibrated polling information is applied in practice.
-% Clarify that collectors remain independently scheduled.
-% Emphasize that calibration informs analysis assumptions, not collector control.
+\subsection{Architectural Context}
 
-\subsection{Delay Calibration}
+The calibration architecture distinguishes two orthogonal concerns:
+polling-frequency calibration, which bounds the minimum safe polling period for
+hardware-controlled metric sources, and delay calibration, which bounds the
+reaction latency between workload transitions and observable metric changes.
+Only polling-frequency calibration is integrated into Tycho’s startup path.
+Delay calibration is treated as an external preparatory step and is consumed
+purely as static configuration.
 
-\subsubsection{Delay Estimation}
-% Describe how source-specific observation delays are estimated.
-% Explain the role of calibration runs or measurements.
-% Emphasize bounded, approximate delay characterization.
+Calibration parameters are consumed by the timing and analysis subsystems.
+They do not influence runtime attribution logic directly and do not observe live
+workloads.
 
-\subsubsection{Use of Calibrated Delays in Analysis}
-% Describe how calibrated delays are applied during event-time alignment.
-% Clarify that delays are used to shift or bound observations, not to reorder causality.
+\subsection{Startup Strategy and Collector Gating}
 
-\subsection{Calibration Failure Modes}
+Polling-frequency calibration is executed during Tycho startup, prior to enabling
+the affected collectors.
+Collectors whose polling cadence depends on calibrated bounds are held inactive
+until calibration completes or is bypassed.
+As a consequence, no metrics from these collectors are emitted before a polling
+interval has been selected.
 
-\subsubsection{Stale Calibration and Safety Constraints}
-% Describe behavior when calibration data becomes stale or unavailable.
-% Explain safety constraints and conservative fallback behavior.
-% Emphasize explicit degradation rather than silent misuse of invalid calibration.
+Calibration does not block system startup indefinitely.
+If insufficient observations are obtained or calibration fails for any reason,
+Tycho falls back to user-configured default polling intervals.
+This fallback is silent at the semantic level and does not alter runtime behavior,
+ensuring that metric availability is not contingent on successful calibration.
+Empirically derived bounds are preferred when available, but correctness does not
+depend on their presence.
 
+When multiple devices contribute to a single collector on a node, calibration
+results are aggregated conservatively.
+The most restrictive bound across all observed devices is selected and applied
+uniformly, ensuring that no device-level publication is undersampled due to
+intra-node variability.
+
+\subsection{Polling-Frequency Calibration Mechanism}
+
+Polling-frequency calibration is realized as a short-lived hyperpolling phase.
+During this phase, Tycho queries the relevant hardware interface at a
+conservatively high rate and passively observes the arrival of distinct metric
+updates.
+From these observations, it derives a conservative bound on the minimum safe
+polling period that avoids undersampling under nominal conditions.
+
+For GPU power metrics, calibration is performed independently for each device
+using NVML.
+Per-device observations are aggregated at node level, and the most restrictive
+bound is selected.
+The resulting polling period is then applied uniformly to all GPU collectors on
+that node, ensuring consistent temporal coverage across heterogeneous devices.
+
+For Redfish power metrics, calibration operates at the level of the BMC.
+Observed updates across all exposed chassis contribute to the inferred cadence,
+allowing calibration to remain valid in multi-chassis configurations.
+When Redfish \textit{heartbeat} is enabled, the calibrated polling period is additionally
+constrained by a hard cap derived from the heartbeat interval.
+Calibration therefore establishes a lower bound on safe polling, while heartbeat
+logic enforces upper limits on staleness during steady-state operation.
+The two mechanisms are strictly layered and do not overlap in responsibility.
+
+No polling-frequency calibration is performed for RAPL or eBPF.
+RAPL counters update quasi-continuously relative to Tycho’s temporal resolution,
+making undersampling architecturally irrelevant.
+eBPF metrics are event-driven and decoupled from device-side publication cadence,
+rendering polling-frequency discovery unnecessary.
+
+\subsection{Delay Calibration Integration}
+
+Delay calibration is not performed within Tycho.
+Estimating the latency between workload transitions and observable metric
+reactions requires controlled, high-intensity workload generation that is
+incompatible with Tycho’s non-intrusive monitoring constraints.
+
+Instead, delay calibration is carried out offline using external tooling that
+executes directly on the target system.
+These measurements derive conservative, device-specific delay bounds for GPU
+power metrics.
+The resulting bounds are supplied to Tycho exclusively via configuration.
+At runtime, Tycho treats these bounds as static parameters and applies them during
+analysis to prevent premature attribution and to align metric data with workload
+phases.
+
+When multiple GPU devices are present, Tycho selects the smallest configured
+delay bound across devices and applies it uniformly.
+This choice favors temporal responsiveness while remaining consistent with the
+best-effort nature of delay estimation.
+
+No delay calibration is applied to Redfish.
+Irregular publication intervals, variable network latency, and opaque
+BMC-internal behavior preclude stable delay estimation.
+Redfish metrics are therefore treated as coarse signals whose temporal coherence
+is enforced through freshness tracking and scheduling constraints rather than
+delay correction.
+
+\subsection{Implementation Consequences}
+
+Calibration improves attribution correctness by reducing avoidable temporal
+uncertainty in hardware-controlled metric sources.
+It provides best-effort bounds that constrain polling and alignment decisions
+without introducing runtime adaptation or control coupling.
+By resolving these uncertainties ahead of steady-state operation, Tycho preserves
+deterministic execution, bounded timing behavior, and strict separation between
+observation and analysis.
 
 \section{Analysis and Attribution Pipeline}
 \label{sec:impl_analysis_pipeline}
