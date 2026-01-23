@@ -303,8 +303,8 @@ The collector’s responsibility is strictly limited to observing hardware-provi
 
 \subsubsection{Implementation Strategy}
 To preserve domain-consistent CPU energy measurement across vendors, the collector employs a dual-backend strategy selected at runtime via CPUID.  
-On Intel systems, energy is obtained through the RAPL interface exposed via the \texttt{powercap} subsystem.  
-On AMD systems, the collector preferentially uses \texttt{amd\_energy} via the \texttt{hwmon} interface, which provides accurate CPU energy telemetry on these platforms.  
+On Intel systems, energy is obtained through the RAPL interface exposed via the \code{powercap} subsystem.  
+On AMD systems, the collector preferentially uses \code{amd\_energy} via the \code{hwmon} interface, which provides accurate CPU energy telemetry on these platforms.  
 The powercap path is used on AMD only if no CPU-labeled hwmon energy source is present.  
 This strategy ensures that the architectural RAPL domain abstraction is realized consistently, independent of vendor-specific exposure mechanisms.
 
@@ -312,12 +312,12 @@ This strategy ensures that the architectural RAPL domain abstraction is realized
 At each tick, the collector obtains a single snapshot of cumulative energy counters for all available CPU domains and sockets and records them unchanged.  
 All values are stored as cumulative microjoule counters, matching the native units of the underlying sources.  
 Supported domains include package and core on all platforms, with uncore (PP1) and DRAM recorded when exposed by the hardware.  
-On AMD systems, \texttt{amd\_energy} publishes per-logical-core energy values; these are aggregated by summation into a single cumulative core-domain counter to preserve domain semantics.  
+On AMD systems, \code{amd\_energy} publishes per-logical-core energy values; these are aggregated by summation into a single cumulative core-domain counter to preserve domain semantics.  
 Domains not provided by the platform are recorded as zero to maintain a stable domain set across ticks.
 
 \subsubsection{Robustness and Edge Cases}
 Powercap-backed RAPL counters may wrap and are corrected at collection time to maintain monotonicity.  
-The hwmon-backed \texttt{amd\_energy} counters do not wrap and require no correction.
+The hwmon-backed \code{amd\_energy} counters do not wrap and require no correction.
 Each sample is tagged exclusively with a monotonic timestamp provided by Tycho’s timing engine.  
 Partial reads are permitted and result in partial ticks; no backend instability was observed in practice.
 
@@ -328,7 +328,7 @@ The only remaining limitation is platform-dependent domain availability, which i
 
 \subsubsection{Collected Metrics}
 The RAPL collector exports raw cumulative energy counters once per tick.  
-Table~\ref{tab:rapl-metrics} summarizes the metrics recorded per \texttt{RaplTick}.
+Table~\ref{tab:rapl-metrics} summarizes the metrics recorded per \code{RaplTick}.
 \begin{table}[H]
 \centering
 \small
@@ -710,9 +710,9 @@ Missing observations are handled exclusively through horizon-based expiry rather
 \subsection{Metadata Store, Keys, and Temporal Alignment}
 Metadata is stored in an in-memory cache partitioned by entity type.
 Entries represent the most recent known identity state and are overwritten in place on update; historical versions are not retained.
-Pod entries are keyed by pod UID, container entries by normalized runtime container ID, and process entries by PID with the process start token (\texttt{StartJiffies}) retained for disambiguation.
+Pod entries are keyed by pod UID, container entries by normalized runtime container ID, and process entries by PID with the process start token (\code{StartJiffies}) retained for disambiguation.
 
-PID reuse is handled by treating the pair (PID, \texttt{StartJiffies}) as the effective process identity.
+PID reuse is handled by treating the pair (PID, \code{StartJiffies}) as the effective process identity.
 When a PID is reused, a new entry is created rather than overwriting the prior instance, preventing stale process metadata from being joined with unrelated activity during overlapping analysis windows.
 
 All metadata updates within a refresh are timestamped once using Tycho’s global monotonic timebase.
@@ -1150,31 +1150,31 @@ They enable later analysis stages to operate on materialized, window-scoped quan
 \subsubsection{Component-Level eBPF Utilization Metrics (Totals)}
 \label{sec:impl_ebpf_util_metrics}
 
-\paragraph{Problem Statement}
-The architectural definition of eBPF-based utilization metrics must be realized from discrete, per-tick kernel observations.
-The implementation must construct window-aligned CPU time-share ratios and cumulative counters while preserving monotonicity, conservation, and interpretability under discretization and partial window overlap.
+\paragraph{Architectural Context}
+This subsubsection realizes the utilization metrics defined in \S~\ref{sec:arch_ebpf_util_metrics}.
+It implements the window-aligned construction of node-level CPU time-share ratios and cumulative kernel and hardware counters from discrete eBPF observations, without redefining architectural semantics or introducing additional modeling assumptions.
 
-\paragraph{Conceptual Model}
-Implementation operates on streams of eBPF ticks exposing per-tick deltas for CPU execution classes and kernel or hardware events.
-For each analysis window, deltas are integrated over the effective window interval to produce window-scoped utilization quantities.
-CPU time is normalized against node capacity to obtain ratios, while all other signals are accumulated into persistent node-level counters.
+\paragraph{Implementation Strategy}
+Discrete eBPF observations are consumed as per-tick deltas.
+For each analysis window, deltas are integrated over an effective window interval to approximate the continuous quantities defined architecturally.
+CPU execution time is normalized against node capacity to obtain ratios, while all other eBPF-derived signals are aggregated across processes and accumulated into persistent node-level counters.
 
-\paragraph{Formalization}
-Discrete eBPF deltas are integrated over window boundaries using overlap-aware aggregation to approximate the continuous quantities defined architecturally.
-CPU idle, interrupt, and soft-interrupt times are integrated independently and normalized by the product of window duration and logical CPU count.
-Active CPU utilization is materialized as the complement of the non-active components, ensuring exact conservation of total CPU capacity.
-Event-based signals are summed across all processes and accumulated over successive windows, yielding monotonic counters consistent with the architectural model.
+\paragraph{Core Mechanisms}
+Per-tick deltas for CPU idle, hardware interrupt, and software interrupt execution are integrated independently over the window.
+Normalization uses the product of window duration and logical CPU count to obtain dimensionless time-share ratios.
+Active CPU utilization is derived as the complement of the integrated non-active components, enforcing exact conservation of schedulable CPU capacity.
+For event-based signals, per-process deltas are summed at each tick, integrated over the window, and added to cumulative counters that advance monotonically across analysis cycles.
 
-\paragraph{Design Decisions}
-Integration across window boundaries admits fractional contributions to preserve conservation in the presence of misaligned ticks.
-Internal accumulation is therefore performed using floating-point state, while exported counters are materialized as integer-valued quantities.
-Active CPU time is not measured directly but derived as a residual to avoid dependence on additional kernel signals and to guarantee ratio consistency.
+\paragraph{Robustness and Edge Cases}
+Window boundaries may intersect eBPF tick intervals.
+Integration therefore accounts for partial overlap between ticks and windows to preserve conservation and avoid bias at window edges.
+Internal accumulation admits fractional contributions to accommodate overlap, while exported counters are materialized as integer-valued quantities.
+If insufficient eBPF samples are available to conservatively integrate a window, no metrics are emitted for that window.
 
 \paragraph{Implementation Consequences}
-The realized metrics uphold the architectural guarantees of strict monotonicity for counters and exact partitioning of CPU capacity across utilization classes.
-Counters are scoped to the lifetime of the Tycho process and may reset on restart.
-If insufficient samples are available to conservatively integrate a window, metric emission for that window is suppressed.
-These behaviors ensure correctness under sampling variability while maintaining stable semantics for downstream consumption.
+The implementation enforces the architectural guarantees of strict monotonicity for counters and exact partitioning of CPU capacity across utilization classes.
+All cumulative metrics are scoped to the lifetime of the Tycho process and may reset on restart.
+These semantics ensure stable interpretation under sampling variability and allow downstream stages to rely on consistent utilization signals.
 
 \paragraph{Exported Metrics}
 The metrics exported by this implementation are summarized in the table~\ref{tab:ebpf-util-exported-metrics}.
@@ -1258,133 +1258,694 @@ Only cumulative energy counters intended as authoritative inputs and their auxil
 
 \subsubsection{GPU Component Metrics (Totals)}
 
-\paragraph{Problem Statement}
-GPU telemetry exposes multiple power- and energy-related observations that describe the same physical process under incompatible temporal semantics.
-Instantaneous power samples, one-second averaged power values, and optional cumulative energy counters are delivered concurrently but cannot be combined by direct integration or signal selection without introducing temporal bias or discarding information.
-Using any single signal in isolation either preserves absolute correctness at coarse granularity or improves temporal resolution at the cost of systematic error.
-The problem addressed here is therefore not measurement scarcity, but the absence of a principled method to reconcile redundant GPU observations into a single, temporally refined, internally consistent power and energy signal suitable for corrected-time analysis.
+\paragraph{Architectural Context}
+This section realizes the architectural definition of GPU power and energy reconstruction as a history-aware, constraint-based process.
+Unlike collectors that derive window-local quantities directly from raw samples, the GPU metric maintains a corrected power signal over a retained corrected-time horizon and derives windowed quantities as projections of that maintained signal.
+Historical state is therefore treated as a correctness mechanism rather than an optimization, enabling reconciliation of delayed, averaged, and cumulative GPU observations into a single authoritative timeline.
+All execution-time mechanisms described below exist to uphold this contract under discretization, partial observability, and bounded computation.
 
-\paragraph{Conceptual Model}
-GPU power is modeled as a latent, non-negative, continuous-time signal that is reconstructed on a uniform corrected-time grid and treated as the authoritative representation of device power.
-All raw GPU observations are interpreted as constraints on this latent signal rather than as independent metrics.
-Instantaneous and averaged power samples impose soft consistency constraints, while cumulative energy counters, when available, act as dominant anchors that strongly shape the reconstructed signal without enforcing exact equality.
-Smoothness constraints encode physical plausibility by penalizing implausible curvature while preserving total energy.
-The resulting reconstructed power series serves as the sole basis for deriving windowed GPU energy and power metrics, ensuring maximal use of available information while explicitly acknowledging the modeled nature of the signal.
+\paragraph{Implementation Strategy}
+GPU reconstruction is implemented by maintaining a per-device corrected power series on a uniform corrected-time grid that persists across analysis cycles.
+Rather than recomputing power independently per window, the implementation incrementally extends and updates this series using newly available observations while preserving previously reconstructed history.
+To bound computation, reconstruction is confined to a moving tail region near the current analysis window, while constraints are derived from observations spanning a longer retained history.
+Windowed GPU energy and power are obtained by projecting the maintained series onto the analysis window, ensuring temporal coherence across windows and alignment with the accuracy-first architectural objective.
 
-\paragraph{Formalization}
-For each GPU device, power is represented by a reconstructed sequence
-\( p = \{p_k\}_{k=0}^{N-1} \), defined on a uniform corrected-time grid with spacing \( \Delta t \).
-The reconstruction is posed as a constrained optimization problem in which \( p \) minimizes a weighted discrepancy to observed telemetry while satisfying physical plausibility.
-Let \( \mathcal{R} \) denote the set of observation constraints derived from instantaneous power samples, one-second averaged power samples, and optional cumulative energy readings.
-Each constraint \( r \in \mathcal{R} \) is expressed by a linear operator \( a_r \) acting on \( p \) with target value \( y_r \) and weight \( w_r \).
+\paragraph{Constraint Realization}
+Raw GPU telemetry is realized as weighted constraints on the corrected power series.
+Instantaneous power samples contribute point-wise soft constraints, while one-second averaged power samples are realized as boxcar-mean constraints over the preceding approximately one-second interval on the uniform grid.
+Cumulative energy counters, when present and validated, contribute dominant consistency constraints derived from positive, monotonic energy deltas mapped to the corresponding grid intervals.
+Constraint families use fixed internal relative weights reflecting expected reliability, with cumulative energy dominating when enabled.
+All constraints act jointly on the reconstructed series in corrected time, avoiding sequential correction or signal prioritization.
 
-The architectural objective is defined as
-\begin{equation}
-\min_{p \ge 0}
-\;\sum_{r \in \mathcal{R}} w_r^2 \left(a_r^\top p - y_r\right)^2
-\;+\;
-\lambda_D \sum_{k=1}^{N-2}
-\left(p_{k+1} - 2p_k + p_{k-1}\right)^2 ,
-\end{equation}
-where the second-difference term penalizes curvature and encodes smoothness without imposing a prior on absolute magnitude.
-Non-negativity \( p_k \ge 0 \) enforces physical feasibility.
-Cumulative energy observations contribute constraints whose weights dominate when present, ensuring strong energy consistency over time without enforcing hard equality.
-The solution \( p \) defines the authoritative GPU power signal; windowed GPU energy is obtained by integrating \( p \) over the corresponding corrected-time interval.
+\paragraph{Reconstruction and Update Semantics}
+Reconstruction is performed on a moving tail of the corrected power history covering the most recent portion of the retained horizon.
+Only this tail segment is re-solved each cycle, after which it overwrites the corresponding region of the maintained history on the uniform grid.
+This moving-horizon approach bounds computational cost while allowing historical observations to influence the present reconstruction.
+If reconstruction cannot be performed due to insufficient or inconsistent observations, the previously retained history is preserved unchanged, ensuring continuity of the corrected signal across cycles.
 
-\paragraph{Design Decisions}
-Reconstruction by constrained fusion is chosen over signal selection to avoid privileging any single GPU telemetry source and to preserve all available information.
-Cumulative energy counters are assigned dominant weight when available because they encode absolute energy change, yet they remain soft constraints to tolerate counter gaps, resets, and delayed reporting.
-Instantaneous and averaged power samples are retained as complementary observations that improve temporal resolution and stabilize reconstruction in the absence of energy counters.
-Smoothness is imposed via second differences to suppress implausible oscillations without biasing total energy or absolute power level.
-No magnitude prior is introduced, as any bias toward lower power would conflict with the accuracy-first objective and distort sustained-load estimates.
+\paragraph{Windowed Energy and Power Derivation}
+Windowed GPU energy is derived by projecting the corrected power history onto the current analysis window.
+When validated cumulative energy counters are available and a prior baseline exists, the window energy increment is obtained directly from the counter delta to preserve absolute energy consistency.
+Otherwise, window energy is computed by integrating the corrected power series over the window interval.
+Windowed GPU power is derived from the corresponding window energy and duration and represents the same underlying quantity as a gauge.
+Per-window energy values are treated as auxiliary quantities, while the maintained reconstructed history remains authoritative.
 
-\paragraph{Architectural Consequences}
-This formulation yields a single corrected GPU power signal per device that is temporally finer than any raw input and internally consistent across power and energy representations.
-All downstream GPU metrics are derived exclusively from this reconstructed signal, eliminating ambiguity arising from heterogeneous raw telemetry.
-The architecture guarantees physical plausibility and maximal energy consistency given available observations, while explicitly acknowledging the modeled nature of the result.
-It deliberately trades modeling complexity for improved temporal fidelity and reproducibility, establishing a stable foundation for subsequent attribution and aggregation stages.
+\paragraph{Robustness and Edge Cases}
+The implementation explicitly tolerates missing, delayed, and partially invalid GPU telemetry.
+Cumulative energy constraints are enabled only when counters are present, non-zero, strictly increasing, and yield valid deltas; otherwise they are disabled automatically.
+Non-negativity is enforced via post-solve projection to prevent physically implausible power estimates.
+If projection affects a substantial fraction of bins, a conservative second reconstruction pass is attempted with cumulative energy constraints disabled, and the better-conditioned solution is retained.
+Numerical conditioning is ensured through a minimal diagonal stabilization term applied purely for solver robustness and without modeling semantics.
+Transient reconstruction failures preserve the previously retained history, preventing discontinuities in downstream metrics.
 
+\paragraph{Implementation Consequences}
+By maintaining a corrected GPU power history across analysis cycles, the implementation achieves temporal coherence and energy consistency that window-local estimation cannot provide.
+Historical context enables delayed, averaged, and cumulative observations to jointly constrain the reconstructed signal, improving stability and effective temporal resolution under realistic telemetry conditions.
+When cumulative energy counters are available, absolute energy consistency is preserved across windows; otherwise the system degrades gracefully to history-informed integration without violating physical plausibility.
+While no claim is made to recover ground-truth GPU power, all exported GPU energy and power metrics are guaranteed to derive from a single, internally consistent reconstructed signal that maximally exploits available information.
 
-\subsubsection{Redfish-Corrected System Energy Metric}
-% Implementation of cross-domain fusion producing redfish_corrected.
-% Treated as ground truth for subsequent stages.
+\paragraph{Exported Metrics}
+The exported metrics are summarized in Table~\ref{tab:gpu-exported-metrics}.
+
+\begin{table}[t]
+\centering
+\caption{Exported GPU metrics derived from the corrected reconstruction.}
+\label{tab:gpu-exported-metrics}
+\begin{tabular}{llll}
+\toprule
+\textbf{Metric} & \textbf{Type} & \textbf{Unit} & \textbf{Labels} \\
+\midrule
+\multicolumn{4}{l}{\textit{Total GPU metrics}} \\
+\midrule
+\code{gpu\_energy\_mj} & Counter & mJ & \code{gpu\_uuid}, \code{kind}, \code{source} \\
+\code{gpu\_power\_mw}  & Gauge   & mW & \code{gpu\_uuid}, \code{kind}, \code{source} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Redfish Component Metrics (Totals)}
+\label{sec:metric_redfish_impl}
+
+\paragraph{Architectural Context}
+This section realises the Redfish-based system power construction defined in \S~\ref{sec:metric_redfish_arch}.
+The architecture specifies two complementary system-level series: a raw integration of Redfish telemetry and a corrected reconstruction that treats Redfish as an anchoring signal for a higher-rate proxy-based model.
+The implementation must therefore support delay-aware observation handling, horizon-spanning state, adaptive alignment, and a controlled transition from raw to corrected emission without violating counter continuity.
+
+\paragraph{Implementation Strategy}
+The implementation is split into three cooperating responsibilities.
+First, a raw producer integrates sparse Redfish samples over the effective analysis window and maintains the canonical system counter during warmup.
+Second, a fusion substrate maintains a fixed-grid horizon cache populated from component proxy metrics and refreshes Redfish observations under a selected effective delay.
+Third, a corrected producer fits reconstruction parameters against the cached observations, reconstructs per-bin system power, and integrates the reconstruction over the current window.
+A readiness flag stored in analysis state governs takeover: raw emission remains authoritative until corrected reconstruction is feasible for the selected chassis.
+
+\paragraph{Core Mechanisms}
+Raw system metrics are produced by selecting all Redfish samples overlapping the delay-shifted effective window, including at most one predecessor sample to enable zero-order-hold integration.
+Window energy is obtained by integrating held power values over the window extent, and the exported cumulative counter is advanced monotonically in persistent state.
+
+Corrected reconstruction operates on a fixed fusion grid with configurable bin width and horizon length.
+A horizon cache stores per-bin proxy features derived from CPU package energy, DRAM energy, GPU energy, and CPU instruction counts.
+Only newly required bins are populated each cycle, while overlapping cache content is preserved by shifting the horizon forward.
+
+Redfish observations are projected into the corrected time domain by subtracting a candidate delay.
+An adaptive delay is selected by searching a bounded candidate set and scoring each candidate by the extent to which proxy-derived parts power exceeds Redfish power over a recent horizon segment, subject to an explicit noise margin.
+Delay updates are rate-limited between cycles, with a higher allowable slew when a step change is detected in the proxy power series.
+The selected delay is persisted in state and reused as a fallback when the search fails.
+
+Model fitting is performed over the horizon using weighted least squares in scaled space.
+The reconstruction combines proxy features into per-bin system power using non-negative coefficients for physically interpretable terms and an unconstrained instruction-rate coefficient.
+When non-negativity constraints become active, a constrained refit is performed to reduce bias from post-fit truncation.
+Reconstructed bin power is integrated over the overlap with the current analysis window to obtain window energy and average power.
+
+To preserve counter continuity at takeover, the corrected cumulative counter is represented as the sum of a local corrected accumulator and a one-time offset.
+The offset is seeded from the last available raw exported counter when corrected emission becomes active, ensuring that the canonical counter remains continuous across the transition.
+
+\paragraph{Robustness and Edge Cases}
+Corrected emission is suppressed until a sufficient number of usable Redfish observations exist within the horizon.
+Observations whose corrected timestamps would underflow are discarded to prevent degenerate kernel projections and unbounded bin scans.
+If proxy features are unavailable or the delay-selection search fails, the implementation conservatively retains the previously selected delay or falls back to the configured default.
+
+Delay adaptation is explicitly rate-limited to avoid oscillation under noise, while step detection enables faster convergence after large workload transitions.
+All fitted coefficients are checked for finiteness before use; if fitting fails, the implementation falls back to the previously valid parameter vector or a conservative default.
+Corrected emission is withheld entirely if these safeguards cannot be satisfied.
+
+\paragraph{Implementation Consequences}
+During warmup, the raw Redfish integration remains the sole canonical system series.
+Once corrected reconstruction becomes ready, the implementation deletes the raw canonical series from the sink and emits only corrected values thereafter, preventing ambiguous double-publication under identical metric identifiers.
+The corrected counter does not reset at takeover due to the offset mechanism, but it remains a best-effort cumulative quantity that may restart on process restart.
+Overall, the implementation prioritises temporal consistency and conservatism: when alignment or anchoring is unreliable, raw integration remains authoritative.
+
+\paragraph{Exported Metrics}
+The exported metrics are summarized in Table~\ref{tab:redfish-exported-metrics}.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{llll}
+\toprule
+Metric name & Type & Unit & Labels \\
+\midrule
+\multicolumn{4}{l}{\textbf{System}} \\
+\midrule
+\code{system\_power\_mw}  & Gauge   & mW & \code{chassis}, \code{source}, \code{kind} \\
+\code{system\_energy\_mj} & Counter & mJ & \code{chassis}, \code{source}, \code{kind} \\
+\bottomrule
+\end{tabular}
+\caption{Exported Redfish-derived system metrics. The \code{source} label distinguishes \code{redfish\_raw} from \code{redfish\_corrected}.}
+\label{tab:redfish-exported-metrics}
+\end{table}
 
 \subsection{Stage 2: System-Level Energy Model and Residual}
-% Realization of the architectural system-level energy model.
-% This stage establishes a conserved energy budget per window and derives the residual.
+\label{subsec:impl_stage2_residual}
 
-\subsubsection{Global Energy Decomposition Realization}
-% Describe how per-window component energies are combined.
-% Explain realization of the global decomposition:
-% RAPL domains + GPU energy + residual = redfish_corrected system energy.
-% Emphasize per-node scope and window-local consistency.
+\paragraph{Architectural Context}
+This stage realizes the system-level energy balance defined in \S~\ref{subsec:stage2_residual}.
+Its role is to operationalize residual energy as a conservative, node-local quantity derived from system and component observations, while tolerating asynchronous and delayed inputs.
+No workload attribution or semantic decomposition is performed at this stage.
 
-\subsubsection{Residual Computation}
-% Describe how residual energy is computed as the unassigned remainder.
-% Explain ordering dependencies on Stage 1 outputs.
-% Clarify that residual is a first-class output, not an error term.
+\paragraph{Implementation Strategy}
+For each analysis window, the implementation derives window energy from window-averaged power and window duration for both system-level and component-level signals.
+Residual energy is computed as a window-local difference and accumulated into a monotonic counter.
+Power-level residual metrics are treated as auxiliary observables, whereas cumulative energy counters are considered authoritative.
+An explicit window validity signal is emitted to indicate when residual interpretation is temporally reliable.
 
-\subsubsection{Handling of Negative Residuals in Practice}
-% Describe how temporary negative residuals can arise due to delayed system response.
-% Explain why negative residuals are tolerated and not clamped aggressively.
-% Emphasize recovery over subsequent windows.
+\paragraph{Core Mechanisms}
+Residual energy accumulation follows the architectural definition of $E_{\text{res}}$ from \S~\ref{subsec:stage2_residual}.
+Window energy increments are clamped to non-negative values before accumulation to preserve monotonicity of the exported counter.
+This clamping is applied strictly at the accumulation boundary and does not alter the conceptual definition of residual energy.
+Residual power is derived from the same window-local quantities but is not used as a basis for accumulation.
 
-\subsubsection{Conservation and Consistency Checks}
-% Describe checks enforcing conservation and internal consistency.
-% Explain how violations are detected and handled.
-% Emphasize invariant preservation over local precision.
+\paragraph{Robustness and Edge Cases}
+Temporal misalignment between system-level and component-level signals may lead to transient inconsistencies at the power level.
+These effects are contained by decoupling instantaneous power from cumulative energy accounting.
+Rather than masking such artifacts, the implementation exposes an explicit window usability signal, allowing downstream stages to reason about residual validity without compromising conservation.
+Warmup behavior is handled by maintaining continuity between raw and corrected system sources while preserving counter monotonicity.
+
+\paragraph{Implementation Consequences}
+The implementation guarantees strict energy conservation at both window and cumulative levels.
+Residual energy counters remain monotonic and conservative under all operating conditions.
+Transient timing artifacts originating from system-level measurement latency may appear in auxiliary power metrics but do not affect energy correctness.
+Residual energy thus forms a stable and auditable constraint for downstream decomposition and attribution stages.
+
+\paragraph{Exported Metrics}
+The exported metrics are summarized in Table~\ref{tab:residual-exported-metrics}.
+
+\begin{table}[h]
+\centering
+\caption{Exported residual metrics}
+\label{tab:residual-exported-metrics}
+\begin{tabular}{llll}
+\toprule
+Metric name & Type & Unit & Labels \\
+\midrule
+\multicolumn{4}{l}{\textbf{Residual energy and power}} \\
+residual\_energy\_mj & Counter & mJ & chassis, source, kind=total \\
+residual\_power\_mw  & Gauge   & mW & chassis, source, kind=total \\
+\midrule
+\multicolumn{4}{l}{\textbf{Residual window validity}} \\
+residual\_window\_usable & Gauge & bool & chassis, source \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \subsection{Stage 3: Idle and Dynamic Energy Semantics}
 % Realization of architectural idle and dynamic energy definitions.
 % This stage decomposes per-component energy without workload attribution.
+\subsubsection{RAPL Idle and Dynamic Decomposition}
+\label{sec:impl_rapl_idle_dynamic}
 
-\subsubsection{RAPL Idle and Dynamic Realization}
-% Describe separation of RAPL domain energy into idle and dynamic parts.
-% Explain reliance on utilization signals and window semantics.
-% Emphasize consistency with architectural definitions.
+\paragraph{Architectural Context}
+This section realises the architectural idle and dynamic split defined in \S~\ref{sec:arch_rapl_idle_dynamic} for RAPL domains by estimating a conservative idle baseline from utilization-conditioned observations and materialising a per-window energy decomposition that preserves strict conservation.
 
-\subsubsection{Redfish-Corrected Idle and Dynamic Realization}
-% Describe idle and dynamic separation at the system level.
-% Explain how redfish_corrected is decomposed without workload semantics.
-% Clarify relationship to residual energy.
+\paragraph{Implementation Strategy}
+The implementation derives idle power from the already exported total RAPL energy by differencing cumulative counters per window and estimating a baseline power $\beta_d$ from low-utilization operating points.
+Utilization proxies are obtained directly from raw eBPF process ticks within the effective window to avoid dependencies on intermediate metric availability.
+Idle estimation and smoothing are maintained as explicit cross-window state, while the per-window split is computed deterministically from the current baseline and total energy increment.
 
-\subsubsection{GPU Idle and Dynamic Realization}
-% Describe separation of GPU energy into idle and dynamic components.
-% Emphasize that GPU idle is not attributed to workloads.
-% State that idle GPU energy is assigned to the system.
+\paragraph{Core Mechanisms}
+For each domain, the cumulative total energy is converted to a window increment by differencing against the last observed value and clamping negative deltas to zero.
+A utilization proxy $u_d$ is computed by normalizing the window rate of eBPF-derived activity against a rolling p95 amplitude, yielding a bounded proxy in $[0,1]$.
+Pairs $(u_d, P^{\mathrm{tot}}_d)$ are fed into a scalar idle model that performs bucketed regression over low-utilization samples and returns the intercept as the candidate idle baseline.
+Baseline updates are asymmetrically smoothed in time, permitting faster decreases than increases and suppressing upward adaptation until the p95 normalization is deemed stable.
+The resulting idle power is clamped to the observed total power for the same window, converted to an idle energy increment, and subtracted from the total increment to obtain the dynamic remainder.
+Both increments are accumulated into monotonic per-domain counters and exposed together with window-average powers.
+
+\paragraph{Robustness and Edge Cases}
+If total energy is unavailable or observed for the first time, the cycle is skipped to avoid poisoning state.
+Idle power is constrained to be non-negative and never exceed total power, ensuring that the split cannot generate energy even under transient noise or model error.
+When utilization normalization is not yet stable, baseline increases are disabled to prevent premature upward bias, while decreases remain bounded to resist single-sample outliers.
+All state required for differencing, normalization, modeling, and smoothing is scoped per domain, preventing cross-domain interference.
+
+\paragraph{Implementation Consequences}
+The realised split guarantees per-window energy conservation and produces a conservative idle estimate that converges under sustained low activity while remaining safe on permanently loaded systems.
+Dynamic energy is defined purely as the residual, ensuring that subsequent attribution stages operate on a well-bounded remainder without requiring access to the idle model internals.
+The approach tolerates missing or delayed observations and degrades to zero-idle attribution rather than emitting inconsistent metrics.
+
+\paragraph{Exported Metrics}
+The exported metrics are summarized in Table~\ref{tab:rapl-idle-dynamic-exported-metrics}.
+
+\begin{table}[t]
+\centering
+\caption{Exported RAPL idle and dynamic metrics}
+\label{tab:rapl-idle-dynamic-exported-metrics}
+\begin{tabular}{llll}
+\toprule
+Metric name & Type & Unit & Labels \\
+\midrule
+\multicolumn{4}{c}{Idle} \\
+\midrule
+\code{tycho\_rapl\_energy\_mj} & Counter & mJ &
+\code{domain, kind="idle", source} \\
+\code{tycho\_rapl\_power\_mw} & Gauge & mW &
+\code{domain, kind="idle", source} \\
+\midrule
+\multicolumn{4}{c}{Dynamic} \\
+\midrule
+\code{tycho\_rapl\_energy\_mj} & Counter & mJ &
+\code{domain, kind="dynamic", source} \\
+\code{tycho\_rapl\_power\_mw} & Gauge & mW &
+\code{domain, kind="dynamic", source} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Residual Idle and Dynamic Decomposition}
+
+\paragraph{Architectural Context}
+This subsubsection realises the residual idle and dynamic decomposition defined in the architecture, which introduces a persistent residual idle baseline and a conditional interpretation contract based on window usability.
+The implementation enforces exact conservation on the clamped residual budget while ensuring that learning and interpretation are explicitly gated under temporal misalignment.
+
+\paragraph{Implementation Strategy}
+Residual idle and dynamic power are constructed from a non-negative residual budget derived per analysis window.
+A persistent idle baseline is maintained as explicit cross-window state and is reused whenever learning is not permitted.
+Learning of this baseline is strictly conditional on corrected system input, window usability, and a minimum residual magnitude.
+Metric emission remains continuous and conservative in all windows, while baseline updates are selectively enabled.
+
+\paragraph{Core Mechanisms}
+For each window, residual total power is obtained by subtracting the sum of aligned component power from system power and clamping the result to a non-negative budget.
+Temporal misalignment is detected using conservative window-local indicators, including sustained lag of system power behind accounted components and sharp increases in component power coinciding with near-zero or clamped residuals.
+A short hold horizon is applied to transient classification to prevent flapping.
+Window usability is defined as the conjunction of non-transient classification and the absence of residual clamping.
+The residual idle baseline is seeded on the first window that satisfies all learning preconditions.
+Subsequent updates follow a candidate-then-commit mechanism that tracks sustained low residual observations and applies bounded downward adjustments only after confirmation.
+Idle and dynamic residual power are materialized conservatively by capping idle at the clamped residual budget and assigning the remainder to dynamic, ensuring exact per-window conservation.
+Energy counters are obtained by integrating window-local power and accumulated monotonically using the clamped budget, with explicit handling of the raw-to-corrected system metric transition.
+
+\paragraph{Robustness and Edge Cases}
+Unusable windows do not trigger idle baseline learning and cannot decrease the baseline, preventing collapse during temporal misalignment.
+Learning is forbidden during warmup to avoid contamination from raw system metrics.
+Residual budgets below a minimum magnitude are excluded from learning to prevent noise fitting.
+Downward baseline adaptation is hardened by requiring persistence across multiple consecutive learnable windows and by rate-limiting the maximum permanent drop per commit.
+The idle component is always capped by the current clamped residual budget, preventing negative dynamic residuals even when the baseline temporarily exceeds the budget.
+Once corrected system metrics become active, raw residual series are explicitly removed to avoid overlapping series with incompatible semantics.
+
+\paragraph{Implementation Consequences}
+Residual idle and dynamic metrics are conservative by construction and conserve the clamped residual budget exactly in every window.
+Persistent idle state remains stable under aggressive workload changes because temporally invalid windows are excluded from learning and the last committed baseline is held constant.
+The usability signal establishes a hard contract for downstream consumers: residual idle and dynamic values may be present in all windows, but are only interpretable and learnable when usability is true.
+The exported idle baseline is explicit model state and must not be interpreted as a physical idle quantity.
+
+\paragraph{Exported Metrics}
+The exported metrics are summarized in Table~\ref{tab:residual-idle-exported-metrics}.
+
+\begin{table}[t]
+\centering
+\caption{Exported residual idle and dynamic metrics}
+\label{tab:residual-idle-exported-metrics}
+\begin{tabular}{llll}
+\toprule
+Metric name & Type & Unit & Labels \\
+\midrule
+\multicolumn{4}{l}{\textbf{Residual power}} \\
+residual\_power\_mw & Gauge & mW & chassis, source, kind \\
+\midrule
+\multicolumn{4}{l}{\textbf{Residual energy}} \\
+residual\_energy\_mj & Counter & mJ & chassis, source, kind \\
+\midrule
+\multicolumn{4}{l}{\textbf{Residual idle model state}} \\
+residual\_idle\_baseline\_mw & Gauge & mW & chassis \\
+\midrule
+\multicolumn{4}{l}{\textbf{Residual window validity}} \\
+residual\_window\_usable & Gauge & bool & chassis \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{GPU Idle and Dynamic Decomposition}
+\label{sec:impl_gpu_idle_dynamic}
+
+\paragraph{Architectural Context}
+This section realizes the architectural GPU idle and dynamic decomposition defined in \S~\ref{sec:arch_gpu_idle_dynamic}, operating exclusively on the corrected per-device total power and window-consistent duration.
+
+\paragraph{Implementation Strategy}
+For each GPU device, the implementation maintains a per-device idle estimator whose input is the corrected total power together with a compact utilization signal.
+Idle estimation is updated opportunistically under stable conditions and otherwise held constant, ensuring that transient load changes do not perturb the baseline.
+Idle and dynamic components are derived per window from the same total power observation and duration, then accumulated into monotonic energy counters.
+
+\paragraph{Core Mechanisms}
+The implementation retrieves the corrected total power gauge and the corresponding window duration, and maps the most recent device utilization observation into the corrected window.
+An idle estimator is instantiated per device and observes tuples $(u_{\mathrm{sm}}, u_{\mathrm{mem}}, P_{\mathrm{total}})$.
+A new idle estimate is accepted only when utilization remains approximately constant and within a low-utilization region, yielding a stable baseline $\beta_{\mathit{uuid}}$.
+For each window, idle power is obtained by clamping $\beta_{\mathit{uuid}}$ to the current total power, dynamic power is computed as the non-negative residual, and both are converted to window energy increments using the same duration as the total.
+All three cumulative energies (total, idle, dynamic) are updated atomically in per-device state.
+
+\paragraph{Robustness and Edge Cases}
+If total power is unavailable for a device in a window, no idle or dynamic update is performed to avoid inconsistent state.
+Idle estimates are bounded to the interval $[0, P_{\mathrm{total}}]$ to prevent negative or superlinear components.
+Stability gating prevents sudden utilization changes from contaminating the idle baseline, causing such transients to be attributed entirely to dynamic power.
+All intermediate values are checked for non-finite results and clipped to preserve monotonicity of cumulative energy counters.
+
+\paragraph{Implementation Consequences}
+The implementation enforces a conservative decomposition in which idle power evolves slowly and only under stationary conditions, while dynamic power absorbs short-term fluctuations.
+Energy conservation holds per window by construction, and cumulative counters remain monotonic over the lifetime of the system.
+The per-device state isolation allows heterogeneous GPUs to be handled independently without cross-coupling effects.
+
+\paragraph{Exported Metrics}
+The exported metrics are summarized in Table~\ref{tab:gpu-idle-dynamic-exported-metrics}.
+
+\begin{table}[h]
+\centering
+\caption{Exported GPU idle and dynamic decomposition metrics}
+\label{tab:gpu-idle-dynamic-exported-metrics}
+\begin{tabular}{llll}
+\toprule
+Metric name & Type & Unit & Labels \\
+\midrule
+\multicolumn{4}{l}{\textit{Power metrics}} \\
+gpu\_power\_mw & Gauge & mW & gpu\_uuid, kind $\in\{\text{total},\text{idle},\text{dynamic}\}$, source \\
+\midrule
+\multicolumn{4}{l}{\textit{Energy metrics}} \\
+gpu\_energy\_mj & Counter & mJ & gpu\_uuid, kind $\in\{\text{total},\text{idle},\text{dynamic}\}$, source \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \subsection{Stage 4: Workload Attribution and Aggregation}
 % Realization of architectural workload attribution.
 % This stage assigns dynamic and idle energy to workloads and aggregates results hierarchically.
 
-\subsubsection{Attribution Identity Join and Join Failure Handling}
-% Describe how component metrics are joined with workload identities.
-% Explain join assumptions and required consistency within a window.
-% Describe explicit handling of join failures and missing identities.
+\subsubsection{Workload Attribution of eBPF Utilization Counters}
 
-\subsubsection{CPU Dynamic Attribution}
-% Describe proportional attribution of dynamic CPU energy to workloads.
-% Explain reliance on utilization-derived weights.
-% Emphasize window-local correctness and conservation.
+\paragraph{Architectural Context}
+This section realizes the workload-level aggregation model defined in \S~\ref{sec:slice16}, mapping per-process eBPF utilization deltas to workload-attributed monotonic counters while enforcing strict conservation and residual \code{\_\_system\_\_} semantics.
 
-\subsubsection{CPU Idle Allocation}
-% Describe allocation of CPU idle energy to workloads.
-% Explain architectural rationale for idle distribution.
-% Emphasize consistency with idle+dynamic conservation.
+\paragraph{Implementation Strategy}
+Attribution is implemented as a window-local aggregation over the effective eBPF observation window.
+All raw per-process deltas observed in the window are treated as authoritative inputs.
+Resolution to workload identity is attempted per process using the standard Stage~4 resolver, but aggregation into non-system workloads is conditional.
+Unresolved activity is not dropped or heuristically reassigned and is instead captured explicitly via residual construction.
 
-\subsubsection{GPU Dynamic Attribution}
-% Describe attribution of dynamic GPU energy to workloads.
-% Explain handling of multiple GPUs and concurrent workloads.
-% Emphasize separation from GPU idle handling.
+\paragraph{Core Mechanisms}
+For each effective window, per-process deltas are integrated over the window interval using fractional overlap factors to account for partial boundary intersections.
+Two accumulations are performed in parallel.
+First, signal-wise totals are computed by summing all observed per-process deltas, independent of resolution.
+Second, resolved per-process deltas are aggregated into per-workload buckets.
+After aggregation, the \code{\_\_system\_\_} workload is materialized as the residual between the total activity and the sum of all non-system workloads, with negative residuals clamped to zero to preserve non-negativity.
+All workload aggregates are accumulated into state-backed monotonic counters, preserving counter semantics across windows.
 
-\subsubsection{GPU Idle Handling (\texttt{\_\_system\_\_})}
-% State explicitly that GPU idle energy is not attributed to workloads.
-% Describe assignment of GPU idle energy to the system identity.
-% Clarify implications for workload-level totals.
+\paragraph{Robustness and Edge Cases}
+Partial observability affects only resolution, not conservation.
+If process identity or workload metadata is unavailable, unstable, or inconsistent, the corresponding deltas contribute solely to the total and therefore increase the \code{\_\_system\_\_} residual.
+Window boundary truncation is handled via fractional scaling, with accumulators maintained in floating-point state to avoid systematic loss under repeated truncation.
+Emitted counter values are monotonically non-decreasing by construction, and defensive checks prevent regression under any execution order.
+Workload series are garbage-collected after a bounded inactivity period, while the \code{\_\_system\_\_} series is explicitly exempt from deletion.
 
-\subsubsection{Workload-Level and Hierarchical Aggregation}
-% Describe aggregation of attributed energy across hierarchy levels.
-% Explain construction of workload, pod, and node-level totals.
-% Emphasize preservation of conservation across aggregations.
+\paragraph{Implementation Consequences}
+The implementation guarantees strict conservation between system-level eBPF counters and the sum of workload-attributed counters over any analysis horizon.
+Resolution failure degrades monotonically into \code{\_\_system\_\_} without redistributing activity among resolved workloads.
+The resulting counters are suitable as first-class workload attribution outputs and as explanatory inputs for subsequent energy attribution and validation stages.
+
+\paragraph{Exported Metrics}
+The exported metrics are summarized in Table~\ref{tab:ebpf-util-exported-metrics}.
+
+\begin{table}[t]
+\centering
+\caption{Exported workload-attributed eBPF utilization counters}
+\label{tab:ebpf-util-exported-metrics}
+\begin{tabular}{llll}
+\toprule
+Metric name & Type & Unit & Labels \\
+\midrule
+\multicolumn{4}{l}{CPU execution activity} \\
+\midrule
+\code{tycho\_workload\_bpf\_cpu\_instructions\_total} & Counter & count &
+\code{source, namespace, pod, container} \\
+\code{tycho\_workload\_bpf\_cpu\_cycles\_total} & Counter & count &
+\code{source, namespace, pod, container} \\
+\code{tycho\_workload\_bpf\_cache\_misses\_total} & Counter & count &
+\code{source, namespace, pod, container} \\
+\code{tycho\_workload\_bpf\_page\_cache\_hits\_total} & Counter & count &
+\code{source, namespace, pod, container} \\
+\midrule
+\multicolumn{4}{l}{Interrupt activity} \\
+\midrule
+\code{tycho\_workload\_bpf\_irq\_net\_tx\_total} & Counter & count &
+\code{source, namespace, pod, container} \\
+\code{tycho\_workload\_bpf\_irq\_net\_rx\_total} & Counter & count &
+\code{source, namespace, pod, container} \\
+\code{tycho\_workload\_bpf\_irq\_block\_total} & Counter & count &
+\code{source, namespace, pod, container} \\
+\midrule
+\multicolumn{4}{l}{Process runtime} \\
+\midrule
+\code{tycho\_workload\_bpf\_process\_run\_us\_total} & Counter & $\mu$s &
+\code{source, namespace, pod, container} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Workload Resolution and Identity Enforcement}
+
+\paragraph{Architectural Context}
+This section realizes the workload resolution abstraction introduced in the Stage~4 architecture.
+The resolver provides a conditional mapping from execution-level observations to Kubernetes workload identities and enforces the semantics of the distinguished \code{\_\_system\_\_} class.
+It is an auxiliary component of the attribution pipeline: attribution logic consumes its outputs but does not embed or compensate for resolution failures.
+All guarantees stated in \S~\ref{sec:arch_stage4_workload_resolution} are enforced here under discretization, metadata delay, and partial observability.
+
+\paragraph{Implementation Strategy}
+Workload resolution is implemented as a best-effort, cycle-scoped join between execution identities and the metadata store associated with the current analysis cycle.
+Resolution is intentionally asymmetric: positive identification requires multiple consistency checks, while failure at any point causes immediate fallback to an unresolved state.
+The resolver never invents workload identities, never extrapolates beyond available metadata, and never retries resolution retroactively across cycles.
+This strategy ensures conservative behavior and monotone degradation toward \code{\_\_system\_\_} under uncertainty.
+
+\paragraph{Core Mechanisms}
+Resolution proceeds in three ordered stages.
+First, a process-based path attempts to resolve a stable process identity using a guarded \code{(PID, StartJiffies)} pair to harden against PID reuse.
+Second, when process identity is unavailable or unsafe, a cgroup-based fallback is attempted using only explicitly attributable cgroup identifiers.
+Third, a resolved container identifier is mapped to Kubernetes namespace, pod, and container labels via the metadata store.
+Only when all required identity components are present is a workload key materialized; otherwise resolution fails.
+The resolver itself returns either a fully specified workload key or an unresolved outcome, with no intermediate states.
+
+\paragraph{Robustness and Edge Cases}
+All resolution steps are guarded against known failure modes.
+PID reuse is explicitly checked and causes conservative rejection rather than reassignment.
+Sentinel or root cgroup identifiers are excluded to prevent poisoning of the mapping chain.
+Missing, stale, or incomplete metadata entries immediately invalidate resolution.
+Importantly, resolution failure does not propagate partial identity information: unresolved observations are not weakly labeled but are handled uniformly by the attribution layer as \code{\_\_system\_\_}.
+This guarantees that loss of metadata cannot redistribute energy between resolved workloads.
+
+\paragraph{Implementation Consequences}
+The resolver enforces a strict correctness boundary for Stage~4 attribution.
+When identity information is reliable, workload attribution is precise and reproducible within the limits of the chosen fairness basis.
+When identity information degrades, attribution degrades conservatively and explicitly without violating conservation or introducing hidden assumptions.
+This behavior ensures that workload-resolved metrics remain interpretable across runs with varying metadata quality and system churn.
+
+\paragraph{Exported Metrics}
+The workload resolver does not export metrics directly.
+Its effects are observable only through the workload-labeled metrics produced by subsequent attribution stages, including the explicit appearance of the \code{\_\_system\_\_} workload class when resolution is not possible.
+
+\subsubsection{CPU Dynamic Energy Attribution}
+
+\paragraph{Architectural Context}
+This section realizes the bin-level CPU dynamic attribution model defined in the corresponding architecture section.
+For each RAPL CPU domain, a per-window dynamic energy budget is distributed across workloads using execution-derived activity proxies, while enforcing conservation, non-negativity, completeness, and monotone degradation toward \code{\_\_system\_\_} under partial observability.
+
+\paragraph{Implementation Strategy}
+The implementation treats each RAPL domain uniformly and executes attribution independently per domain.
+The authoritative input is the per-window delta of the cumulative dynamic energy counter for the domain.
+Workload attribution is computed at native eBPF tick resolution and only aggregated to window scope after all bin-level decisions have been made.
+All attribution state is explicit and window-scoped, with no cross-window reinterpretation.
+
+\paragraph{Core Mechanisms}
+Per-bin activity weights are constructed from eBPF process counters by differencing against state-managed baselines.
+Baselines are keyed by a stable process identity when available and fall back conservatively when not.
+For each bin, total activity mass and per-workload activity mass are accumulated according to the domain-specific proxy.
+The window-level dynamic energy budget is then allocated across bins proportionally to their activity mass, and each bin’s energy share is further allocated across workloads proportionally to their per-bin activity.
+Exact conservation in integer millijoules is enforced using a largest-remainder finalization step, with any rounding remainder routed explicitly to \code{\_\_system\_\_}.
+
+\paragraph{Robustness and Edge Cases}
+Missing or zero activity mass is handled conservatively.
+If no activity is observed for a domain across the entire window, the full dynamic energy budget is assigned to \code{\_\_system\_\_}.
+If activity is absent in an individual bin, that bin’s energy share is assigned to \code{\_\_system\_\_}.
+For the \code{dram} domain, a window-scoped fallback replaces cache-miss activity with CPU cycle activity when cache-miss mass is zero but cycle mass is non-zero.
+Counter resets, PID reuse, and partial process visibility are handled by baseline rebasing and by skipping unsafe deltas, which can only increase the \code{\_\_system\_\_} share and never redistribute energy among resolved workloads.
+
+\paragraph{Implementation Consequences}
+The implementation guarantees conservative, monotonic, and temporally causal workload attribution of CPU dynamic energy.
+Integer rounding is resolved locally at both allocation stages using a largest-remainder scheme, ensuring exact conservation without cross-bin interference.
+Under reduced observability, attribution degrades only by increasing the \code{\_\_system\_\_} share, without redistributing energy among resolved workloads.
+The explicit bin-level realization preserves the architectural contract and enables later extensions such as idle allocation and residual energy handling without modifying the dynamic attribution core.
+
+\paragraph{Exported Metrics}
+The exported metrics are summarized in Table~\ref{tab:cpu-dyn-exported-metrics}.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lllc}
+\toprule
+Metric name & Type & Unit & Labels \\
+\midrule
+\multicolumn{4}{l}{\textbf{CPU Dynamic Energy Attribution}} \\
+workload\_rapl\_energy\_mj & Counter & mJ &
+domain, kind, source, namespace, pod, container \\
+\bottomrule
+\end{tabular}
+\caption{Exported CPU dynamic workload energy metrics.}
+\label{tab:cpu-dyn-exported-metrics}
+\end{table}
+
+\subsubsection{CPU Idle Energy Attribution}
+
+\paragraph{Architectural Context}
+This section realizes the CPU idle attribution model defined in the corresponding architecture subsubsection, enforcing a two-pool fairness policy under discretized, window-based execution.
+The implementation adheres to the Stage~4 invariants and mirrors the workload identity and lifecycle semantics used for CPU dynamic attribution.
+
+\paragraph{Implementation Strategy}
+Per-window idle energy budgets are derived by differencing cumulative RAPL idle energy counters for each supported domain.
+Attribution is performed independently per domain, using domain-specific reservation signals while reusing the window-sticky activity weights produced by CPU dynamic attribution.
+All allocation decisions are local to the current window and do not depend on future information.
+
+\paragraph{Core Mechanisms}
+For each domain, the idle budget is split into a reserved and an opportunistic pool using the domain-specific reservation fraction $\beta$.
+Reservation weights are obtained from container-level CPU requests for \code{pkg}, \code{core}, and \code{uncore}, and from container-level memory requests for \code{dram}.
+Activity weights are taken from the window-aggregated dynamic allocation maps.
+
+The eligible workload set is defined as the union of workloads observed in dynamic attribution, currently running containers, and the mandatory \code{\_\_system\_\_} workload.
+The reserved pool is allocated proportionally among workloads with strictly positive requests.
+The opportunistic pool is allocated proportionally among workloads without requests and the \code{\_\_system\_\_} workload, using activity weights.
+Per-workload allocations from both pools are combined and accumulated into monotonic workload-level idle energy counters.
+
+\paragraph{Robustness and Edge Cases}
+Missing or negative idle deltas result in zero budget for the affected window.
+If no valid requests exist, the reserved pool collapses to zero without redistributing energy.
+If no activity weights are available, the opportunistic pool collapses and the full idle budget is attributed to \code{\_\_system\_\_}.
+All rounding discrepancies are resolved deterministically, with any remainder routed to \code{\_\_system\_\_}, ensuring exact per-window conservation.
+Short-lived or metadata-late workloads may receive idle energy only via the opportunistic pool.
+Inactive workload series are garbage-collected using the same TTL-based mechanism as dynamic CPU attribution, without retroactive reinterpretation.
+
+\paragraph{Implementation Consequences}
+The implementation guarantees strict conservation, non-negativity, and completeness for CPU idle energy attribution across all supported RAPL domains.
+Idle attribution degrades conservatively under partial observability and remains interpretable as a fairness policy rather than a causal signal.
+The resulting workload-level idle energy counters are directly comparable to dynamic CPU energy outputs and suitable for downstream aggregation and analysis.
+
+\paragraph{Exported Metrics}
+The exported metrics are summarized in Table~\ref{tab:cpu-idle-attrib-exported-metrics}.
+
+\begin{table}[t]
+\centering
+\caption{Exported CPU idle energy workload metrics}
+\label{tab:cpu-idle-attrib-exported-metrics}
+\begin{tabular}{llll}
+\toprule
+Metric name & Type & Unit & Labels \\
+\midrule
+\multicolumn{4}{l}{\textbf{Workload-attributed CPU idle energy}} \\
+\code{tycho\_workload\_rapl\_energy\_mj} & Counter & mJ &
+domain, kind{=}idle, source{=}rapl, namespace, pod, container \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{GPU Dynamic Energy Attribution}
+
+\paragraph{Architectural Context}
+This subsection realises the Stage 4 GPU dynamic attribution rule by allocating corrected-series energy over process-sample intervals and aggregating by resolved workload identity, while routing unsupported fractions to \code{\_\_system\_\_}.
+
+\paragraph{Implementation Strategy}
+For each GPU UUID, the implementation combines (i) a corrected energy series that can be integrated over arbitrary sub-intervals, (ii) a dynamic window budget, and (iii) a timestamped stream of per-process \code{ComputeUtil} snapshots.
+Attribution is performed by iterating sub-intervals induced by the snapshot times and applying a hold-last policy for utilization between snapshots.
+
+\paragraph{Core Mechanisms}
+The corrected energy series is integrated over sub-intervals using zero-order hold on the fixed grid to obtain $\Delta E_{\mathrm{gpu}}(I,\mathrm{uuid})$.
+A per-window scale factor $f(W,\mathrm{uuid})$ is computed from the ratio of the dynamic window budget to total corrected window energy and is clipped to $[0,1]$.
+For each sub-interval, utilization mass is computed from the held PID map.
+If mass is zero, the entire sub-interval dynamic energy is accumulated to \code{\_\_system\_\_}.
+Otherwise, PID shares are computed proportionally and resolved to workloads using the existing resolver chain; unresolved shares are accumulated to \code{\_\_system\_\_}.
+Any floating-point remainder between interval budget and assigned shares is routed to \code{\_\_system\_\_} to preserve per-interval conservation.
+
+\paragraph{Robustness and Edge Cases}
+Snapshot ingestion clamps \code{ComputeUtil} into $[0,100]$ and treats invalid values as zero.
+If corrected-series integration fails for a sub-interval, no energy is allocated for that sub-interval, which preserves non-negativity and avoids inventing energy.
+If the corrected window energy is non-positive, or the corrected series is unavailable, the dynamic budget is conservatively routed to \code{\_\_system\_\_}.
+Resolver failure for a PID share does not affect other shares and degrades monotonically by redirecting only the unresolved share to \code{\_\_system\_\_}.
+
+\paragraph{Implementation Consequences}
+Dynamic attribution preserves conservation against the constructed dynamic budget per GPU UUID and window, up to numerical roundoff which is absorbed by \code{\_\_system\_\_}.
+Temporal allocation follows the observed snapshot cadence, preventing the coarse artifacts of reducing utilization to a single window statistic, while keeping the exported outputs window-scoped.
+
+\paragraph{Exported Metrics}
+The exported metrics are summarized in Table~\ref{tab:gpu-dyn-attrib-exported-metrics}.
+\begin{table}[t]
+  \centering
+  \caption{Exported metrics for GPU dynamic workload attribution.}
+  \label{tab:gpu-dyn-attrib-exported-metrics}
+  \begin{tabular}{llll}
+    \toprule
+    \textbf{Metric} & \textbf{Type} & \textbf{Unit} & \textbf{Labels} \\
+    \midrule
+    \multicolumn{4}{l}{\textbf{Workload GPU energy}} \\
+    \code{tycho\_workload\_gpu\_energy\_mj} & Counter & mJ &
+    \code{gpu\_uuid}, \code{kind="dynamic"}, \code{namespace}, \code{pod}, \code{container} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection{GPU Idle Energy Attribution}
+
+\paragraph{Architectural Context}
+This subsection realises the Stage 4 rule that GPU idle energy is not distributed to workloads and is instead emitted exclusively as \code{\_\_system\_\_}.
+
+\paragraph{Implementation Strategy}
+The implementation mirrors the corrected idle GPU energy counter into the workload GPU energy metric for the \code{\_\_system\_\_} workload key, per GPU UUID.
+
+\paragraph{Core Mechanisms}
+For each GPU UUID, the absolute corrected idle energy counter value is loaded and written into the corresponding \code{tycho\_workload\_gpu\_energy\_mj} series with \code{kind="idle"} and workload labels set to \code{\_\_system\_\_}.
+The write is monotonic-guarded to prevent counter regression if upstream inputs transiently decrease.
+
+\paragraph{Robustness and Edge Cases}
+Invalid or negative idle counter values are clamped to zero.
+If the idle counter is missing for a device, no idle workload point is emitted for that device in the current cycle.
+Monotonic guarding ensures that transient upstream regressions do not violate the counter contract at the exporter boundary.
+
+\paragraph{Implementation Consequences}
+Idle workload energy is complete by construction and exactly consistent with corrected idle energy, while avoiding speculative distribution.
+Together with dynamic attribution, the workload GPU energy metric admits a complete accounting view in which idle energy is explicitly represented as \code{\_\_system\_\_}.
+
+\paragraph{Exported Metrics}
+The exported metrics are summarized in Table~\ref{tab:gpu-idle-attrib-exported-metrics}.
+\begin{table}[t]
+  \centering
+  \caption{Exported metrics for GPU idle workload attribution.}
+  \label{tab:gpu-idle-attrib-exported-metrics}
+  \begin{tabular}{llll}
+    \toprule
+    \textbf{Metric} & \textbf{Type} & \textbf{Unit} & \textbf{Labels} \\
+    \midrule
+    \multicolumn{4}{l}{\textbf{Workload GPU energy}} \\
+    \code{tycho\_workload\_gpu\_energy\_mj} & Counter & mJ &
+    \code{gpu\_uuid}, \code{kind="idle"}, \code{namespace}, \code{pod}, \code{container} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+
+\subsection{Prometheus Exporter Implementation}
+
+\paragraph{Architectural Context}
+This implementation realizes the passive exposition model defined above by translating committed analysis points into a Prometheus-compatible pull interface.
+
+\paragraph{Implementation Strategy}
+Analysis points are pushed into the exporter as immutable values and retained only as the most recent sample per metric series.
+Metric families are created lazily on first observation, with a fixed label schema determined at discovery time.
+
+\paragraph{Core Mechanisms}
+Each analysis metric identifier is mapped to a sanitized Prometheus metric name with a mandatory \code{tycho\_} prefix.
+Label keys are fixed on first sight and reused for all subsequent emissions.
+At scrape time, the exporter exposes the latest committed value for each active series without additional buffering or recomputation.
+
+\paragraph{Robustness and Edge Cases}
+Schema instability is handled conservatively by ignoring newly appearing labels after first observation.
+Exporter startup is decoupled from analysis initialization, ensuring availability even while upstream components perform long-running calibration or setup.
+Multiple sinks may coexist, allowing Prometheus export and auxiliary sinks such as logging to operate concurrently.
+
+\paragraph{Implementation Consequences}
+The exporter preserves analysis correctness by construction, as it neither modifies nor reinterprets metric values.
+All temporal guarantees are inherited directly from the analysis engine, while exposition remains strictly observational and replaceable.
+
+
+
+
+
+
 
 \section{Correctness, Robustness, and Degradation Behavior}
 \label{sec:impl_robustness}

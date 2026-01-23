@@ -1,0 +1,590 @@
+\section{Role of the Analysis Engine at Runtime}
+\label{sec:impl_analysis_engine_role}
+
+At runtime, Tycho’s analysis engine acts as a \emph{cycle-scoped orchestration actor} whose sole responsibility is to coordinate the deterministic execution of window-scoped analysis under the architectural constraints defined in \S~\ref{sec:analysis_attribution_arch}.
+It is explicitly \emph{not} a metric processor, scheduler, or modeling component.
+Instead, it provides a narrow execution framework within which metric plugins can operate correctly, reproducibly, and without hidden coupling.
+
+\paragraph{Responsibilities of the Engine}
+The analysis engine is responsible for the following concerns only:
+
+\begin{itemize}
+  \item \textbf{Cycle instantiation.}
+  For each trigger, the engine constructs a fresh analysis cycle that encapsulates all execution-time context required for attribution, including the monotonic clock reference, the selected attribution window, read policy, access to upstream observation buffers, and access to shared cross-window state.
+
+  \item \textbf{Window selection and temporal safety.}
+  The engine selects a concrete attribution window based on the global monotonic timebase, applying the configured safety offset to ensure that all metrics participating in the cycle can interpret their inputs under their declared delay semantics.
+  Once selected, the window is immutable for the lifetime of the cycle.
+
+  \item \textbf{Plan construction and execution.}
+  The engine delegates the construction of an execution plan to a planner component and executes the resulting plan exactly once per cycle.
+  Execution order is fixed for the duration of the cycle, and no metric may be executed outside the scope of an active cycle.
+
+  \item \textbf{Materialization boundary enforcement.}
+  The engine establishes a per-cycle materialization boundary by providing a cycle-local point store and a collecting sink.
+  All metric outputs for a cycle must pass through this boundary, ensuring window-scoped immutability and preventing cross-cycle leakage.
+
+  \item \textbf{Failure isolation.}
+  Errors produced by individual metrics are logged but do not abort the cycle or prevent other metrics from executing.
+  This ensures that partial observability or local failures degrade results monotonically rather than catastrophically.
+\end{itemize}
+
+Beyond these responsibilities, the engine deliberately refrains from interpreting metric semantics or influencing attribution logic.
+
+\paragraph{Explicit Non-Responsibilities}
+Equally important are the concerns that the engine \emph{does not} handle:
+
+\begin{itemize}
+  \item \textbf{No metric semantics.}
+  The engine has no knowledge of what a metric computes, what its inputs represent, or how its outputs should be interpreted.
+  Metrics are treated as opaque plugins that operate solely through the cycle interface.
+
+  \item \textbf{No dependency resolution.}
+  The engine does not infer or enforce dependencies between metrics.
+  Ordering constraints are satisfied by construction through the execution plan and are considered an architectural obligation of the analysis pipeline, not a runtime scheduling problem.
+
+  \item \textbf{No retrospective analysis.}
+  Once a cycle completes, the engine does not revisit, revise, or reinterpret its outputs.
+  Previously materialized results are final, even if later cycles observe more complete or higher-quality inputs.
+
+  \item \textbf{No coupling to exporters.}
+  The engine never reads from, synchronizes with, or conditions execution on exporter state.
+  Exporters are strictly downstream observers and lie outside the correctness boundary of attribution.
+\end{itemize}
+
+This strict separation ensures that attribution semantics cannot be accidentally influenced by changes in metric implementation, exporter behavior, or collection jitter.
+
+\paragraph{Relationship to Collectors, Buffers, and Metadata}
+The analysis engine assumes that all upstream concerns have already been resolved before cycle execution begins.
+Collectors are responsible for sampling raw observations and storing them in bounded-retention ring buffers.
+The engine accesses these buffers in a read-only fashion through the cycle context and never participates in collection scheduling, backpressure, or buffering decisions.
+
+Similarly, metadata acquisition and caching are treated as an upstream concern.
+At the start of each cycle, the engine may trigger a best-effort metadata refresh, but it neither blocks on metadata availability nor performs garbage collection.
+Metadata is exposed to metrics as read-only, bounded-freshness state, and incomplete metadata degrades attribution results without invalidating the cycle.
+
+\paragraph{Metric-Agnostic and Extensible Design}
+The engine’s design is intentionally metric-agnostic.
+Metrics are registered externally and exposed to the engine only through a minimal plugin interface.
+This allows metrics to be enabled or disabled dynamically without altering orchestration semantics and ensures that adding new stages or attribution logic does not require changes to the engine itself.
+
+All metric-specific behavior, including delay correction, stateful modeling, and attribution logic, is confined to metric implementations.
+The engine provides only the structural guarantees required for correctness: a well-defined window, deterministic execution order, and a controlled materialization boundary.
+
+\paragraph{Online and Non-Retrospective Execution Model}
+Finally, the analysis engine operates strictly online.
+Each cycle produces a single, maximal, internally consistent interpretation of the evidence available for its attribution window.
+Incomplete inputs result in incomplete outputs, but never in speculative values or later reinterpretation.
+Cross-window memory is possible only through explicit state stores managed by metrics themselves, making temporal coupling visible and auditable.
+
+In this sense, the engine enforces the central architectural contract of Tycho’s analysis layer: attribution is window-scoped, deterministic, and non-retrospective, and increasing analytical sophistication is achieved by extending metric logic rather than by complicating orchestration.
+
+
+
+
+
+
+
+\section{Cycle Construction and Execution Lifecycle}
+\label{sec:impl_analysis_cycle_lifecycle}
+
+This section describes how the architectural concept of an \emph{analysis cycle} is realized concretely at runtime.
+A cycle is the fundamental unit of execution in Tycho’s analysis layer: it defines the temporal scope, execution context, and correctness boundary for all attribution performed during a single trigger.
+The implementation enforces a strict single-entry, single-exit lifecycle, ensuring that each cycle yields one logically atomic interpretation of its attribution window.
+
+\paragraph{Triggered Execution Model}
+Analysis cycles are initiated by external scheduling logic and enter the analysis layer exclusively through the engine’s \texttt{Collect} method.
+Each invocation of \texttt{Engine.Collect} corresponds to exactly one analysis cycle.
+The engine does not self-schedule, spawn background work, or maintain internal timers; it reacts solely to explicit triggers.
+
+This design ensures that cycle frequency, cadence, and jitter are externalized concerns.
+The analysis engine assumes that triggers may arrive with variable spacing and makes no assumptions about periodicity beyond what is required to compute window bounds.
+As a result, the realized attribution window length may vary slightly between cycles without affecting correctness.
+
+\paragraph{Atomic Cycle Context Construction}
+Upon entry, the engine immediately constructs a fresh \texttt{Cycle} object that encapsulates all execution-time state required for the remainder of the run.
+This includes:
+
+\begin{itemize}
+  \item the monotonic clock reference and current monotonic timestamp,
+  \item the selected attribution window,
+  \item the read policy governing admissible delays,
+  \item read-only access to upstream observation buffers,
+  \item access to shared cross-window state stores,
+  \item access to node-local metadata caches,
+  \item and a cycle-local materialization store and sink.
+\end{itemize}
+
+All of these components are bound to the cycle at construction time.
+No additional context is injected later, and no global mutable analysis state is consulted during execution.
+This makes the cycle a self-contained execution unit whose behavior is fully determined at entry.
+
+\paragraph{Single-Entry, Single-Exit Semantics}
+Once constructed, the cycle is passed to the planner to build an execution plan and is then executed exactly once.
+There is no re-entry into a partially executed cycle, no mid-cycle rescheduling, and no retry logic at the orchestration level.
+
+The engine enforces a strict linear lifecycle:
+
+\begin{enumerate}
+  \item cycle context construction,
+  \item plan construction,
+  \item sequential plan execution,
+  \item cycle termination.
+\end{enumerate}
+
+After plan execution completes, all cycle-local structures become unreachable.
+In particular, the per-cycle point store is discarded, and no implicit state survives into subsequent cycles.
+This directly enforces the architectural requirement that analysis be non-retrospective and window-scoped.
+
+\paragraph{Failure Isolation and Degradation}
+Failures within a cycle are intentionally isolated.
+If individual metrics fail during execution, their errors are logged, but execution continues for remaining metrics in the plan.
+A metric failure therefore affects only the completeness of results for the current window and cannot prevent other metrics from producing valid outputs.
+
+Crucially, cycle-level failures do not poison future cycles.
+Each trigger constructs a new cycle with a fresh context, independent of any errors or partial results from prior runs.
+This isolation ensures that transient pathologies, partial observability, or local implementation faults degrade attribution monotonically rather than accumulating over time.
+
+\paragraph{Lifecycle Implications for Correctness}
+By enforcing atomic construction, single-pass execution, and explicit teardown, the implementation guarantees that each analysis cycle yields at most one coherent set of window-scoped outputs.
+There is no opportunity for partial publication, retroactive correction, or cross-cycle interference.
+This execution discipline provides the foundation upon which more complex attribution logic can be layered while preserving determinism, auditability, and architectural clarity.
+
+
+
+
+
+
+\section{Attribution Window Selection and Temporal Safety}
+\label{sec:impl_analysis_window_selection}
+
+This section explains how the architectural definition of the attribution window
+\(
+W_k = (t_{k-1},\, t_k]
+\)
+is realized concretely at runtime in a manner that is deterministic, temporally safe, and independent of collector behavior.
+The implementation makes window selection an explicit, first-class operation performed at cycle entry and treats the resulting window as immutable for the duration of the cycle.
+
+\paragraph{Monotonic Timebase as the Sole Temporal Authority}
+All window selection is performed exclusively on Tycho’s global monotonic timebase.
+The analysis engine never consults wall-clock time, collector timestamps, or exporter timing information when determining window boundaries.
+Instead, it queries the monotonic clock once at cycle entry and derives all temporal quantities from that reference.
+
+This design eliminates ambiguity arising from clock skew, time adjustments, or heterogeneous timestamp sources.
+It also ensures that attribution windows form a total order over a single, strictly increasing time domain, which is a prerequisite for non-overlapping, non-retrospective analysis.
+
+\paragraph{Window Duration and Realized Window}
+The configured window duration defines a \emph{target width} for attribution windows, not a rigid alignment grid.
+At runtime, the engine computes the realized window bounds by subtracting the window duration, expressed in monotonic ticks, from the selected window end.
+Because cycle triggers may arrive with jitter, the effective duration of consecutive windows may vary slightly.
+
+This variability is intentional.
+Rather than enforcing a fixed cadence or alignment, the implementation prioritizes correctness over regularity: all derived quantities are interpreted over the exact interval that was realized, and no assumptions are made about uniform sampling or periodic execution.
+
+\paragraph{Safety Offset and Intentional Lag}
+To ensure temporal safety under asynchronous and delayed inputs, the engine applies a configurable safety offset when selecting the window end.
+Concretely, the window end \(t_k\) is chosen as the current monotonic time minus the safety offset, expressed in ticks.
+
+This intentional lag creates a temporal buffer between real-time observation and analysis.
+Its purpose is not to align inputs, but to guarantee admissibility: by the time a window is closed, all metrics participating in the cycle are guaranteed to have had sufficient opportunity to observe and buffer the samples required to interpret their contributions under their declared delay semantics.
+
+The safety offset is treated as an architectural precondition for window validity.
+If insufficient time has elapsed to satisfy this bound, the window is still defined deterministically, but its start may be clamped to the beginning of the monotonic timeline.
+No speculative closure or late adjustment is performed.
+
+\paragraph{Independence from Collector Sampling Grids}
+Window selection is deliberately decoupled from collector sampling schedules.
+Collectors may sample at different frequencies, with irregular timing, or with transient gaps.
+The analysis engine does not attempt to synchronize with these schedules and does not impose an alignment grid on window boundaries.
+
+Instead, windows are defined purely in terms of monotonic ticks, and metrics are responsible for interpreting the contents of upstream buffers over the selected interval.
+This separation allows the analysis layer to remain agnostic to collection mechanics and prevents attribution semantics from being implicitly shaped by sampling artifacts.
+
+\paragraph{Window Immutability and Determinism}
+Once selected at cycle entry, the attribution window is immutable.
+All metrics executed during the cycle observe the same base window, and any metric-local delay correction is derived deterministically from this reference.
+The engine does not revise window bounds mid-cycle and does not reopen or reinterpret windows after execution.
+
+This immutability is critical for correctness.
+It ensures that all outputs produced during a cycle are logically co-scoped, that downstream materialization and export operate on a consistent temporal basis, and that later cycles cannot retroactively alter the meaning of earlier results.
+As a result, each window yields a single, maximal, and final interpretation of the evidence available at the time of its closure.
+
+
+
+
+\section{Read Policy and Delay-Aware Window Interpretation}
+\label{sec:impl_analysis_read_policy}
+
+The architectural temporal model of Tycho permits metrics to observe and correct for source-specific delays while preserving a single, well-defined attribution window per cycle.
+Rather than centralizing delay handling in the orchestration layer, the implementation enforces delay semantics through a cycle-scoped read policy combined with metric-local interpretation logic.
+This section describes how these mechanisms interact to provide temporal safety without introducing global coordination or implicit coupling.
+
+\paragraph{Read Policy as a Cycle-Scoped Contract}
+At cycle construction time, the analysis engine instantiates a \texttt{ReadPolicy} and attaches it to the cycle context.
+The read policy encodes execution-time constraints derived from orchestration, most notably the safety offset expressed in monotonic ticks.
+
+The read policy is intentionally minimal.
+It does not prescribe how metrics must interpret their inputs, nor does it embed source-specific knowledge.
+Instead, it establishes a shared lower bound on admissible observation age that all metrics can rely on when selecting their effective interpretation windows.
+By scoping the read policy to the cycle, the implementation ensures that all metrics participating in a run observe a consistent temporal contract without requiring direct coordination.
+
+\paragraph{Metric-Local Delay Handling}
+Metrics that require additional delay correction beyond the global safety offset apply it explicitly and locally.
+The cycle exposes a helper method that derives an \emph{effective window} by shifting the base attribution window forward by a metric-specified delay, expressed in ticks.
+
+This mechanism allows each metric to declare and apply its own delay semantics without affecting the window observed by other metrics.
+Delay correction is therefore compositional: global admissibility is guaranteed by orchestration, while finer-grained alignment remains the responsibility of the metric that requires it.
+
+Importantly, delay handling does not modify the base window.
+The original attribution window remains immutable and serves as the common temporal reference for the cycle.
+All delay-adjusted windows are derived deterministically from this reference.
+
+\paragraph{Best-Effort Admissibility Versus Completeness}
+The combination of safety offset and metric-local delay handling guarantees admissibility but not completeness.
+If a metric’s required samples are unavailable within its effective window, the metric must degrade gracefully by producing no output or a partial result.
+
+The analysis engine does not attempt to compensate for missing samples, nor does it retry or extend windows to achieve completeness.
+This design choice reflects the architectural priority of internal consistency over forced coverage.
+Metrics either operate on admissible evidence or abstain from contributing to the current window.
+
+\paragraph{Window Filtering and Sample Extraction}
+Actual sample selection is performed by generic window filtering helpers that operate over upstream ring buffers.
+These helpers extract all samples whose monotonic timestamps fall within the specified window and, when required, also provide predecessor samples to support interval-based integration.
+
+Filtering is performed in a best-effort manner.
+Out-of-order samples are tolerated, missing predecessor samples are handled explicitly, and buffers are never locked for extended periods.
+The helpers do not impose assumptions about sampling regularity or completeness and do not attempt to reorder or interpolate data.
+
+\paragraph{Decentralized Enforcement of Temporal Semantics}
+Together, the read policy, metric-local window shifting, and best-effort filtering realize the architectural temporal model without centralized enforcement.
+The engine guarantees that windows are temporally safe to interpret, while metrics retain full control over how they consume and align their inputs.
+This separation preserves extensibility, avoids hidden coupling between metrics, and ensures that temporal semantics remain explicit, auditable, and local to the logic that depends on them.
+
+
+
+
+\section{Staged Pipeline Execution and Dependency Discipline}
+\label{sec:impl_analysis_staging}
+
+Tycho’s analysis pipeline enforces ordering and dependency constraints not through runtime inference or scheduling algorithms, but by construction.
+The implementation deliberately avoids dynamic dependency resolution, favoring an execution model in which correctness follows from explicit structure and disciplined composition.
+This section explains how staged execution is realized concretely and why dependency correctness is treated as an architectural, rather than algorithmic, property.
+
+\paragraph{Static Plan Construction}
+For each analysis cycle, the engine delegates plan construction to a planner component.
+In the current implementation, plan construction is entirely static: the planner returns a linear execution plan consisting of an ordered list of metric plugins.
+No analysis of dependencies is performed at runtime, and no conditional reordering occurs once the plan has been built.
+
+This static plan is constructed afresh for every cycle, but its structure is invariant across cycles except for the inclusion or exclusion of metrics based on enablement conditions.
+As a result, the execution order is predictable, reproducible, and independent of runtime observation characteristics.
+
+\paragraph{Registration-Order Execution}
+Execution order is determined solely by metric registration order.
+Metrics are registered into the analysis registry in a sequence that reflects their semantic dependencies, and the planner preserves this order verbatim when building the execution plan.
+
+During plan execution, metrics are invoked sequentially.
+Each metric observes the cycle context as it exists at that point in execution, including any materialized outputs produced by earlier metrics.
+Metrics registered later in the plan may therefore depend on outputs from earlier ones, while the reverse is structurally impossible.
+
+This approach makes ordering constraints explicit at composition time rather than implicit in code or configuration.
+Any change to dependency structure necessarily manifests as a change in registration order, which is visible, reviewable, and testable.
+
+\paragraph{Implicit Stage Boundaries}
+Although the architecture describes analysis as a sequence of stages, stages are not represented as explicit runtime entities.
+Instead, stage boundaries are implicit and correspond to contiguous segments of the static execution plan.
+
+Each such segment groups metrics that operate at the same semantic level, such as raw signal aggregation, decomposition, attribution, or fusion.
+Downstream stages assume that all metrics in earlier segments have either produced their window-scoped outputs or abstained from doing so due to missing inputs.
+
+By keeping stage boundaries implicit, the implementation avoids additional abstraction layers while still preserving the architectural discipline of staged computation.
+Stages exist as a conceptual tool for reasoning about dependencies, not as a mechanism enforced by the runtime.
+
+\paragraph{Absence of DAGs and Runtime Dependency Solvers}
+The implementation intentionally does not construct a dependency graph, perform topological sorting, or resolve dependencies dynamically.
+There is no notion of per-metric dependency declarations, no runtime validation of dependency satisfaction, and no scheduling logic beyond linear iteration.
+
+This is a deliberate design choice.
+Dynamic dependency resolution would obscure the execution contract, introduce additional failure modes, and risk creating hidden coupling between metrics.
+By contrast, static ordering ensures that all dependency relationships are resolved explicitly by the developer composing the pipeline.
+
+\paragraph{Architectural Versus Algorithmic Correctness}
+As a consequence, dependency correctness in Tycho is an architectural guarantee rather than an algorithmic one.
+The runtime enforces execution order faithfully but does not attempt to infer whether that order is semantically valid.
+If a metric observes an undefined input, the result degrades naturally through omission rather than triggering reordering or backtracking.
+
+This division of responsibility aligns with Tycho’s broader design philosophy.
+The orchestration layer provides strong structural guarantees—deterministic ordering, window scoping, and isolation—while semantic correctness is ensured through disciplined pipeline construction and explicit handling of partial observability within metrics themselves.
+
+
+
+
+
+
+\section{Metric Materialization and Intra-Cycle Visibility}
+\label{sec:impl_analysis_materialization}
+
+A central requirement of Tycho’s analysis architecture is that derived quantities become well-defined, immutable facts scoped to a single attribution window.
+The implementation realizes this requirement through an explicit materialization boundary that is established at cycle entry and enforced uniformly for all metrics.
+This section formalizes how metrics emit results, how those results are stored and exposed during a cycle, and why materialized facts cannot leak across window boundaries.
+
+\paragraph{Per-Cycle Materialization Store}
+At the start of each analysis cycle, the engine constructs a fresh \texttt{PointStore}.
+This store exists exclusively for the lifetime of the cycle and is discarded immediately after execution completes.
+It is not shared across cycles and is never reused.
+
+All metric outputs produced during the cycle are routed through a cycle-local collecting sink that tees emissions into the \texttt{PointStore} before forwarding them to downstream exporters.
+As a result, the point store constitutes the authoritative in-memory representation of all materialized analysis results for the current window.
+
+Because the store is allocated per cycle, materialization is inherently window-scoped.
+No implicit persistence mechanism exists that could cause results from one window to appear as inputs in a later cycle.
+
+\paragraph{Exactly-Once Materialization Semantics}
+Within a cycle, a derived metric is expected to materialize its output exactly once.
+The point store enforces this discipline structurally by indexing points by a canonical metric key composed of the metric identifier and its label set.
+
+If a metric emits a point with a key that has already been seen in the current cycle, the new emission replaces the previous one.
+There is no accumulation, merging, or incremental refinement of values.
+The effective semantics are therefore \emph{last-write-wins}, and correctness relies on the architectural expectation that metrics emit at most one final value per window.
+
+This design ensures that all materialized values represent complete, window-scoped facts rather than intermediate states.
+
+\paragraph{Overwrite Behavior and Expectations}
+Overwrite behavior is intentionally permissive but semantically constrained.
+The runtime does not prohibit multiple emissions with the same key, but such behavior is considered an implementation error at the metric level.
+The engine neither detects nor corrects such cases; instead, it provides a simple and deterministic replacement rule.
+
+By avoiding incremental updates, the implementation preserves the invariant that materialized metrics do not evolve within a cycle.
+Once plan execution completes, the contents of the point store represent the maximal consistent set of derived quantities achievable for the window.
+
+\paragraph{Global Intra-Cycle Visibility}
+All materialized points are globally visible to metrics executing later in the same cycle.
+Metrics may query the point store by exact key or by metric identifier to retrieve previously computed results.
+There is no notion of scoped visibility by stage or by metric group.
+
+This unrestricted visibility places the burden of dependency correctness on execution order rather than access control.
+Metrics are architecturally permitted to observe any previously materialized result, and incorrect access patterns degrade results naturally by encountering undefined or missing inputs.
+
+\paragraph{No Cross-Cycle Leakage}
+Materialized points are never carried forward implicitly.
+When a cycle terminates, its point store is discarded, and all derived quantities cease to exist from the perspective of subsequent cycles.
+Any behavior that requires memory across windows must be implemented explicitly through cross-window state stores managed by metrics themselves.
+
+This strict separation ensures that each cycle yields a single, final interpretation of its attribution window and that later cycles cannot retroactively influence or reinterpret earlier results.
+The implementation therefore enforces the architectural contract that metric materialization is window-scoped, immutable, and non-retrospective.
+
+
+
+
+
+\section{Best-Effort Semantics Under Partial Observability}
+\label{sec:impl_analysis_best_effort}
+
+Tycho’s analysis layer is designed to operate correctly under partial observability.
+Inputs may be delayed, missing, or irregular, and attribution must proceed without blocking, speculation, or retrospective correction.
+The implementation therefore adopts a best-effort execution model in which undefined results are treated as first-class outcomes and incompleteness propagates explicitly through the analysis pipeline.
+
+\paragraph{Undefined Metrics as First-Class Outcomes}
+A metric may be unable to produce a valid output for a given attribution window if required inputs are unavailable, stale beyond admissible bounds, or insufficient to support its defining computation.
+In such cases, the metric simply abstains from emitting a point for that window.
+
+The runtime treats the absence of a materialized point as a well-defined and meaningful outcome.
+There is no distinction between a metric that is disabled and one that is enabled but undefined for the current window, other than the downstream consequences of missing inputs.
+This uniform treatment simplifies execution semantics and avoids introducing artificial placeholder values.
+
+\paragraph{Monotone Degradation Behavior}
+The combination of window selection, delay-aware reads, and sequential execution yields a monotone degradation model.
+As observability decreases, the set of materialized metrics for a window can only shrink; it never expands retroactively.
+
+Metrics that depend on missing or undefined inputs may themselves become undefined or produce degraded outputs.
+Crucially, this degradation propagates forward through the execution plan in a single direction.
+Later metrics cannot improve or revise the results of earlier ones, and no metric can compensate implicitly for missing upstream evidence.
+
+\paragraph{Absence of Backfilling and Reinterpretation}
+The implementation explicitly avoids any form of backfilling, retry, or reinterpretation of prior windows.
+Once a cycle completes, its outputs are final, regardless of whether later cycles observe more complete or higher-quality data.
+
+The analysis engine does not revisit previous windows, extend window boundaries, or re-execute metrics based on delayed samples.
+This choice preserves determinism and auditability at the cost of completeness and reflects the architectural priority of consistency over retrospective accuracy.
+
+\paragraph{Explicit Propagation of Incompleteness}
+Incompleteness is propagated explicitly through the absence of materialized points and through metric-local handling of missing inputs.
+There are no hidden defaults, synthetic values, or implicit interpolation performed by the orchestration layer.
+
+Metrics that require complete inputs must enforce this requirement themselves and degrade gracefully when it is not met.
+Downstream consumers can therefore distinguish between complete and partial attribution results by inspecting which metrics are present for a given window and, where applicable, by examining attached quality metadata.
+
+\paragraph{Architectural Implications}
+By treating partial observability as a normal operating condition rather than an exceptional case, the implementation aligns runtime behavior with the architectural model.
+Best-effort execution, monotone degradation, and explicit incompleteness ensure that every window yields the most accurate interpretation possible without violating conservation, causality, or non-retrospective semantics.
+
+
+
+
+\section{Cross-Window State and Explicit Memory}
+\label{sec:impl_analysis_cross_window_state}
+
+While Tycho’s analysis architecture is fundamentally window-scoped and non-retrospective, certain classes of models require memory across windows in order to converge, stabilize, or adapt over time.
+The implementation accommodates such models through a narrowly scoped and explicitly managed cross-window state mechanism.
+This section explains how stateful behavior is supported without violating the architectural guarantees of isolation, determinism, and temporal clarity.
+
+\paragraph{StateStore Ownership and Lifecycle}
+Cross-window state is provided exclusively through a shared \texttt{StateStore} that is owned by the analysis engine and passed into each cycle.
+The state store persists across cycles for the lifetime of the analysis process, but it is never accessed implicitly.
+It is a passive key--value store with no execution logic, scheduling behavior, or semantic interpretation.
+
+The engine itself does not read from, write to, or reason about the contents of the state store.
+Its sole responsibility is to make the store available to metrics during cycle execution.
+As a result, the presence of cross-window state does not alter cycle construction, window selection, or execution ordering.
+
+\paragraph{Metric-Owned State Only}
+All cross-window state is strictly metric-owned.
+Metrics that require memory across windows must explicitly retrieve, initialize, and update their state using the shared store.
+Metrics that do not opt in to stateful behavior remain purely window-scoped and stateless by construction.
+
+State entries are keyed explicitly by metric identity and labels, making ownership and scope visible in code.
+There is no global state shared implicitly across metrics, and no mechanism for one metric to observe or mutate another metric’s state unless it does so deliberately through agreed-upon keys.
+
+\paragraph{Explicit Opt-In to Memory}
+The implementation requires an explicit opt-in to memory at the metric level.
+Metrics must actively request state from the store and must handle initialization, update, and interpretation themselves.
+If a metric never accesses the state store, it cannot be influenced by prior cycles.
+
+This explicitness ensures that temporal coupling is always visible at the point of use.
+A reader of the metric implementation can immediately identify whether and how past windows influence current behavior, which is essential for auditability and reasoning about correctness.
+
+\paragraph{Stateful Models as Isolated Examples}
+Stateful behavior is currently used to support classes of models that estimate baseline or background behavior over time, such as idle energy models.
+These models maintain internal representations that evolve gradually across windows in response to observed data.
+
+Importantly, such stateful models consume only window-scoped inputs and produce window-scoped outputs.
+The presence of memory affects how a metric interprets evidence, but it does not retroactively alter the meaning of previously materialized results.
+State is updated after each cycle and influences only future cycles.
+
+\paragraph{Guarantees Against Hidden Temporal Coupling}
+The combination of explicit state access, metric ownership, and strict cycle boundaries provides strong guarantees against hidden temporal coupling.
+There is no implicit propagation of derived quantities across windows, no caching of materialized points, and no shared mutable state that could influence attribution invisibly.
+
+As a result, the implementation supports stateful modeling where necessary while preserving the core architectural contract: each analysis cycle yields a single, final interpretation of its attribution window, and any dependence on prior windows is explicit, localized, and auditable.
+
+
+
+
+\section{Output Commit and Sink Boundary}
+\label{sec:impl_analysis_sink_boundary}
+
+The final step of each analysis cycle is the commitment of materialized outputs to downstream sinks.
+The implementation enforces a strict boundary between analysis correctness and result publication, ensuring that exporters act solely as observers and cannot influence attribution semantics.
+This section describes how that boundary is realized and why it is central to reproducibility and robustness.
+
+\paragraph{CollectingSink as the Batch Boundary}
+At cycle construction time, the engine installs a \texttt{CollectingSink} that wraps the configured downstream sink.
+All metric emissions during the cycle are routed through this collecting sink, which performs two functions simultaneously.
+First, it records every emitted point in the cycle-local point store, forming the authoritative in-memory representation of analysis results.
+Second, it forwards the same points to the downstream sink for publication.
+
+This design establishes a clear batch boundary.
+All points emitted during a cycle belong to the same attribution window and are committed as a logical group.
+The point store captures the complete set of results produced during execution, independent of whether publication succeeds.
+
+\paragraph{Separation of Correctness from Publication}
+Correctness is defined entirely within the analysis layer.
+A point is considered materialized as soon as it is recorded in the cycle-local store, regardless of whether it is successfully exported.
+The analysis engine never reads from sinks, never waits for exporter acknowledgements, and never conditions execution on exporter behavior.
+
+As a result, failures, delays, or drops at the export layer do not affect the meaning of the computed results.
+The analysis layer produces a single, coherent interpretation of the attribution window, and publication is treated as a best-effort downstream concern.
+
+\paragraph{Non-Authoritative Sinks}
+Sinks are explicitly non-authoritative.
+They are not part of the dependency graph, do not participate in window selection or execution ordering, and do not provide feedback into the analysis process.
+From the perspective of the engine and metrics, a sink is simply a consumer of already materialized facts.
+
+This non-authoritative role is reinforced by the minimal sink interface, which supports emission and deletion but exposes no state that could be consulted by analysis logic.
+Any exporter-specific buffering, aggregation, or retry behavior is therefore semantically irrelevant to attribution.
+
+\paragraph{Implications for Reproducibility and Robustness}
+By isolating publication from analysis, the implementation ensures that attribution results are reproducible given the same inputs and configuration, independent of exporter behavior.
+A dropped or delayed export does not retroactively change the interpretation of a window, and differences in exporter implementation cannot introduce hidden coupling or timing dependencies.
+
+This separation also improves robustness.
+Transient exporter failures degrade only the visibility of results, not their correctness.
+The analysis engine remains online and continues to execute cycles deterministically, preserving the architectural guarantee that attribution semantics are stable, auditable, and independent of downstream consumers.
+
+
+
+
+
+
+\section{Summary: Architectural Guarantees Enforced by Implementation}
+\label{sec:impl_analysis_summary}
+
+This report has traced Tycho’s analysis architecture to its concrete runtime realization, demonstrating that the core architectural guarantees are not emergent properties of complex control logic, but are enforced directly through explicit structure, narrow interfaces, and disciplined separation of concerns.
+The implementation realizes the architecture faithfully while remaining intentionally simple at the orchestration level.
+
+\paragraph{Guaranteed Properties}
+The implementation enforces the following guarantees unconditionally:
+
+\begin{itemize}
+  \item \textbf{Window-scoped determinism.}
+  Each analysis cycle operates over a single, immutable attribution window derived from a global monotonic timebase.
+  All outputs produced during the cycle are scoped to that window and are mutually consistent.
+
+  \item \textbf{Non-retrospective execution.}
+  Cycles are executed exactly once, and their results are final.
+  No backfilling, reinterpretation, or retroactive correction is performed, even if later cycles observe more complete evidence.
+
+  \item \textbf{Deterministic ordering.}
+  Metric execution order is fixed by construction and reproducible across cycles.
+  Dependency correctness is guaranteed structurally rather than inferred dynamically.
+
+  \item \textbf{Explicit materialization.}
+  Derived quantities become immutable, window-scoped facts via a per-cycle materialization boundary.
+  Intra-cycle visibility is global, while cross-cycle leakage is structurally impossible.
+
+  \item \textbf{Explicit statefulness.}
+  Any dependence on prior windows is mediated through an explicit state store and owned by individual metrics.
+  Temporal coupling is therefore visible, localized, and auditable.
+
+  \item \textbf{Isolation from exporters.}
+  Output publication is strictly downstream.
+  Exporter behavior cannot influence attribution semantics or execution.
+\end{itemize}
+
+Together, these properties ensure that each analysis cycle yields a single, maximal, and internally consistent interpretation of the evidence available for its window.
+
+\paragraph{Intentional Non-Guarantees}
+Equally important are the properties the implementation explicitly does \emph{not} guarantee:
+
+\begin{itemize}
+  \item \textbf{Completeness.}
+  The system does not guarantee that all metrics produce outputs for all windows.
+  Partial observability is treated as a normal operating condition.
+
+  \item \textbf{Dynamic dependency validation.}
+  The runtime does not verify that metric dependencies are satisfied.
+  Incorrect pipeline composition degrades results through omission rather than triggering reordering or failure.
+
+  \item \textbf{Temporal alignment or resampling.}
+  The engine does not impose sampling grids, align collectors, or interpolate missing data.
+  All temporal interpretation is metric-local and best-effort.
+
+  \item \textbf{Exporter reliability.}
+  Publication success is outside the correctness boundary and does not affect attribution results.
+\end{itemize}
+
+These non-guarantees are deliberate and reflect the architectural priority of correctness, transparency, and auditability over forced completeness or convenience.
+
+\paragraph{Scalability of the Design}
+The analysis engine’s minimalism is a key enabler of scalability.
+Because orchestration is agnostic to metric semantics, additional stages and more complex attribution logic can be introduced without modifying the engine itself.
+New metrics participate in the same execution contract: they observe a well-defined window, execute in a deterministic position in the plan, and materialize their outputs explicitly.
+
+The absence of centralized dependency solvers, dynamic scheduling, or retrospective correction mechanisms keeps the orchestration layer stable even as analytical sophistication increases.
+Complexity is confined to metric implementations, where it is both necessary and visible.
+
+\paragraph{Foundation for Advanced Attribution Stages}
+This foundation directly supports later stages of the analysis pipeline, including idle and dynamic decomposition, fusion of heterogeneous energy sources, and workload-level attribution.
+Such stages rely on strong guarantees about window scoping, ordering, and materialization to reason over derived quantities rather than raw observations.
+
+By enforcing these guarantees at the orchestration level, the implementation allows advanced models to be expressed compositionally, without reintroducing concerns about timing, ordering, or cross-window interference.
+As a result, Tycho’s analysis layer can evolve in analytical depth while preserving a stable and rigorous execution contract.
