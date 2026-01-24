@@ -240,11 +240,6 @@ Figures~\ref{vt1_fig:tycho_timingDiagram} and \ref{vt1_fig:kepler_timingDiagram}
     \caption[Comparison between Tycho and Kepler export behaviour]{Comparison: Tycho and Kepler export behaviour}
 \end{figure}
 
-
-
-
-% ----------------------------------------------------------------------
-
 \section{Metric Sources as Temporal Actors}
 \label{sec:metric_sources}
 This section characterizes all metric sources as temporal actors that emit observations under distinct timing, latency, and reliability constraints. Rather than treating collectors as passive data providers, it formalizes their role as asynchronous producers whose outputs define the raw temporal structure available to the analysis pipeline. The following subsections describe the observable properties, guarantees, and limitations of each source, establishing the bounds within which subsequent metric construction and attribution operate.
@@ -259,43 +254,32 @@ emits utilisation information at the moment execution state changes occur.
 These events form a temporally dense and workload-dependent signal that describes
 how processor time is distributed across user tasks, kernel execution, interrupt
 handling, and idle periods.  
-All higher-level aggregation is performed in userspace and is decoupled from the
-event timing itself.
+All higher-level aggregation is performed in userspace.
 
 The domain contributes three classes of metrics with distinct temporal semantics.
 \begin{itemize}
-    \item \emph{Event-driven metrics} capture transitions in processor ownership.
-    They record the exact time at which execution begins or ends for a given
-    context and therefore define precise temporal boundaries for attribution
-    windows.
+    \item \emph{Event-driven metrics} capture transitions in processor ownership
+    and record the exact time at which execution begins or ends for a given
+    context.
     \item \emph{Cumulative counters} accumulate activity or duration over time and
-    expose their values when queried.  
-    Their effective resolution is determined by the polling interval rather than
-    by internal update frequency.
+    expose their values when queried.
     \item \emph{Quasi-instantaneous counters} sample hardware performance state at
-    activity boundaries.  
-    Although observed at discrete points, their semantics remain tied to the
-    execution periods they describe.
+    activity boundaries, with semantics tied to the execution periods they
+    describe.
 \end{itemize}
 
-Two architectural properties follow directly from this structure.  
-First, event-driven updates introduce no domain delay and therefore require no
-delay calibration.  
-Second, the collector may operate at an arbitrary polling cadence, since temporal
-alignment is guaranteed by the event timestamps themselves.  
-In Tycho the default interval is chosen to align with the RAPL window for
-convenience rather than correctness.  
-Each event also carries the current container context, ensuring correct
-attribution when workloads migrate across control groups.
+Because event timestamps directly encode execution boundaries, no domain-level
+delay calibration is required, and collector polling cadence does not affect
+temporal alignment.
+Each event carries container context at the point of observation, enabling
+correct attribution under workload migration across control groups.
 
-Within Tycho’s temporal model, this domain occupies a special role.  
-It accumulates fine-grained ownership information at execution boundaries and
-exposes it at analysis windows without influencing their timing.  
-The resulting signals form a complete temporal partition of CPU activity within
-each interval, supporting proportional attribution and reducing uncertainty in
-downstream energy modelling.  
-Architecturally, the eBPF domain therefore provides the most precise and
-temporally coherent view of processor utilisation available to the system.
+Within Tycho’s temporal model, this domain provides fine-grained ownership
+information at execution boundaries and yields a complete temporal partition of
+CPU activity within each analysis window.
+These signals support proportional attribution and reduce uncertainty in
+downstream energy modelling, making eBPF-derived utilisation the most temporally
+precise workload activity signal available to the system.
 
 \subsection{RAPL Domains}
 \label{subsec:rapl_temporal}
@@ -303,74 +287,65 @@ temporally coherent view of processor utilisation available to the system.
 RAPL exposes cumulative energy counters for a set of logical CPU-related domains,
 including package, cores, uncore, and memory.  
 Each domain provides a monotonically increasing counter that reflects total energy
-consumed since a hardware-defined reference point.  
-These counters advance independently of Tycho’s sampling schedule and describe
-the continuous energy behaviour of the processor.
+consumed since a hardware-defined reference point and advances independently of
+the sampling schedule.
 
-Within Tycho, RAPL counters are observed at fixed tick boundaries.  
+Within Tycho, RAPL counters are observed at fixed tick boundaries.
 At each tick the current counter values are recorded, and interval energy follows
-from the difference between consecutive readings.  
+from the difference between consecutive readings.
 RAPL therefore contributes energy over time rather than instantaneous power, with
-temporal resolution defined entirely by the tick interval.  
+temporal resolution defined by the tick interval.
 Because hardware updates occur at a much higher rate than sampling, the counters
 behave as effectively continuous at the chosen time scale.
 
-RAPL sampling is synchronised with Tycho’s timing engine so that each interval
-contains exactly one cumulative reading per domain.  
-No delay calibration is required: internal update behaviour is already integrated
-into the counters and does not affect interval attribution.  
+RAPL sampling is aligned with Tycho’s timing engine such that each analysis
+interval contains exactly one cumulative reading per domain.
+Internal update behaviour is already integrated into the counters and does not
+affect interval attribution.
 Architecturally, RAPL acts as a stable and low-noise source of CPU-adjacent energy.
 
 The domain structure of RAPL aligns naturally with Tycho’s requirement for
-domain-level consistency.  
+domain-level consistency.
 Per-socket counters for package, core, uncore, and memory domains form a coherent
-and stable decomposition of CPU energy that is preserved across intervals.  
-This decomposition provides a reliable baseline against which software-side
-utilisation signals can be related during attribution.
+decomposition of CPU energy that is preserved across intervals and provides a
+reliable baseline against which software-side utilisation signals can be related
+during attribution.
 
 \subsection{Redfish/BMC Power Source}
 \label{subsec:redfish_temporal}
 
 Redfish provides an out-of-band view of total node power through the server’s
-Baseboard Management Controller.  
-Unlike in-band sources such as RAPL or eBPF telemetry, Redfish publishes
-instantaneous power values at coarse and irregular intervals determined entirely
-by the BMC implementation.  
-These updates are asynchronous with respect to Tycho’s timing engine and cannot
-be controlled or accelerated by the system.
+Baseboard Management Controller.
+It reports instantaneous power values at coarse and implementation-defined
+intervals and constitutes Tycho’s only system-wide power observation.
 
-Within Tycho’s architecture, Redfish is therefore treated as a \emph{latently
-published external observation} rather than a synchronisable metric source.
+Within Tycho’s architecture, Redfish is treated as a \emph{latently published
+external observation} rather than as a synchronisable metric source.
 Sampling is performed at fixed tick boundaries using the global monotonic
-timebase, but the temporal authority remains with the BMC.  
+timebase, but temporal authority remains with the BMC.
 Repeated values are common, and new measurements may appear only after several
-ticks.  
-Redfish thus does not define time; it constrains it.
+ticks; Redfish therefore constrains temporal interpretation rather than defining
+it.
 
 To make this uncertainty explicit, each Redfish observation is annotated with a
 \emph{freshness} value that expresses the temporal distance between the BMC’s
-reported update time, when available, and Tycho’s collection time.  
+reported update time, when available, and Tycho’s collection time.
 Freshness is an architectural quality indicator rather than a correction
-mechanism.  
-It allows downstream analysis to reason about the temporal reliability of each
-reading without assuming regular publication or low latency.
+mechanism and allows downstream analysis to reason about temporal reliability
+without assuming regular publication or low latency.
 
-The irregular nature of Redfish publication also requires continuity guarantees.
 When no new BMC update appears for an extended period, Tycho emits an explicit
-continuation of the last known power value.  
+continuation of the last known power value.
 Continuation samples preserve a complete and chronologically consistent power
-timeline while making the absence of new information explicit.  
-They carry the same timestamping and freshness semantics as true updates but do
-not indicate new power measurements.
+timeline while making the absence of new information explicit; they do not
+indicate new measurements.
 
 Despite its limited temporal resolution, Redfish serves as Tycho’s authoritative
-source for total node power.  
-Its measurements provide a stable reference against which CPU- and
-accelerator-level energy estimates can be interpreted.  
-Architecturally, Redfish complements fine-grained in-band domains by anchoring
-the system’s global energy view, while its coarse and irregular behaviour is
-accommodated through explicit timestamping, freshness annotation, and controlled
-continuation rather than through high-frequency sampling or delay correction.
+source for total node power.
+It anchors the system’s global energy view and provides a stable reference
+against which CPU- and accelerator-level energy estimates can be interpreted,
+with its coarse publication behaviour accommodated through explicit timestamping,
+freshness annotation, and controlled continuation.
 
 \subsection{GPU Collector Architecture}
 \label{subsec:gpu_architecture}
@@ -383,7 +358,9 @@ so GPU sampling cannot rely on periodic polling alone.  Instead, Tycho aligns
 sampling with the device's internal update behaviour and publishes at most one
 \code{GpuTick} for each confirmed hardware update.  All GPU ticks share the
 global monotonic timebase that underpins Tycho's event-time model
-(\S~\ref{sec:tycho_timing_engine}).
+(\S~\ref{sec:timing_engine}).
+This section specifies the architectural guarantees, temporal contracts, and admissible interpretations of GPU telemetry; numerical reconstruction techniques, solver behavior, and backend-specific realization details are treated as implementation concerns and are not part of the architectural contract.
+
 
 \paragraph{Architectural Role}
 The GPU subsystem provides two forms of telemetry.  
@@ -637,8 +614,7 @@ and supports multi-tenant attribution across GPU workloads.
 
 \paragraph{Integration with the Global Timing Model}
 All GPU ticks are timestamped using Tycho's global monotonic timebase and
-inserted into the multi-domain ring buffer
-(\S~\ref{subsec:ringbuffer_overview}).  This ensures strict temporal ordering
+inserted into the multi-domain ring buffer. This ensures strict temporal ordering
 relative to RAPL, Redfish, and eBPF data.  The architecture maintains the
 principle of domain autonomy: each subsystem generates updates according to its
 own temporal behaviour, while the analysis engine later fuses these streams into
@@ -804,15 +780,13 @@ collection overhead.
 Polling-frequency calibration is performed during Tycho startup.
 It relies exclusively on passive observation of device behaviour and does not
 require workload manipulation.
-This calibration is required for GPU and Redfish power metrics, whose firmware-
-or BMC-controlled publication intervals are stable in expectation but may exhibit
-non-negligible variability and are not formally documented.
+This calibration is applied to GPU and Redfish power metrics, whose firmware- or BMC-controlled publication intervals are stable in expectation but not analytically documented.
 The resulting polling bounds are treated as configuration constraints by the
 timing subsystem and remain fixed during normal operation.
 For node-level execution, Tycho adopts the most conservative bound across all
 contributing devices to ensure uniform temporal coverage.
 
-No polling-frequency calibration is required for RAPL or eBPF.
+Polling-frequency calibration is not applied to RAPL or eBPF.
 RAPL energy counters update quasi-continuously at a granularity far below
 Tycho’s sampling resolution, rendering undersampling architecturally irrelevant.
 eBPF metrics are event-driven and decoupled from device-side publish cadence,
@@ -832,9 +806,7 @@ high-intensity workload transitions to elicit clear device responses.
 As Tycho is architecturally constrained to non-intrusive observation, such
 stimulus-driven measurement is performed offline and excluded from runtime
 operation.
-The resulting delay bounds are supplied to Tycho as static configuration
-parameters and are used by the analysis subsystem to align workload phases with
-metric data and to prevent premature attribution.
+The resulting delay bounds are supplied as static configuration parameters and inform the analysis subsystem’s temporal alignment logic without participating in runtime attribution.
 
 No delay calibration is performed for RAPL or eBPF.
 At Tycho’s temporal resolution, residual access latency in RAPL energy counters
@@ -848,7 +820,8 @@ Redfish power readings exhibit irregular publish intervals, variable network
 latency, and opaque BMC-internal behaviour, precluding stable delay estimation.
 Redfish metrics are consequently treated as coarse, low-resolution signals
 suitable for slow global trends, with temporal consistency enforced through
-separate freshness and scheduling mechanisms.
+separate freshness and scheduling mechanisms. Architecturally, calibration constrains admissible interpretation without introducing additional runtime state or adaptive behavior.
+
 
 \section{Analysis and Attribution Architecture}
 \label{sec:analysis_attribution_arch}
@@ -861,7 +834,7 @@ Tycho’s analysis layer must transform heterogeneous, asynchronous observations
 Inputs originate from independent sources with bounded but non-uniform delays and may be temporarily unavailable.
 Attribution further requires interdependent derived quantities, imposing strict ordering constraints.
 Finally, analysis must remain online, deterministic, and non-retrospective, excluding retrospective reinterpretation and any semantic coupling to exporter behavior.
-The orchestration problem is therefore to execute a deterministic, dependency-respecting transformation pipeline per attribution window while tolerating partial observability and enforcing the invariants defined in \S~\ref{subsec:attrib_windows}.
+The orchestration problem is therefore to execute a deterministic, dependency-respecting transformation pipeline per attribution window while tolerating partial observability and enforcing the invariants defined in \S~\ref{subsec:window_construction}.
 
 \subsubsection{Conceptual Model}
 Analysis proceeds as a sequence of discrete \emph{cycles}.
@@ -1181,7 +1154,7 @@ The explicit residual also enables the system to signal when residual-based inte
 
 \subsection{Stage 3: Idle and Dynamic Energy Semantics}
 \label{subsec:stage3_idle_dynamic}
-This stage defines how total component energy is partitioned into idle and dynamic contributions prior to attribution. Because CPU packages, residual system energy, and GPUs differ in observability, baseline stability, and utilization coupling, the decomposition semantics are specified per component rather than uniformly. The following subsubsections formalize these component-specific rules while preserving energy conservation and temporal consistency, and while establishing dynamic signals suitable for downstream attribution.
+This stage defines how total component energy is partitioned into idle and dynamic contributions prior to attribution. Because CPU packages, residual system energy, and GPUs differ in observability, baseline stability, and utilization coupling, the decomposition semantics are specified per component rather than uniformly. The following subsubsections formalize these component-specific rules while preserving energy conservation and temporal consistency, and while establishing dynamic signals suitable for downstream attribution. Each decomposition defined below follows the same architectural pattern: a conservative baseline definition, a non-negative dynamic remainder obtained by conservation, and explicit admissibility conditions that bound when the resulting quantities may be interpreted.
 
 \subsubsection{RAPL Idle and Dynamic Decomposition}
 \label{sec:arch_rapl_idle_dynamic}
@@ -1607,202 +1580,65 @@ All exported metric names are prefixed with \code{tycho\_} to ensure namespace i
 Metric meaning and correctness are fully determined upstream of the exporter.
 Downstream systems may freely attach additional labels such as node identity or perform aggregation without affecting Tycho’s attribution guarantees.
 
-
-
-
 \section{Architectural Trade-Offs and Alternatives Considered}
 \label{sec:tradeoffs}
 
-% OVERALL LENGTH:
-%   ~1.5 to 2 pages. This section is intentionally reflective and conceptual.
-%   Its purpose is not to provide implementation details, but to document
-%   *design-space exploration* and *architectural rationale*.  
-%
-%   Each subsection describes:
-%     - which broad alternatives exist,
-%     - why they were considered,
-%     - why Tycho does not adopt them (or adopts parts of them),
-%     without committing to specific implementation mechanics.
+Tycho adopts an explicitly \emph{accuracy-first} architectural stance.
+This choice prioritises preservation of temporal structure and interpretability of uncertainty over simplicity of implementation.
+As a result, the system deliberately rejects several simpler architectural alternatives that would reduce complexity by discarding information or by enforcing assumptions that are incompatible with heterogeneous, asynchronous metric sources.
+This section briefly situates Tycho’s design within the broader architectural design space and clarifies why these alternatives were not adopted.
 
-
-% ----------------------------------------------------------------------
-\subsection{Alternative Timing Designs}
+\subsection{Timing and Data Collection Models}
 \label{subsec:alternative_timing}
 
-% LENGTH:
-%   ~0.5 to 0.75 page.
+A common design choice in monitoring systems is to impose a single global polling loop or a strictly synchronised sampling schedule across all metric sources.
+Such designs are attractive because they simplify implementation and produce visually aligned time series.
+However, this alignment is artificial: it reflects the sampling strategy rather than the behaviour of the underlying systems.
 
-% PURPOSE:
-%   Clearly position Tycho’s independent, event-time-driven timing model
-%   against simpler alternatives, especially tick-synchronised polling.
+Tycho rejects globally synchronised sampling because the metric domains it observes do not share a natural clock.
+CPU energy counters, accelerator telemetry, kernel execution events, and out-of-band system power measurements each exhibit distinct update semantics and latency characteristics.
+Forcing these domains into a single synchronous schedule necessarily introduces aliasing, under-sampling, or false simultaneity, thereby destroying temporal meaning rather than revealing it.
 
-% MUST INCLUDE (conceptually):
-%   - Description of the two dominant timing paradigms:
-%       * Tick-synchronised polling:
-%           - A single global polling interval.
-%           - All domains sampled at the same moment.
-%           - Simplicity and uniformity as benefits.
-%       * Independent domain-aware polling:
-%           - Each domain sampled at its own suitable frequency.
-*           - Asynchrony is expected and preserved.
-%   - High-level comparison:
-%       * Tick-based model is simple but disregards domain-specific temporal
-%         characteristics and introduces aliasing or under-sampling.
-%       * Independent model respects domain behaviour but increases system
-%         complexity.
-%   - State explicitly that Tycho adopts independent polling because it
-%     satisfies Ch.~3 requirements for temporal coherence and domain-level
-%     consistency.
+In an accuracy-first architecture, temporal structure is part of the signal.
+Tycho therefore treats domain-specific timing behaviour as a first-class property and preserves it through independent, domain-aware collection.
+The resulting increase in architectural complexity is a direct consequence of respecting how information is produced, rather than a by-product of implementation choices.
 
-% MUST NOT INCLUDE:
-%   - Numeric intervals, polling code, scheduling mechanisms.
-%   - Direct references to Kepler internals (those belong elsewhere).
-
-% MAY INCLUDE:
-%   - A conceptual diagram (optional): two timelines, one aligned on ticks,
-%     one irregular. Keep it very abstract.
-
-
-% ----------------------------------------------------------------------
-\subsection{Alternative Attribution Strategies}
+\subsection{Attribution Model Design Space}
 \label{subsec:alternative_attribution}
 
-% LENGTH:
-%   ~0.5 to 0.75 page.
+Workload-level energy attribution is fundamentally underdetermined.
+Multiple attribution paradigms exist that reduce this ambiguity by imposing strong simplifying assumptions, such as static proportionality, fixed analytical models, or globally normalised distributions.
+While these approaches yield concise formulations, they also collapse uncertainty and obscure the limits of what can be inferred from the available data.
 
-% PURPOSE:
-%   Acknowledge the existence of multiple broad modelling philosophies for
-%   energy attribution, and clarify why Tycho’s future analysis model must
-%   adhere to the conceptual requirements instead of adopting a simplistic
-%   approach.
+Tycho deliberately avoids committing to such simplifications at the architectural level.
+An accuracy-first system must remain explicit about what is supported by observation and what is not.
+This requires attribution mechanisms that degrade conservatively under partial observability, preserve conservation and non-negativity, and avoid redistributing energy based on unverifiable assumptions.
 
-% MUST INCLUDE (conceptually):
-%   - High-level overview of possible attribution paradigms:
-%       * Direct regression models:
-%           - Fit resource utilisation to power.
-%           - Require stable training sets and assume stationary workloads.
-%       * Static analytical models:
-%           - Predefined power coefficients.
-%           - Simple but brittle; do not capture dynamic behaviour.
-%       * Ratio-based or proportional models:
-%           - Divide energy by utilisation proportions.
-%           - Fast but sensitive to noise and unsuitable for multi-domain
-%             temporal mismatches.
-%   - State that these approaches were considered conceptually but present
-%     challenges relative to Tycho’s requirements:
-%       * They often hide modelling assumptions.
-%       * They may require artificially synchronised metrics.
-%       * They may be sensitive to incomplete windows and uncertain data.
-%   - Emphasise that the final Tycho analysis design will be driven by the
-%     architectural requirements (transparency, uncertainty, lifecycle
-%     robustness), which limits reliance on the above simplistic methods.
+Accordingly, Tycho’s architecture constrains attribution through invariants and admissible degrees of freedom rather than prescribing a single closed-form solution.
+This preserves interpretability and makes uncertainty visible, at the cost of increased conceptual and structural complexity.
 
-% MUST NOT INCLUDE:
-%   - Any specific commitment to Tycho’s own method.
-%   - Any preliminary equations for Tycho’s analysis model.
-%   - Criticism of existing tools beyond conceptual limitations.
-
-
-% ----------------------------------------------------------------------
-\subsection{Complexity vs Accuracy Considerations}
+\subsection{Accuracy Versus Architectural Complexity}
 \label{subsec:complexity_accuracy}
 
-% LENGTH:
-%   ~0.5 page.
+The architectural complexity of Tycho is not incidental.
+It arises from the decision to preserve information across heterogeneous domains, to maintain temporal coherence under asynchronous observation, and to expose uncertainty rather than masking it.
+Simpler architectures achieve tractability primarily by discarding these properties.
 
-% PURPOSE:
-%   Provide a conceptual justification for Tycho’s architectural decisions
-%   by discussing the trade-off between system complexity and measurement
-%   accuracy.
+From an accuracy-first perspective, complexity is acceptable where it prevents semantic loss and bounded where it does not.
+Tycho confines complexity through explicit abstraction boundaries between collection, timing, analysis, and attribution, ensuring that individual components remain understandable even as the system as a whole addresses a challenging problem space.
 
-% MUST INCLUDE (conceptually):
-%   - Acknowledge that:
-%       * Independent collectors,
-%       * Event-time reconstruction,
-%       * Window-based attribution,
-%       * Calibration, and
-%       * Metadata lifecycle handling
-%     each introduce architectural complexity.
-%   - Explain why accuracy cannot be achieved with simpler designs:
-%       * Fixed-frequency polling under-samples critical domains.
-%       * Simplistic attribution hides uncertainty.
-%       * Ignoring metadata freshness yields incorrect workload identities.
-%   - Emphasise the architectural stance:
-%       * Complexity is tolerated where it meaningfully improves model
-%         transparency and temporal fidelity.
-%       * Abstraction boundaries (collectors, timing, analysis) help confine
-%         complexity so that individual components remain understandable and
-%         maintainable.
-%   - Reiterate linkage to Ch.~3:
-%       * Accuracy and transparency are mandatory requirements, therefore
-%         architectural complexity is justified and bounded.
-
-% MUST NOT INCLUDE:
-%   - Any implementation detail describing how complexity is handled (e.g.,
-%     concurrency primitives, memory optimisation).
-%   - Specific numeric performance comparisons (those belong in evaluation).
-
-% MAY INCLUDE:
-%   - A single brief example illustrating that small increases in
-%     architectural sophistication (e.g., recognising NVML phase behaviour)
-%     yield disproportionately large accuracy improvements, but keep it very
-%     abstract.
-
-
-
-% ----------------------------------------------------------------------
+Reducing architectural complexity in this context would primarily eliminate information and weaken interpretability rather than improve correctness.
+The resulting system might appear simpler, but it would do so by obscuring the very phenomena that Tycho is designed to measure.
 
 \section{Summary}
 \label{sec:summary_ch4}
 
-% LENGTH:
-%   ~0.5 page. This should be compact and high-level.
-%
-% PURPOSE:
-%   - Provide a concise synthesis of the architectural principles and
-%     subsystem roles described in the chapter.
-%   - Reinforce the formal link between the requirements in Ch.~3 and the
-%     design choices presented here.
-%   - Prepare the reader for the transition to the concrete implementation
-%     details in Ch.~5 without repeating them.
+This chapter defined the architectural foundation of Tycho as an accuracy-first energy attribution system for Kubernetes environments. The design is derived directly from the requirements established in Chapter~3, in particular temporal coherence across heterogeneous metric sources, domain-level consistency, transparent modelling assumptions, lifecycle-robust workload identity handling, and explicit treatment of uncertainty.
 
+The architecture is organised around a small number of clearly separated concerns. Independent, domain-aware metric collectors acquire observations without imposing artificial synchrony. A global event-time-based timing engine defines attribution windows and provides a coherent temporal reference for all analysis. Calibration serves as an auxiliary subsystem that constrains polling and delay uncertainty where hardware-controlled publication behaviour would otherwise undermine temporal interpretation.
 
-% MUST INCLUDE (conceptually):
-%   - A brief restatement that Tycho’s architecture is shaped directly by
-%     the requirements established in Chapter~3:
-%       * temporal coherence,
-%       * domain-level consistency,
-%       * transparent modelling assumptions,
-%       * lifecycle robustness,
-%       * uncertainty awareness.
-%   - A short summary of the major architectural elements introduced:
-%       * independent, domain-aware metric collectors,
-%       * the event-time-based timing engine and window model,
-%       * conceptual structure of the analysis and attribution model,
-%       * calibration as a supporting subsystem informing timing and
-%         interpretation,
-%       * metadata freshness and mapping requirements for workload identity.
-%   - Emphasise that this chapter defined **what** Tycho must do and **why**
-%     it must do it in this way, but not **how** it is implemented.
+Analysis is structured as a deterministic, staged pipeline that transforms buffered observations into window-scoped quantities under explicit dependency and conservation rules. Component-level metric construction establishes authoritative energy and power signals, which are subsequently decomposed into idle and dynamic contributions before being mapped to workload identities. Workload attribution is explicitly bounded: energy is attributed conservatively where explanatory signals permit, and unresolved or infrastructural consumption is surfaced explicitly via the \code{\_\_system\_\_} class rather than being redistributed speculatively.
 
-% MAY INCLUDE:
-%   - One sentence noting that several subsystems (e.g., collectors, metadata,
-%     exporter) will be discussed again in Ch.~5 from an implementation
-%     viewpoint.
-%   - A remark that the detailed analysis model will be finalised and
-%     justified in Ch.~5 once its architectural constraints are fully
-%     resolved.
+Metadata collection and lifecycle management are treated as architectural prerequisites for attribution correctness rather than as auxiliary implementation details. By enforcing freshness bounds and separating identity resolution from attribution mathematics, the architecture ensures monotone degradation under partial observability. Finally, metric export is defined as a passive sink, preserving the semantic boundary between attribution logic and downstream monitoring systems.
 
-% MUST NOT INCLUDE:
-%   - Any technical / implementation detail.
-%   - Any new architectural concepts not already introduced.
-%   - Any evaluative statements (evaluation belongs in a later chapter).
-
-% POINTER TO NEXT CHAPTER:
-%   - Conclude with a short forward reference along the lines of:
-%       “The following chapter describes the concrete implementation of these
-%        architectural components, including the collectors, timing engine,
-%        metadata subsystem, calibration routines, and the initial analysis
-%        mechanisms.”
-%     Keep this phrasing high-level and free of specifics.
-
+Together, these architectural elements specify \emph{what} Tycho must do and \emph{why} it must do so to meet its accuracy and transparency goals, without committing to specific implementation mechanisms. The following chapter describes the concrete implementation of these architectural components, including the collectors, timing engine, metadata subsystem, calibration routines, and the realisation of the analysis and attribution pipeline.

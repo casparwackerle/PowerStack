@@ -158,9 +158,9 @@ Tycho’s runtime consists of the following subsystems, each of which is examine
 
 \item \textbf{Calibration mechanisms} derive auxiliary parameters that characterise source behaviour and contextualise interpretation, executing outside steady-state attribution and without modifying observations (\S~\ref{sec:impl_calibration}).
 
-\item The \textbf{analysis engine} is the sole authority responsible for interpreting observations, fusing domains, applying attribution models, and enforcing architectural invariants on a per-window basis (\S~\ref{sec:impl_analysis_pipeline}).
+\item The \textbf{analysis engine} is the sole authority responsible for interpreting observations, fusing domains, applying attribution models, and enforcing architectural invariants on a per-window basis.
 
-\item \textbf{Export} observes the results of analysis and exposes them to external systems without influencing upstream execution or attribution semantics (\S~\ref{sec:impl_analysis_pipeline}).
+\item \textbf{Export} observes the results of analysis and exposes them to external systems without influencing upstream execution or attribution semantics
 \end{itemize}
 
 \subsection{Execution-Time Interaction Model}
@@ -267,23 +267,26 @@ Per-window deltas are exported without imposing additional timing constraints on
 \subsubsection{Collected Metrics}
 The process-level and CPU-level metrics exported by the eBPF collector are listed in table Table~\ref{tab:ebpf-collector-metrics}.
 
-\begin{table}[h]
+\begin{table}[H]
     \centering
-    \begin{tabular}{p{3cm} p{3.4cm} p{6.2cm}}
+    \small
+    \begin{tabular}{p{2.8cm} p{3.8cm} p{6.0cm}}
     \toprule
     \textbf{Metric} & \textbf{Source hook} & \textbf{Description} \\
     \midrule
     \multicolumn{3}{l}{\textit{Time-based metrics}} \\[4pt]
     Process runtime & \code{tp\_btf/sched\_switch} & Per process. Elapsed on-CPU time accumulated at context switches. \\
-    Idle time & Derived from \code{sched\_switch} & Per node. Aggregated idle time across CPUs. \\
+    Idle time & Derived from\newline\code{sched\_switch} & Per node. Aggregated idle time across CPUs. \\
     IRQ time & \code{irq\_handler\_{\{entry,exit\}}} & Per node. Aggregated duration spent in hardware interrupt handlers. \\
     SoftIRQ time & \code{softirq\_{\{entry,exit\}}} & Per node. Aggregated duration spent in deferred kernel work. \\[4pt]
     
+    \addlinespace[8pt]
     \multicolumn{3}{l}{\textit{Hardware-based metrics}} \\[4pt]
-    CPU cycles & PMU (\code{perf\_event\_array}) & Per process. Retired CPU cycle count during task execution. \\
-    Instructions & PMU (\code{perf\_event\_array}) & Per process. Retired instruction count. \\
-    Cache misses & PMU (\code{perf\_event\_array}) & Per process. Last-level cache misses; indicator of memory intensity. \\[4pt]
+    CPU cycles & PMU\newline(\code{perf\_event\_array}) & Per process. Retired CPU cycle count during task execution. \\
+    Instructions & PMU\newline(\code{perf\_event\_array}) & Per process. Retired instruction count. \\
+    Cache misses & PMU\newline(\code{perf\_event\_array}) & Per process. Last-level cache misses; indicator of memory intensity. \\[4pt]
     
+    \addlinespace[8pt]
     \multicolumn{3}{l}{\textit{Classification and enrichment metrics}} \\[4pt]
     Cgroup ID & \code{sched\_switch} & Per process. Control group identifier for container attribution. \\
     Kernel thread flag & \code{sched\_switch} & Per process. Marks kernel threads executing in system context. \\
@@ -410,7 +413,7 @@ The Redfish collector emits instantaneous chassis power together with identity a
 Only raw observations are produced.  
 Derived quantities such as energy are computed by downstream analysis stages.  
 The exported fields are summarized in Table~\ref{tab:redfish-metrics}.
-\begin{table}[h]
+\begin{table}[H]
 \centering
 \begin{tabular}{p{3cm} p{1cm} p{9cm}}
 \toprule
@@ -419,12 +422,13 @@ The exported fields are summarized in Table~\ref{tab:redfish-metrics}.
 \multicolumn{3}{l}{\textit{Primary power metric}} \\[4pt]
 \code{PowerWatts} & W & Instantaneous chassis power reported by the BMC. \\[4pt]
 
+\addlinespace[8pt]
 \multicolumn{3}{l}{\textit{Temporal and identity metadata}} \\[4pt]
 \code{ChassisID} & - & Identifier of the chassis or enclosure. \\
 \code{Seq} & - & Server-provided sequence number indicating new measurements. \\
 \code{SourceTime} & s & Timestamp provided by the BMC, if available. \\
 \code{CollectorTime} & s & Local collection time of the measurement. \\
-\code{FreshnessMs} & ms & Difference between \code{SourceTime} and \code{CollectorTime}. \\
+\code{FreshnessMs} & ms & Difference between \code{SourceTime} and\newline\code{CollectorTime}. \\
 \bottomrule
 \end{tabular}
 \caption{Metrics collected by the Redfish collector.}
@@ -629,18 +633,21 @@ metrics collected at each level.
 \code{EncUtilPct}     & \%   & Hardware video encoder utilisation. \\
 \code{DecUtilPct}     & \%   & Hardware video decoder utilisation. \\[4pt]
 
+\addlinespace[8pt]
 \multicolumn{3}{l}{\textit{Energy and thermal metrics}} \\[4pt]
 \code{PowerMilliW}        & mW & Instantaneous power via NVML/DCGM (1s average). \\
 \code{InstantPowerMilliW} & mW & High-frequency instantaneous power from NVIDIA field APIs. \\
 \code{CumEnergyMilliJ}    & mJ & Cumulative energy counter (preferred freshness signal). \\
 \code{TempC}              & °C & GPU temperature. \\[4pt]
 
+\addlinespace[8pt]
 \multicolumn{3}{l}{\textit{Memory and frequency metrics}} \\[4pt]
 \code{MemUsedBytes}   & bytes & Allocated framebuffer memory. \\
 \code{MemTotalBytes}  & bytes & Total framebuffer memory. \\
 \code{SMClockMHz}     & MHz   & SM clock frequency. \\
 \code{MemClockMHz}    & MHz   & Memory clock frequency. \\[4pt]
 
+\addlinespace[8pt]
 \multicolumn{3}{l}{\textit{Topology and metadata}} \\[4pt]
 \code{DeviceIndex}    & --    & Numeric device identifier. \\
 \code{UUID}           & --    & Stable device UUID. \\
@@ -650,6 +657,7 @@ metrics collected at each level.
 \code{Backend}        & --    & Backend type (\code{NVML} or \code{DCGM}). \\
 \bottomrule
 \end{tabular}
+\captionsetup{width=12.6cm}
 \caption{Device- and MIG-level metrics collected by the GPU subsystem.}
 \label{tab:gpu-device-metrics}
 \end{table}
@@ -661,24 +669,32 @@ metrics collected at each level.
 \toprule
 \textbf{Metric} & \textbf{Unit} & \textbf{Description} \\
 \midrule
-\code{Pid}              & --   & Process identifier. \\
-\code{ComputeUtil}      & \%   & Per-process SM utilisation aggregated over the query window. \\
-\code{MemUtil}          & \%   & Per-process memory controller utilisation. \\
-\code{EncUtil}          & \%   & Per-process encoder utilisation. \\
-\code{DecUtil}          & \%   & Per-process decoder utilisation. \\[4pt]
 
-\code{GpuIndex}         & --   & Device or MIG instance to which the sample belongs. \\
-\code{GpuUUID}          & --   & Corresponding device UUID. \\
-\code{TimeStampUS}      & µs   & Backend timestamp associated with the utilisation record. \\[4pt]
+\multicolumn{3}{l}{\textit{Per-process utilisation metrics}} \\[4pt]
+\code{Pid}         & -- & Process identifier. \\
+\code{ComputeUtil} & \%  & Per-process SM utilisation aggregated over the query window. \\
+\code{MemUtil}     & \%  & Per-process memory controller utilisation. \\
+\code{EncUtil}     & \%  & Per-process encoder utilisation. \\
+\code{DecUtil}     & \%  & Per-process decoder utilisation. \\[4pt]
 
+\addlinespace[8pt]
+\multicolumn{3}{l}{\textit{Device and timing metadata}} \\[4pt]
+\code{GpuIndex}    & -- & Device or MIG instance to which the sample belongs. \\
+\code{GpuUUID}     & -- & Corresponding device UUID. \\
+\code{TimeStampUS} & µs & Backend timestamp associated with the utilisation record. \\[4pt]
+
+\addlinespace[8pt]
 \multicolumn{3}{l}{\textit{MIG metadata (when applicable)}} \\[4pt]
-\code{GpuInstanceID}     & --  & MIG GPU instance identifier. \\
-\code{ComputeInstanceID} & --  & MIG compute-instance identifier. \\
+\code{GpuInstanceID}     & -- & MIG GPU instance identifier. \\
+\code{ComputeInstanceID} & -- & MIG compute-instance identifier. \\
+
 \bottomrule
 \end{tabular}
+\captionsetup{width=12.6cm}
 \caption{Process-level metrics collected over a backend-defined time window.}
 \label{tab:gpu-process-metrics}
 \end{table}
+
 
 \section{Metadata and Identity Infrastructure}
 \label{sec:impl_metadata}
@@ -764,10 +780,11 @@ This inventory constitutes an implementation contract: attribution feasibility a
 \multicolumn{3}{l}{\textit{Process identity}} \\[4pt]
 PID & \code{/proc} & Numeric process identifier; unique at any moment but reused over time. \\
 StartJiffies & \code{/proc/<pid>/stat} & Kernel start time of the process in clock ticks (jiffies), used to detect PID reuse. \\[4pt]
+\addlinespace[8pt]
 \multicolumn{3}{l}{\textit{Container and system classification}} \\[4pt]
 Container ID & Kepler cgroup\newline resolver & Normalized container identifier for pod processes; \code{system\_processes} for host and kernel processes. \\
 Command & \code{/proc/<pid>/comm} & Short command name for debugging and manual inspection. \\[4pt]
-
+\addlinespace[8pt]
 \multicolumn{3}{l}{\textit{Timestamps}} \\[4pt]
 LastSeenMono & Monotonic timebase & Timestamp aligned with metric collectors. \\
 LastSeenWall & Controller timestamp & Wall-clock timestamp for GC. \\
@@ -788,15 +805,18 @@ LastSeenWall & Controller timestamp & Wall-clock timestamp for GC. \\
 PodUID & Kubelet PodList & Stable pod identifier for correlation\newline and container grouping. \\
 PodName,\newline Namespace & Kubelet PodList & Human-readable pod identity\newline and namespace. \\[4pt]
 
+\addlinespace[8pt]
 \multicolumn{3}{l}{\textit{Lifecycle and scheduling context}} \\[4pt]
 Phase & PodStatus & Coarse pod state\newline (Pending, Running, Succeeded, Failed). \\
 QoSClass & PodStatus & Kubernetes QoS classification\newline (Guaranteed, Burstable, BestEffort). \\
 OwnerKind /\newline OwnerName & Pod metadata & Controller reference\newline (e.g.\ ReplicaSet, DaemonSet). \\[4pt]
 
+\addlinespace[8pt]
 \multicolumn{3}{l}{\textit{Resource specifications}} \\[4pt]
 Requests\newline (CPU, Memory) & \code{pod.spec.containers} & Aggregate pod-level requests following Kubernetes scheduling semantics. \\
 Limits\newline (CPU, Memory) & \code{pod.spec.containers} & Aggregate pod-level limits following\newline Kubernetes scheduling semantics. \\[4pt]
 
+\addlinespace[8pt]
 \multicolumn{3}{l}{\textit{Timestamps}} \\[4pt]
 LastSeenMono & Monotonic timebase & Timestamp aligned with metric collectors. \\
 LastSeenWall & Controller timestamp & Wall-clock timestamp for GC.\\
@@ -817,14 +837,17 @@ LastSeenWall & Controller timestamp & Wall-clock timestamp for GC.\\
 ContainerID & PodStatus & Normalized container identifier. \\
 ContainerName & PodStatus & Declared container name within pod. \\[4pt]
 
+\addlinespace[8pt]
 \multicolumn{3}{l}{\textit{Lifecycle state}} \\[4pt]
 State & ContainerStatus & Fine-grained state\newline (Running, Waiting, Terminated). \\
 ExitCode & ContainerStatus & Termination exit code when available. \\[4pt]
 
+\addlinespace[8pt]
 \multicolumn{3}{l}{\textit{Resource specifications}} \\[4pt]
 Requests\newline (CPU, Memory) & \code{pod.spec.containers} & Container-level resource requests;\newline preserved for terminated containers. \\
 Limits\newline (CPU, Memory) & \code{pod.spec.containers} & Container-level resource limits. \\[4pt]
 
+\addlinespace[8pt]
 \multicolumn{3}{l}{\textit{Timestamps}} \\[4pt]
 LastSeenMono & Monotonic timebase & Timestamp aligned with metric collectors. \\
 LastSeenWall & Controller timestamp & Wall-clock timestamp for GC. \\
@@ -1049,7 +1072,7 @@ By resolving dependencies explicitly at composition time, the implementation pre
 \subsection{Metric Materialization and Intra-Cycle Visibility}
 \label{sec:impl_analysis_materialization}
 
-This section describes how the materialization model defined in \S~\ref{sec:arch_analysis_metric_materialization} is enforced at runtime.
+This section describes how the materialization model is enforced at runtime.
 At the beginning of each analysis cycle, the engine establishes a cycle-local materialization boundary that serves as the sole authoritative representation of all derived results for the current attribution window.
 All metric emissions during the cycle are routed through this boundary, ensuring that materialization is strictly window-scoped and isolated from other cycles.
 
@@ -1180,31 +1203,42 @@ These semantics ensure stable interpretation under sampling variability and allo
 The metrics exported by this implementation are summarized in the table~\ref{tab:ebpf-util-exported-metrics}.
 Only fully materialized utilization metrics intended for external consumption are listed.
 
-\begin{table}[h]
-    \centering
-    \begin{tabular}{p{4.0cm} p{2.0cm} p{1.8cm} p{4.8cm}}
-    \toprule
-    \textbf{Metric} & \textbf{Type} & \textbf{Unit} & \textbf{Labels} \\
-    \midrule
-    \multicolumn{4}{l}{\textit{CPU time-share ratios}} \\[4pt]
-    \code{bpf\_cpu\_idle\_ratio} & Gauge & ratio & \code{source="ebpf"} \\
-    \code{bpf\_cpu\_irq\_ratio} & Gauge & ratio & \code{source="ebpf"} \\
-    \code{bpf\_cpu\_softirq\_ratio} & Gauge & ratio & \code{source="ebpf"} \\
-    \code{bpf\_cpu\_active\_ratio} & Gauge & ratio & \code{source="ebpf"} \\[4pt]
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{p{5.2cm} p{1.8cm} p{1.6cm} p{2.0cm}}
+\toprule
+\textbf{Metric} & \textbf{Type} & \textbf{Unit} & \textbf{Labels} \\
+\midrule
 
-    \multicolumn{4}{l}{\textit{Aggregated cumulative counters}} \\[4pt]
-    \code{bpf\_cpu\_instructions} & Counter & count & \code{source="ebpf"} \\
-    \code{bpf\_cpu\_cycles} & Counter & count & \code{source="ebpf"} \\
-    \code{bpf\_cache\_misses} & Counter & count & \code{source="ebpf"} \\
-    \code{bpf\_page\_cache\_hits} & Counter & count & \code{source="ebpf"} \\
-    \code{bpf\_irq\_net\_tx} & Counter & count & \code{source="ebpf"} \\
-    \code{bpf\_irq\_net\_rx} & Counter & count & \code{source="ebpf"} \\
-    \code{bpf\_irq\_block} & Counter & count & \code{source="ebpf"} \\
-    \bottomrule
-    \end{tabular}
-    \caption{Exported node-level utilization metrics derived from \code{eBPF} observations.}
-    \label{tab:ebpf-util-exported-metrics}
+\multicolumn{4}{l}{\textit{CPU time-share ratios}} \\[4pt]
+\code{bpf\_cpu\_idle\_ratio}    & Gauge  & ratio & \code{source} \\
+\code{bpf\_cpu\_irq\_ratio}     & Gauge  & ratio & \code{source} \\
+\code{bpf\_cpu\_softirq\_ratio} & Gauge  & ratio & \code{source} \\
+\code{bpf\_cpu\_active\_ratio}  & Gauge  & ratio & \code{source} \\[4pt]
+
+\addlinespace[8pt]
+\multicolumn{4}{l}{\textit{Aggregated cumulative counters}} \\[4pt]
+\code{bpf\_cpu\_instructions}    & Counter & count & \code{source} \\
+\code{bpf\_cpu\_cycles}          & Counter & count & \code{source} \\
+\code{bpf\_cache\_misses}        & Counter & count & \code{source} \\
+\code{bpf\_page\_cache\_hits}    & Counter & count & \code{source} \\
+\code{bpf\_irq\_net\_tx}         & Counter & count & \code{source} \\
+\code{bpf\_irq\_net\_rx}         & Counter & count & \code{source} \\
+\code{bpf\_irq\_block}           & Counter & count & \code{source} \\
+\bottomrule
+\end{tabular}
+
+\smallskip
+\begin{minipage}{12.6cm}
+\footnotesize\emph{Label domain:}
+$\code{source}=\code{bpf}$.
+\end{minipage}
+\captionsetup{width=12.6cm}
+\caption{Exported utilization metrics derived from \code{eBPF} observations.}
+\label{tab:ebpf-util-exported-metrics}
 \end{table}
+
 
 \subsubsection{RAPL Component Metrics (Totals)}
 
@@ -1242,19 +1276,33 @@ Optional quality or diagnostic metadata may be emitted for debugging purposes, b
 The metrics exported by this implementation are summarized in the table~\ref{tab:rapl-exported-metrics}.
 Only cumulative energy counters intended as authoritative inputs and their auxiliary, user-facing power counterparts are listed.
 
-\begin{center}
-\begin{tabular}{llll}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{p{4.0cm} p{1.8cm} p{1.6cm} p{5.2cm}}
 \toprule
 \textbf{Metric} & \textbf{Type} & \textbf{Unit} & \textbf{Labels} \\
 \midrule
-\multicolumn{4}{l}{\textit{RAPL component totals (per domain; pkg, core, uncore, dram)}} \\
-\midrule
-\code{tycho\_energy\_mj} & Counter & mJ & \code{domain}, \code{kind="total"}, \code{source="rapl"} \\
-\code{tycho\_power\_mw}  & Gauge   & mW & \code{domain}, \code{kind="total"}, \code{source="rapl"} \\
+
+\multicolumn{4}{l}{\textit{RAPL component totals (per domain)}} \\[4pt]
+\code{rapl\_energy\_mj} & Counter & mJ & \code{domain, kind, source} \\
+\code{rapl\_power\_mw}  & Gauge   & mW & \code{domain, kind, source} \\
+
 \bottomrule
 \end{tabular}
+
+\smallskip
+\begin{minipage}{12.6cm}
+\footnotesize\emph{Label domain:}
+$\code{domain}\in\{\text{pkg},\text{core},\text{uncore},\text{dram}\}$,
+$\code{kind}=\text{total}$,
+$\code{source}=\code{rapl}$.
+\end{minipage}
+
+\caption{Exported RAPL component energy and power metrics.}
 \label{tab:rapl-exported-metrics}
-\end{center}
+\end{table}
+
 
 \subsubsection{GPU Component Metrics (Totals)}
 
@@ -1307,21 +1355,32 @@ While no claim is made to recover ground-truth GPU power, all exported GPU energ
 \paragraph{Exported Metrics}
 The exported metrics are summarized in Table~\ref{tab:gpu-exported-metrics}.
 
-\begin{table}[t]
+\begin{table}[H]
 \centering
-\caption{Exported GPU metrics derived from the corrected reconstruction.}
-\label{tab:gpu-exported-metrics}
-\begin{tabular}{llll}
+\small
+\begin{tabular}{p{4.0cm} p{1.8cm} p{1.6cm} p{5.2cm}}
 \toprule
 \textbf{Metric} & \textbf{Type} & \textbf{Unit} & \textbf{Labels} \\
 \midrule
-\multicolumn{4}{l}{\textit{Total GPU metrics}} \\
-\midrule
-\code{gpu\_energy\_mj} & Counter & mJ & \code{gpu\_uuid}, \code{kind}, \code{source} \\
-\code{gpu\_power\_mw}  & Gauge   & mW & \code{gpu\_uuid}, \code{kind}, \code{source} \\
+
+\multicolumn{4}{l}{\textit{Total GPU metrics}} \\[4pt]
+\code{gpu\_energy\_mj} & Counter & mJ & \code{gpu\_uuid, kind, source} \\
+\code{gpu\_power\_mw}  & Gauge   & mW & \code{gpu\_uuid, kind, source} \\
+
 \bottomrule
 \end{tabular}
+
+\smallskip
+\begin{minipage}{12.6cm}
+\footnotesize\emph{Label domain:}
+$\code{kind}=\text{total}$,
+$\code{source}=\code{nvml\_corrected}$.
+\end{minipage}
+
+\caption{Exported GPU metrics derived from the corrected reconstruction.}
+\label{tab:gpu-exported-metrics}
 \end{table}
+
 
 \subsubsection{Redfish Component Metrics (Totals)}
 \label{sec:metric_redfish_impl}
@@ -1377,22 +1436,32 @@ Overall, the implementation prioritises temporal consistency and conservatism: w
 \paragraph{Exported Metrics}
 The exported metrics are summarized in Table~\ref{tab:redfish-exported-metrics}.
 
-\begin{table}[t]
+\begin{table}[H]
 \centering
 \small
-\begin{tabular}{llll}
+\begin{tabular}{p{4.0cm} p{1.8cm} p{1.6cm} p{5.2cm}}
 \toprule
-Metric name & Type & Unit & Labels \\
+\textbf{Metric name} & \textbf{Type} & \textbf{Unit} & \textbf{Labels} \\
 \midrule
-\multicolumn{4}{l}{\textbf{System}} \\
-\midrule
-\code{system\_power\_mw}  & Gauge   & mW & \code{chassis}, \code{source}, \code{kind} \\
-\code{system\_energy\_mj} & Counter & mJ & \code{chassis}, \code{source}, \code{kind} \\
+
+\multicolumn{4}{l}{\textit{System metrics}} \\[4pt]
+\code{system\_power\_mw}  & Gauge   & mW & \code{chassis, source, kind} \\
+\code{system\_energy\_mj} & Counter & mJ & \code{chassis, source, kind} \\
+
 \bottomrule
 \end{tabular}
-\caption{Exported Redfish-derived system metrics. The \code{source} label distinguishes \code{redfish\_raw} from \code{redfish\_corrected}.}
+
+\smallskip
+\begin{minipage}{12.6cm}
+\footnotesize\emph{Label domain:}
+$\code{kind}=\text{total}$,
+$\code{source}\in\{\code{redfish\_raw},\code{redfish\_corrected}\}$.
+\end{minipage}
+
+\caption{Exported Redfish-derived system metrics.}
 \label{tab:redfish-exported-metrics}
 \end{table}
+
 
 \subsection{Stage 2: System-Level Energy Model and Residual}
 \label{subsec:impl_stage2_residual}
@@ -1429,23 +1498,35 @@ Residual energy thus forms a stable and auditable constraint for downstream deco
 \paragraph{Exported Metrics}
 The exported metrics are summarized in Table~\ref{tab:residual-exported-metrics}.
 
-\begin{table}[h]
+\begin{table}[H]
 \centering
-\caption{Exported residual metrics}
-\label{tab:residual-exported-metrics}
-\begin{tabular}{llll}
+\small
+\begin{tabular}{p{5.0cm} p{1.3cm} p{1.1cm} p{5.2cm}}
 \toprule
-Metric name & Type & Unit & Labels \\
+\textbf{Metric name} & \textbf{Type} & \textbf{Unit} & \textbf{Labels} \\
 \midrule
-\multicolumn{4}{l}{\textbf{Residual energy and power}} \\
-residual\_energy\_mj & Counter & mJ & chassis, source, kind=total \\
-residual\_power\_mw  & Gauge   & mW & chassis, source, kind=total \\
-\midrule
-\multicolumn{4}{l}{\textbf{Residual window validity}} \\
-residual\_window\_usable & Gauge & bool & chassis, source \\
+
+\multicolumn{4}{l}{\textit{Residual energy and power}} \\[4pt]
+\code{residual\_energy\_mj} & Counter & mJ & \code{chassis, source, kind} \\
+\code{residual\_power\_mw}  & Gauge   & mW & \code{chassis, source, kind} \\[4pt]
+
+\addlinespace[8pt]
+\multicolumn{4}{l}{\textit{Residual window validity}} \\[4pt]
+\code{residual\_window\_usable} & Gauge & bool & \code{chassis, source} \\
+
 \bottomrule
 \end{tabular}
+
+\smallskip
+\begin{minipage}{12.6cm}
+\footnotesize\emph{Label domain:}
+$\code{kind}=\text{total}$.
+\end{minipage}
+
+\caption{Exported residual metrics.}
+\label{tab:residual-exported-metrics}
 \end{table}
+
 
 \subsection{Stage 3: Idle and Dynamic Energy Semantics}
 % Realization of architectural idle and dynamic energy definitions.
@@ -1483,30 +1564,33 @@ The approach tolerates missing or delayed observations and degrades to zero-idle
 \paragraph{Exported Metrics}
 The exported metrics are summarized in Table~\ref{tab:rapl-idle-dynamic-exported-metrics}.
 
-\begin{table}[t]
+\begin{table}[H]
 \centering
-\caption{Exported RAPL idle and dynamic metrics}
-\label{tab:rapl-idle-dynamic-exported-metrics}
-\begin{tabular}{llll}
+\small
+\begin{tabular}{p{4.6cm} p{1.5cm} p{1.3cm} p{5.2cm}}
 \toprule
-Metric name & Type & Unit & Labels \\
+\textbf{Metric name} & \textbf{Type} & \textbf{Unit} & \textbf{Labels} \\
 \midrule
-\multicolumn{4}{c}{Idle} \\
-\midrule
-\code{tycho\_rapl\_energy\_mj} & Counter & mJ &
-\code{domain, kind="idle", source} \\
-\code{tycho\_rapl\_power\_mw} & Gauge & mW &
-\code{domain, kind="idle", source} \\
-\midrule
-\multicolumn{4}{c}{Dynamic} \\
-\midrule
-\code{tycho\_rapl\_energy\_mj} & Counter & mJ &
-\code{domain, kind="dynamic", source} \\
-\code{tycho\_rapl\_power\_mw} & Gauge & mW &
-\code{domain, kind="dynamic", source} \\
+
+\multicolumn{4}{l}{\textit{Idle and dynamic RAPL metrics}} \\[4pt]
+\code{rapl\_energy\_mj} & Counter & mJ & \code{domain, kind, source} \\
+\code{rapl\_power\_mw}  & Gauge   & mW & \code{domain, kind, source} \\
+
 \bottomrule
 \end{tabular}
+
+\smallskip
+\begin{minipage}{13.6cm}
+\footnotesize\emph{Label domain:}
+$\code{domain}\in\{\text{pkg},\text{core},\text{uncore},\text{dram}\}$,
+$\code{kind}\in\{\text{idle},\text{dynamic}\}$,
+$\code{source}=\code{rapl}$.
+\end{minipage}
+
+\caption{Exported RAPL idle and dynamic metrics.}
+\label{tab:rapl-idle-dynamic-exported-metrics}
 \end{table}
+
 
 \subsubsection{Residual Idle and Dynamic Decomposition}
 
@@ -1547,28 +1631,41 @@ The exported idle baseline is explicit model state and must not be interpreted a
 \paragraph{Exported Metrics}
 The exported metrics are summarized in Table~\ref{tab:residual-idle-exported-metrics}.
 
-\begin{table}[t]
+\begin{table}[H]
 \centering
-\caption{Exported residual idle and dynamic metrics}
-\label{tab:residual-idle-exported-metrics}
-\begin{tabular}{llll}
+\small
+\begin{tabular}{p{5.4cm} p{1.2cm} p{1.0cm} p{5cm}}
 \toprule
-Metric name & Type & Unit & Labels \\
+\textbf{Metric name} & \textbf{Type} & \textbf{Unit} & \textbf{Labels} \\
 \midrule
-\multicolumn{4}{l}{\textbf{Residual power}} \\
-residual\_power\_mw & Gauge & mW & chassis, source, kind \\
-\midrule
-\multicolumn{4}{l}{\textbf{Residual energy}} \\
-residual\_energy\_mj & Counter & mJ & chassis, source, kind \\
-\midrule
-\multicolumn{4}{l}{\textbf{Residual idle model state}} \\
-residual\_idle\_baseline\_mw & Gauge & mW & chassis \\
-\midrule
-\multicolumn{4}{l}{\textbf{Residual window validity}} \\
-residual\_window\_usable & Gauge & bool & chassis \\
+
+\multicolumn{4}{l}{\textit{Residual idle and dynamic metrics}} \\[4pt]
+\code{residual\_power\_mw}  & Gauge   & mW & \code{chassis, source, kind} \\
+\code{residual\_energy\_mj} & Counter & mJ & \code{chassis, source, kind} \\[4pt]
+
+\addlinespace[8pt]
+\multicolumn{4}{l}{\textit{Residual idle model state}} \\[4pt]
+\code{residual\_idle\_baseline\_mw} & Gauge & mW & \code{chassis, source} \\[4pt]
+
+\addlinespace[8pt]
+\multicolumn{4}{l}{\textit{Residual window validity}} \\[4pt]
+\code{residual\_window\_usable} & Gauge & bool & \code{chassis, source} \\
+
 \bottomrule
 \end{tabular}
+
+\smallskip
+\begin{minipage}{13.6cm}
+\footnotesize\emph{Label domain:}
+$\code{kind}\in\{\text{idle},\text{dynamic}\}$,
+$\code{source}\in\{\code{redfish\_raw},\code{redfish\_corrected}\}$.
+\end{minipage}
+
+\caption{Exported residual idle and dynamic metrics.}
+\label{tab:residual-idle-exported-metrics}
 \end{table}
+
+
 
 \subsubsection{GPU Idle and Dynamic Decomposition}
 \label{sec:impl_gpu_idle_dynamic}
@@ -1602,22 +1699,47 @@ The per-device state isolation allows heterogeneous GPUs to be handled independe
 \paragraph{Exported Metrics}
 The exported metrics are summarized in Table~\ref{tab:gpu-idle-dynamic-exported-metrics}.
 
-\begin{table}[h]
+\begin{table}[H]
 \centering
-\caption{Exported GPU idle and dynamic decomposition metrics}
-\label{tab:gpu-idle-dynamic-exported-metrics}
-\begin{tabular}{llll}
+\small
+\begin{tabular}{%
+  p{4.6cm}  % Metric name
+  p{1.6cm}  % Type
+  p{1.4cm}  % Unit
+  p{5.0cm}  % Labels
+}
 \toprule
-Metric name & Type & Unit & Labels \\
+\textbf{Metric name} & \textbf{Type} & \textbf{Unit} & \textbf{Labels} \\
 \midrule
-\multicolumn{4}{l}{\textit{Power metrics}} \\
-gpu\_power\_mw & Gauge & mW & gpu\_uuid, kind $\in\{\text{total},\text{idle},\text{dynamic}\}$, source \\
-\midrule
-\multicolumn{4}{l}{\textit{Energy metrics}} \\
-gpu\_energy\_mj & Counter & mJ & gpu\_uuid, kind $\in\{\text{total},\text{idle},\text{dynamic}\}$, source \\
+
+\multicolumn{4}{l}{\textit{GPU idle and dynamic decomposition metrics}} \\[4pt]
+\code{gpu\_power\_mw}
+  & Gauge
+  & mW
+  & \code{gpu\_uuid, kind, source} \\
+\code{gpu\_energy\_mj}
+  & Counter
+  & mJ
+  & \code{gpu\_uuid, kind, source} \\
+
 \bottomrule
 \end{tabular}
+
+\smallskip
+\begin{minipage}{12.6cm}
+\footnotesize\emph{Label domain:}
+$\code{kind}\in\{\text{idle},\text{dynamic}\}$,
+$\code{source}=\code{nvml\_corrected}$.
+\end{minipage}
+
+\caption{Exported GPU idle and dynamic decomposition metrics.}
+\label{tab:gpu-idle-dynamic-exported-metrics}
 \end{table}
+
+
+
+
+
 
 \subsection{Stage 4: Workload Attribution and Aggregation}
 % Realization of architectural workload attribution.
@@ -1626,7 +1748,7 @@ gpu\_energy\_mj & Counter & mJ & gpu\_uuid, kind $\in\{\text{total},\text{idle},
 \subsubsection{Workload Attribution of eBPF Utilization Counters}
 
 \paragraph{Architectural Context}
-This section realizes the workload-level aggregation model defined in \S~\ref{sec:slice16}, mapping per-process eBPF utilization deltas to workload-attributed monotonic counters while enforcing strict conservation and residual \code{\_\_system\_\_} semantics.
+This section realizes the workload-level aggregation model, mapping per-process eBPF utilization deltas to workload-attributed monotonic counters while enforcing strict conservation and residual \code{\_\_system\_\_} semantics.
 
 \paragraph{Implementation Strategy}
 Attribution is implemented as a window-local aggregation over the effective eBPF observation window.
@@ -1657,40 +1779,42 @@ The resulting counters are suitable as first-class workload attribution outputs 
 \paragraph{Exported Metrics}
 The exported metrics are summarized in Table~\ref{tab:ebpf-util-exported-metrics}.
 
-\begin{table}[t]
+\begin{table}[H]
 \centering
-\caption{Exported workload-attributed eBPF utilization counters}
-\label{tab:ebpf-util-exported-metrics}
-\begin{tabular}{llll}
+\small
+\begin{tabular}{p{7.5cm} p{1.2cm} p{1.0cm} p{2.9cm}}
 \toprule
-Metric name & Type & Unit & Labels \\
+\textbf{Metric name} & \textbf{Type} & \textbf{Unit} & \textbf{Labels} \\
 \midrule
-\multicolumn{4}{l}{CPU execution activity} \\
-\midrule
-\code{tycho\_workload\_bpf\_cpu\_instructions\_total} & Counter & count &
-\code{source, namespace, pod, container} \\
-\code{tycho\_workload\_bpf\_cpu\_cycles\_total} & Counter & count &
-\code{source, namespace, pod, container} \\
-\code{tycho\_workload\_bpf\_cache\_misses\_total} & Counter & count &
-\code{source, namespace, pod, container} \\
-\code{tycho\_workload\_bpf\_page\_cache\_hits\_total} & Counter & count &
-\code{source, namespace, pod, container} \\
-\midrule
-\multicolumn{4}{l}{Interrupt activity} \\
-\midrule
-\code{tycho\_workload\_bpf\_irq\_net\_tx\_total} & Counter & count &
-\code{source, namespace, pod, container} \\
-\code{tycho\_workload\_bpf\_irq\_net\_rx\_total} & Counter & count &
-\code{source, namespace, pod, container} \\
-\code{tycho\_workload\_bpf\_irq\_block\_total} & Counter & count &
-\code{source, namespace, pod, container} \\
-\midrule
-\multicolumn{4}{l}{Process runtime} \\
-\midrule
-\code{tycho\_workload\_bpf\_process\_run\_us\_total} & Counter & $\mu$s &
-\code{source, namespace, pod, container} \\
+
+\multicolumn{4}{l}{\textit{CPU execution activity}} \\[4pt]
+\code{workload\_bpf\_cpu\_instructions\_total} & Counter & count & \textit{common (see below)} \\
+\code{workload\_bpf\_cpu\_cycles\_total}       & Counter & count & \textit{common (see below)} \\
+\code{workload\_bpf\_cache\_misses\_total}     & Counter & count & \textit{common (see below)} \\
+\code{workload\_bpf\_page\_cache\_hits\_total} & Counter & count & \textit{common (see below)} \\[4pt]
+
+\addlinespace[8pt]
+\multicolumn{4}{l}{\textit{Interrupt activity}} \\[4pt]
+\code{workload\_bpf\_irq\_net\_tx\_total} & Counter & count & \textit{common (see below)} \\
+\code{workload\_bpf\_irq\_net\_rx\_total} & Counter & count & \textit{common (see below)} \\
+\code{workload\_bpf\_irq\_block\_total}   & Counter & count & \textit{common (see below)} \\[4pt]
+
+\addlinespace[8pt]
+\multicolumn{4}{l}{\textit{Process runtime}} \\[4pt]
+\code{workload\_bpf\_process\_run\_us\_total} & Counter & $\mu$s & \textit{common (see below)} \\
+
 \bottomrule
 \end{tabular}
+
+\smallskip
+\begin{minipage}{13.5cm}
+\footnotesize\emph{Label domain:}
+$\code{source}=\code{bpf}$;
+labels \code{namespace}, \code{pod}, and \code{container} identify the workload.
+\end{minipage}
+
+\caption{Exported workload-attributed eBPF utilization counters.}
+\label{tab:ebpf-util-exported-metrics}
 \end{table}
 
 \subsubsection{Workload Resolution and Identity Enforcement}
@@ -1699,7 +1823,7 @@ Metric name & Type & Unit & Labels \\
 This section realizes the workload resolution abstraction introduced in the Stage~4 architecture.
 The resolver provides a conditional mapping from execution-level observations to Kubernetes workload identities and enforces the semantics of the distinguished \code{\_\_system\_\_} class.
 It is an auxiliary component of the attribution pipeline: attribution logic consumes its outputs but does not embed or compensate for resolution failures.
-All guarantees stated in \S~\ref{sec:arch_stage4_workload_resolution} are enforced here under discretization, metadata delay, and partial observability.
+All guarantees are enforced here under discretization, metadata delay, and partial observability.
 
 \paragraph{Implementation Strategy}
 Workload resolution is implemented as a best-effort, cycle-scoped join between execution identities and the metadata store associated with the current analysis cycle.
@@ -1768,20 +1892,36 @@ The explicit bin-level realization preserves the architectural contract and enab
 \paragraph{Exported Metrics}
 The exported metrics are summarized in Table~\ref{tab:cpu-dyn-exported-metrics}.
 
-\begin{table}[h]
+\begin{table}[H]
 \centering
-\begin{tabular}{lllc}
+\small
+\begin{tabular}{p{5.0cm} p{1.8cm} p{1.6cm} p{4.2cm}}
 \toprule
-Metric name & Type & Unit & Labels \\
+\textbf{Metric name} & \textbf{Type} & \textbf{Unit} & \textbf{Labels} \\
 \midrule
-\multicolumn{4}{l}{\textbf{CPU Dynamic Energy Attribution}} \\
-workload\_rapl\_energy\_mj & Counter & mJ &
-domain, kind, source, namespace, pod, container \\
+
+\multicolumn{4}{l}{\textit{CPU dynamic workload energy}} \\[4pt]
+\code{workload\_rapl\_energy\_mj}
+  & Counter
+  & mJ
+  & \textit{common (see below)} \\
+
 \bottomrule
 \end{tabular}
+
+\smallskip
+\begin{minipage}{12.6cm}
+\footnotesize\emph{Label domain:}
+$\code{domain}\in\{\text{pkg},\text{core},\text{uncore},\text{dram}\}$,
+$\code{kind}=\text{dynamic}$,
+$\code{source}=\code{rapl}$;
+labels \code{namespace}, \code{pod}, and \code{container} identify the attributed workload.
+\end{minipage}
+
 \caption{Exported CPU dynamic workload energy metrics.}
 \label{tab:cpu-dyn-exported-metrics}
 \end{table}
+
 
 \subsubsection{CPU Idle Energy Attribution}
 
@@ -1820,20 +1960,36 @@ The resulting workload-level idle energy counters are directly comparable to dyn
 \paragraph{Exported Metrics}
 The exported metrics are summarized in Table~\ref{tab:cpu-idle-attrib-exported-metrics}.
 
-\begin{table}[t]
+\begin{table}[H]
 \centering
-\caption{Exported CPU idle energy workload metrics}
-\label{tab:cpu-idle-attrib-exported-metrics}
-\begin{tabular}{llll}
+\small
+\begin{tabular}{p{5.0cm} p{1.8cm} p{1.6cm} p{4.2cm}}
 \toprule
-Metric name & Type & Unit & Labels \\
+\textbf{Metric name} & \textbf{Type} & \textbf{Unit} & \textbf{Labels} \\
 \midrule
-\multicolumn{4}{l}{\textbf{Workload-attributed CPU idle energy}} \\
-\code{tycho\_workload\_rapl\_energy\_mj} & Counter & mJ &
-domain, kind{=}idle, source{=}rapl, namespace, pod, container \\
+
+\multicolumn{4}{l}{\textit{Workload-attributed CPU idle energy}} \\[4pt]
+\code{workload\_rapl\_energy\_mj}
+  & Counter
+  & mJ
+  & \textit{common (see below)} \\
+
 \bottomrule
 \end{tabular}
+
+\smallskip
+\begin{minipage}{12.6cm}
+\footnotesize\emph{Label domain:}
+$\code{domain}\in\{\text{pkg},\text{core},\text{uncore},\text{dram}\}$,
+$\code{kind}=\text{idle}$,
+$\code{source}=\code{rapl}$;
+labels \code{namespace}, \code{pod}, and \code{container} identify the attributed workload.
+\end{minipage}
+
+\caption{Exported CPU idle workload energy metrics.}
+\label{tab:cpu-idle-attrib-exported-metrics}
 \end{table}
+
 
 \subsubsection{GPU Dynamic Energy Attribution}
 
@@ -1864,20 +2020,34 @@ Temporal allocation follows the observed snapshot cadence, preventing the coarse
 
 \paragraph{Exported Metrics}
 The exported metrics are summarized in Table~\ref{tab:gpu-dyn-attrib-exported-metrics}.
-\begin{table}[t]
-  \centering
-  \caption{Exported metrics for GPU dynamic workload attribution.}
-  \label{tab:gpu-dyn-attrib-exported-metrics}
-  \begin{tabular}{llll}
-    \toprule
-    \textbf{Metric} & \textbf{Type} & \textbf{Unit} & \textbf{Labels} \\
-    \midrule
-    \multicolumn{4}{l}{\textbf{Workload GPU energy}} \\
-    \code{tycho\_workload\_gpu\_energy\_mj} & Counter & mJ &
-    \code{gpu\_uuid}, \code{kind="dynamic"}, \code{namespace}, \code{pod}, \code{container} \\
-    \bottomrule
-  \end{tabular}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{p{5.0cm} p{1.8cm} p{1.6cm} p{4.2cm}}
+\toprule
+\textbf{Metric name} & \textbf{Type} & \textbf{Unit} & \textbf{Labels} \\
+\midrule
+
+\multicolumn{4}{l}{\textit{Workload-attributed GPU dynamic energy}} \\[4pt]
+\code{workload\_gpu\_energy\_mj}
+  & Counter
+  & mJ
+  & \textit{common (see below)} \\
+
+\bottomrule
+\end{tabular}
+
+\smallskip
+\begin{minipage}{12.6cm}
+\footnotesize\emph{Label domain:}
+$\code{kind}=\text{dynamic}$;
+labels \code{gpu\_uuid}, \code{namespace}, \code{pod}, and \code{container} identify the attributed workload.
+\end{minipage}
+
+\caption{Exported metrics for GPU dynamic workload attribution.}
+\label{tab:gpu-dyn-attrib-exported-metrics}
 \end{table}
+
 
 \subsubsection{GPU Idle Energy Attribution}
 
@@ -1888,7 +2058,7 @@ This subsection realises the Stage 4 rule that GPU idle energy is not distribute
 The implementation mirrors the corrected idle GPU energy counter into the workload GPU energy metric for the \code{\_\_system\_\_} workload key, per GPU UUID.
 
 \paragraph{Core Mechanisms}
-For each GPU UUID, the absolute corrected idle energy counter value is loaded and written into the corresponding \code{tycho\_workload\_gpu\_energy\_mj} series with \code{kind="idle"} and workload labels set to \code{\_\_system\_\_}.
+For each GPU UUID, the absolute corrected idle energy counter value is loaded and written into the corresponding \code{workload\_gpu\_energy\_mj} series with \code{kind="idle"} and workload labels set to \code{\_\_system\_\_}.
 The write is monotonic-guarded to prevent counter regression if upstream inputs transiently decrease.
 
 \paragraph{Robustness and Edge Cases}
@@ -1902,20 +2072,34 @@ Together with dynamic attribution, the workload GPU energy metric admits a compl
 
 \paragraph{Exported Metrics}
 The exported metrics are summarized in Table~\ref{tab:gpu-idle-attrib-exported-metrics}.
-\begin{table}[t]
-  \centering
-  \caption{Exported metrics for GPU idle workload attribution.}
-  \label{tab:gpu-idle-attrib-exported-metrics}
-  \begin{tabular}{llll}
-    \toprule
-    \textbf{Metric} & \textbf{Type} & \textbf{Unit} & \textbf{Labels} \\
-    \midrule
-    \multicolumn{4}{l}{\textbf{Workload GPU energy}} \\
-    \code{tycho\_workload\_gpu\_energy\_mj} & Counter & mJ &
-    \code{gpu\_uuid}, \code{kind="idle"}, \code{namespace}, \code{pod}, \code{container} \\
-    \bottomrule
-  \end{tabular}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{p{5.0cm} p{1.8cm} p{1.6cm} p{4.2cm}}
+\toprule
+\textbf{Metric name} & \textbf{Type} & \textbf{Unit} & \textbf{Labels} \\
+\midrule
+
+\multicolumn{4}{l}{\textit{Workload-attributed GPU idle energy}} \\[4pt]
+\code{workload\_gpu\_energy\_mj}
+  & Counter
+  & mJ
+  & \textit{common (see below)} \\
+
+\bottomrule
+\end{tabular}
+
+\smallskip
+\begin{minipage}{12.6cm}
+\footnotesize\emph{Label domain:}
+$\code{kind}=\text{idle}$;
+labels \code{gpu\_uuid}, \code{namespace}, \code{pod}, and \code{container} identify the attributed workload.
+\end{minipage}
+
+\caption{Exported metrics for GPU idle workload attribution.}
+\label{tab:gpu-idle-attrib-exported-metrics}
 \end{table}
+
 
 
 \subsection{Prometheus Exporter Implementation}
@@ -1928,7 +2112,7 @@ Analysis points are pushed into the exporter as immutable values and retained on
 Metric families are created lazily on first observation, with a fixed label schema determined at discovery time.
 
 \paragraph{Core Mechanisms}
-Each analysis metric identifier is mapped to a sanitized Prometheus metric name with a mandatory \code{tycho\_} prefix.
+Each analysis metric identifier is mapped to a sanitized Prometheus metric name with a mandatory "\code{tycho\_}" prefix.
 Label keys are fixed on first sight and reused for all subsequent emissions.
 At scrape time, the exporter exposes the latest committed value for each active series without additional buffering or recomputation.
 
@@ -1940,11 +2124,6 @@ Multiple sinks may coexist, allowing Prometheus export and auxiliary sinks such 
 \paragraph{Implementation Consequences}
 The exporter preserves analysis correctness by construction, as it neither modifies nor reinterprets metric values.
 All temporal guarantees are inherited directly from the analysis engine, while exposition remains strictly observational and replaceable.
-
-
-
-
-
 
 
 \section{Correctness, Robustness, and Degradation Behavior}
