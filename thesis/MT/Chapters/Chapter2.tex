@@ -277,7 +277,7 @@ frequency, but their usefulness is determined entirely by how often the internal
 measurement logic refreshes them, a timing behaviour that is undocumented and
 domain-dependent.
 
-\paragraph{Domain-specific internal update rates}
+\paragraph{Domain-specific internal update rates.}
 Intel specifies the RAPL time unit as 0.976\,ms for the slowest-updating
 domains, while others, notably the PP0 (core) domain, may refresh
 significantly faster \parencite{schone2024energy}.  
@@ -288,7 +288,7 @@ of timestamps combined with irregular refresh behaviour introduces substantial
 relative error, since differences between consecutive reads may reflect counter
 staleness rather than actual power dynamics \parencite{khan2018rapl}.
 
-\paragraph{Noise introduced by security-driven filtering}
+\paragraph{Noise introduced by security-driven filtering.}
 To mitigate power-side channels such as Platypus, Intel optionally introduces
 randomised noise through the \code{ENERGY\_FILTERING\_ENABLE} mechanism
 \parencite{intel2023}.  
@@ -297,7 +297,7 @@ This filtering increases the effective minimum granularity from roughly
 While average energy over longer intervals remains accurate, instantaneous
 increments become less reliable at very short timescales.
 
-\paragraph{Practical sampling limits}
+\paragraph{Practical sampling limits.}
 Despite the nominal sub-millisecond timing, empirical work consistently shows
 that high-frequency polling offers no practical benefit.  
 Multiple studies report that sampling faster than the internal update period
@@ -309,7 +309,7 @@ Consequently, typical measurement practice (and the limits adopted in this
 thesis) treats RAPL as reliable only at tens-of-milliseconds resolution, not at
 the theoretical millisecond scale suggested by its nominal time unit.
 
-\paragraph{Summary}
+\paragraph{Summary.}
 Although RAPL counters can be read extremely quickly, the effective temporal
 resolution is constrained by undocumented refresh intervals, absence of
 timestamps, optional security filtering, and substantial measurement noise at
@@ -324,7 +324,7 @@ inadvisable due to high relative error and counter staleness.
 GPU power telemetry is exposed primarily through NVML, with DCGM providing an alternative access path that builds on the same underlying measurement source.
 Unlike CPU-side interfaces integrated into the processor package, GPU power monitoring is performed entirely by the device itself: internal sensing circuits and firmware determine how often new values are produced, how they are averaged, and when they are published to software. As a result, refresh behaviour varies substantially across architectures, and the temporal properties of the reported values depend on device-internal update cycles rather than the rate at which the host system issues queries, which limits the achievable resolution of any external sampling strategy.
 
-\paragraph{Internal update cycles and sampling freshness}
+\paragraph{Internal update cycles and sampling freshness.}
 Empirical studies consistently show that NVML publishes new power values only intermittently, even when queried at high frequency.
 Yang et~al.\ report sampling availability as low as roughly twenty–twenty-five percent across more than seventy modern data-center GPUs, meaning that the majority of polls return previously published values rather than fresh measurements \parencite{yang2024accurate}.
 
@@ -333,24 +333,24 @@ Hernandez et~al.\ report that newer architectures apply more aggressive smoothin
 Overall, empirical evaluations show that NVML’s internal update interval may lie on the order of hundreds of milliseconds and that repeated queries do not guarantee the retrieval of a new sample at every call \parencite{yang2024accurate}.
 NVML power readings do not represent instantaneous electrical measurements; they reflect firmware-level integration and smoothing over a device-internal averaging window, the duration of which varies by GPU generation and is not publicly documented..
 
-\paragraph{Reaction delay to workload-induced power changes}
+\paragraph{Reaction delay to workload-induced power changes.}
 A related characteristic is NVML’s reaction delay: when GPU power changes due to workload activity, the corresponding update becomes visible only after a lag.
 Multiple studies document delays in the range of approximately one to three hundred milliseconds before a new NVML value reflects the underlying power transition \parencite{yang2024accurate}.
 This delay is distinct from averaging effects and arises from deferred publication of internally accumulated measurements.
 On some recent architectures, the delay can be longer due to device-level smoothing layers that defer updates until sufficient internal samples have been collected \parencite{hernandezPreliminaryStudyFineGrained2025}.
 
-\paragraph{Update regularity and jitter}
+\paragraph{Update regularity and jitter.}
 NVML update cycles are not perfectly periodic.
 Even when a nominal internal cadence is observable, individual publish times exhibit modest jitter, and occasional missed or skipped updates can result in sequences of identical values.
 These effects are pronounced on certain consumer-class devices and in configurations that partition the GPU, such as MIG, although they are also present to a lesser degree on data-center accelerators \parencite{yang2024accurate}.
 Such irregularity introduces uncertainty regarding the true measurement time of any retrieved value, especially in the sub-second range.
 
-\paragraph{DCGM sampling behaviour}
+\paragraph{DCGM sampling behaviour.}
 DCGM relies on the same underlying measurement path as NVML and therefore inherits NVML’s internal update characteristics.
 In practice, DCGM is commonly accessed through its exporter, which introduces an additional periodic sampling stage (typically around one second) resulting in markedly coarser temporal behaviour than NVML’s native cadence.
 As a result, DCGM-based power telemetry rarely offers sub-second resolution in operational environments \parencite{weakleyMonitoringCharacterizingGPU2025}.
 
-\paragraph{GPU utilization update cycles}
+\paragraph{GPU utilization update cycles.}
 NVML’s GPU utilization metric follows its own internal update cadence, separate from power.
 It is typically refreshed more frequently (on the order of tens of milliseconds) although the exact timing remains undocumented.
 While this metric does not track computational efficiency, its shorter update interval provides a comparatively more responsive indicator of device activity \parencite{weakleyMonitoringCharacterizingGPU2025}.
@@ -360,7 +360,7 @@ While this metric does not track computational efficiency, its shorter update in
 
 Redfish exposes power telemetry through the baseboard management controller (BMC) and therefore inherits the temporal behaviour of its embedded sensing hardware and firmware. In contrast to on-chip interfaces such as RAPL or NVML, Redfish is designed for management-plane observability rather than high-frequency monitoring. Prior studies consistently report that Redfish refreshes whole-node power values at coarse intervals, typically ranging from several hundred milliseconds to multiple seconds, with the exact cadence depending on vendor, BMC firmware, and underlying sensor design \parencite{wang2019empirical, aliRedfishNagiosScalableOutofBand2022}. The Redfish standard does not define a minimum update frequency, and available documentation provides little insight into internal sampling or averaging strategies.
 
-\paragraph{Measurement semantics of Redfish power values}
+\paragraph{Measurement semantics of Redfish power values.}
 Redfish does not expose instantaneous electrical measurements. Instead, the reported values originate from on-board monitoring chips connected to shunt-based sensors and are subsequently processed inside the BMC. Vendor documentation indicates that these sensors inherently integrate power over tens to hundreds of milliseconds, and that additional firmware-level smoothing may be applied before values are published through the Redfish API \parencite{aliRedfishNagiosScalableOutofBand2022}. Empirical evaluations support this interpretation: Wang et~al.\ show that Redfish exhibits reaction delays of roughly two hundred milliseconds and displays particularly stable behaviour under steady loads, consistent with block-averaged rather than instantaneous sampling \parencite{wang2019empirical}. Because neither the sensor integration window nor any BMC filtering policies are defined in the standard, the temporal semantics of published values remain implementation-dependent.
 
 Redfish power readings include a timestamp field, but this value reflects the BMC’s observation time rather than the sampling instant of the physical power sensor. In many implementations, timestamps are rounded to seconds, which limits their utility for reconstructing sub-second dynamics and prevents reliable inference of the underlying sampling moment.
@@ -374,25 +374,25 @@ Overall, Redfish provides a widely supported mechanism for obtaining whole-syste
 
 Software-exposed resource metrics differ fundamentally from hardware-integrated telemetry sources: rather than publishing sampled power or energy values at device-defined intervals, the Linux kernel exposes cumulative counters whose temporal behaviour is almost entirely determined by when they are read. These interfaces therefore provide quasi-continuous visibility into system activity, but without intrinsic update cycles or timestamps that would define the sampling moment of the underlying measurement.
 
-\paragraph{Cumulative counters in \texttt{/proc} and cgroups}
+\paragraph{Cumulative counters in \texttt{/proc} and cgroups.}
 Kernel interfaces such as \path{/proc/stat}, per-task entries under \path{/proc/<pid>}, and the CPU accounting files in cgroups expose resource usage as monotonically increasing counters.  
 These values are updated by the kernel during scheduler events, timer interrupts, and context-switch accounting, rather than at fixed intervals.  
 As a consequence, their effective temporal resolution is determined entirely by the user’s polling cadence: reading them more frequently produces more detailed deltas, but the kernel does not provide any guarantee about when a counter was last updated.  
 None of these counters include timestamps, and their update timing may vary across systems due to tickless operation, kernel configuration, and workload characteristics.
 
-\paragraph{Disk and network I/O statistics}
+\paragraph{Disk and network I/O statistics.}
 I/O-related counters follow the same principle.  
 Entries such as \path{/proc/<pid>/io}, cgroup I/O files, and interface statistics in \path{/proc/net/dev} are incremented as part of the corresponding driver paths when I/O operations occur.  
 They do not refresh periodically and therefore exhibit update patterns that mirror workload activity rather than a regular cadence.  
 Temporal interpretation again depends entirely on the polling rate of the monitoring system.
 
-\paragraph{eBPF-based event timing}
+\paragraph{eBPF-based event timing.}
 In contrast to cumulative counters, eBPF enables event-driven monitoring with explicit timestamps.  
 Kernel probes attached to scheduler events, I/O paths, or tracepoints can record event times with high precision using the kernel’s monotonic clock.  
 As a result, eBPF metrics provide effectively instantaneous temporal resolution and are limited only by the overhead of probe execution and user-space consumption of BPF maps.  
 No internal refresh cycle exists; events are timestamped at the moment they occur.
 
-\paragraph{Performance counters and \texttt{perf}-based monitoring}
+\paragraph{Performance counters and \texttt{perf}-based monitoring.}
 Hardware performance monitoring counters (PMCs), accessed via \code{perf\_event\_open}, advance continuously within the processor.  
 They do not follow a publish interval, and their timing semantics are defined solely by the instant at which user space reads the counter.  
 This provides fine-grained and low-latency access to execution metrics such as cycles and retired instructions, with overhead rising only when polling is performed at very high frequencies.
