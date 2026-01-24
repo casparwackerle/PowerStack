@@ -1,132 +1,3 @@
-% \chapter{Implementation}
-% \label{chap:implementation}
-
-% \section{Purpose, Scope, and Structure}
-% This chapter describes how Tycho’s architectural concepts are realised at runtime by delineating clear boundaries of responsibility between its execution-time subsystems. Its purpose is to provide a compact mental model of the system’s overall structure so that later implementation sections can be read in context. The focus is on which components exist at runtime, what each is responsible for, and which concerns are explicitly excluded from their scope. Architectural concepts are not reintroduced, and temporal mechanisms, attribution logic, and correctness arguments are deferred to subsequent chapters. The chapter is intentionally concise and contract-like: it establishes who may decide what at runtime, and on which inputs, without prescribing internal algorithms or code structure.
-
-% \section{System Overview and Execution Boundaries}
-% \label{sec:impl_system_overview}
-
-% \subsection{Runtime Actors and Responsibilities}
-
-% At runtime, Tycho is structured as a small set of long-lived actors that cooperate through well-defined data and responsibility boundaries. Each actor fulfils a single primary role and operates independently within that role. No actor assumes semantic responsibility beyond its own contract, and no actor implicitly compensates for the behaviour of others. This separation is fundamental to the implementation and is enforced consistently across the system.
-
-% Collectors are responsible for acquiring raw observations from their respective domains and making them available to the rest of the system. Their responsibility ends at faithful observation and timestamped emission of samples. Collectors have no knowledge of analysis windows, attribution logic, workload identity, or downstream consumption, and they do not coordinate with each other.
-
-% The metadata subsystem provides identity and hierarchy information required for workload attribution. It maintains a continuously refreshed view of relationships between processes, cgroups, containers, and pods. Metadata is consulted during analysis but does not participate in metric collection, temporal reasoning, or attribution decisions itself.
-
-% Calibration mechanisms operate as a dedicated startup actor. Their responsibility is to characterize relevant system and collector behaviour before normal operation begins and to derive parameters that inform later interpretation. Calibration does not perform attribution, does not modify collected data, and does not remain active during steady-state analysis.
-
-% The analysis engine is the sole authority responsible for interpreting collected observations. It orchestrates per-window evaluation, consumes buffered metric samples and metadata, applies attribution models, and produces window-level results. No other component is permitted to fuse domains, apply models, or enforce invariants.
-
-% Export and downstream consumption form a strictly downstream concern. The exporter observes the outputs of the analysis engine and exposes them to external systems. Export has no influence on collection, calibration, analysis cadence, or attribution decisions, and it does not participate in correctness enforcement.
-
-% This actor-based structure provides a stable execution model that underpins the remainder of the implementation chapter. Subsequent sections describe each actor in isolation, building on these responsibility boundaries without reintroducing global system context.
-
-% \subsubsection{Timing Engine}
-
-% The timing engine is responsible for coordinating when runtime actions occur, without participating in their semantic interpretation. Its primary role is to provide a centralized scheduling reference that triggers collector execution and initiates analysis cycles according to a predefined execution plan.
-
-% The timing engine does not collect metrics and does not perform attribution. It is concerned exclusively with triggering events, not with interpreting their results. In particular, it does not inspect collected samples, reason about their content, or adapt its behaviour based on downstream outcomes.
-
-% It is important to distinguish the timing engine from the analysis engine. The timing engine determines \emph{when} collection and analysis are invoked, while the analysis engine determines \emph{how} collected observations are interpreted and attributed. No analytical logic resides in the timing engine, and no scheduling authority resides in the analysis engine.
-
-% By separating execution timing from analytical coordination, Tycho ensures that collection schedules and analysis semantics remain decoupled. This separation allows timing behaviour to be managed uniformly across subsystems while keeping attribution logic explicit and isolated.
-
-% \subsubsection{Collectors}
-
-% Collectors are independent runtime actors responsible for acquiring raw observations from individual hardware and software domains. Each collector operates autonomously and is concerned exclusively with its local observation task. Its responsibility is limited to sampling its domain, attaching a timestamp in the global execution context, and emitting a complete, self-contained sample.
-
-% Collectors do not perform any form of interpretation. They do not infer workload identity, apply attribution logic, align samples to analysis windows, or reason about temporal relationships beyond assigning timestamps. No collector is aware of other collectors, downstream analysis, or whether a given sample will contribute to a particular attribution window.
-
-% All collectors emit their samples into a common buffering abstraction through a uniform interface. This interface defines the execution boundary between observation and interpretation. Once a sample has been emitted, the collector relinquishes responsibility for its use, ordering, or eventual inclusion in analysis. Collectors neither coordinate emission nor adapt their behaviour based on downstream state.
-
-% This strict scoping ensures that collectors remain simple, domain-local, and replaceable in principle. It also guarantees that all semantic interpretation of measurements is centralized outside the collection layer and addressed explicitly in later stages of the system.
-
-% \subsubsection{Metadata Subsystem}
-
-% The metadata subsystem provides the identity and hierarchy information required to relate raw observations to workloads. Its primary responsibility is to maintain an up-to-date view of relationships between processes, cgroups, containers, and pods as they exist at runtime. This information forms the identity substrate on which attribution decisions are based.
-
-% Metadata is maintained as a periodically refreshed snapshot that reflects the system state at analysis time. It is designed to be consulted during attribution rather than joined with metric streams. The subsystem does not participate in metric collection, does not attach semantics to observations, and does not influence how or when samples are produced.
-
-% The metadata subsystem is strictly separated from analysis logic. It neither performs attribution nor enforces correctness properties. Its role is limited to supplying best-effort identity mappings that enable stable workload association across analysis windows. Missing or imperfect mappings are handled downstream and do not cause execution failures within the metadata subsystem itself.
-
-% By confining identity management to a dedicated actor, Tycho ensures that workload attribution remains explicit, traceable, and decoupled from both raw observation and interpretative logic.
-
-% \subsubsection{Calibration Mechanisms}
-
-% Calibration mechanisms act as a supporting runtime actor whose sole responsibility is to characterize relevant properties of the execution environment before steady-state operation begins. Their function is to measure source-specific behaviour such as update characteristics and effective delays, and to derive parameters that contextualize later interpretation of collected observations.
-
-% Calibration executes during startup and completes prior to the first analysis window. The parameters it produces are treated as static inputs for the remainder of execution. Calibration does not participate in metric collection, does not modify collected samples, and does not remain active during steady-state analysis.
-
-% The calibration subsystem does not perform attribution and does not enforce correctness properties. It informs the timing and analysis components by supplying measured context, but it does not make analytical decisions itself. By isolating calibration as a dedicated actor, Tycho separates environment-dependent characterization from attribution logic and avoids entangling measurement with interpretation.
-
-% \subsubsection{Analysis Engine}
-
-% The analysis engine is the central orchestrator of Tycho’s per-window evaluation. It is the only runtime actor responsible for interpreting collected observations and producing attribution results. All semantic reasoning, model application, and invariant enforcement are confined to this component.
-
-% At each analysis cycle, the analysis engine consumes materialized inputs in the form of buffered metric samples, metadata snapshots, and calibration-derived parameters. It determines the ordering of analysis stages, performs cross-domain fusion, applies attribution models, and derives window-level results. No other subsystem is permitted to combine metric domains or assign energy to workloads.
-
-% The analysis engine operates strictly as a consumer of upstream data. It does not influence collection schedules, metadata acquisition, or calibration behaviour, and it does not mutate buffered inputs. Its output consists of a single logical result per analysis window, potentially composed of multiple metrics, reflecting the attribution state that can be derived from the available inputs.
-
-% By centralizing all interpretative logic within the analysis engine, Tycho ensures that attribution semantics remain explicit, auditable, and isolated from observation and scheduling concerns.
-
-% \subsubsection{Export and Downstream Consumption}
-
-% Export is a strictly downstream concern that exposes the results produced by the analysis engine to external systems. Its responsibility is limited to observing attribution outputs and making them available in a form suitable for downstream consumption.
-
-% The export subsystem does not influence collector behaviour, timing decisions, or analysis execution. It does not participate in attribution, does not apply additional interpretation, and does not feed information back into the system. Export operates in a non-blocking manner and cannot delay or backpressure analysis.
-
-% Exported data reflects analysis results rather than raw observations. While export mechanisms may maintain cumulative representations over time, they do not aggregate across analysis windows at the semantic level. Exported metrics are non-authoritative and serve solely as an interface between Tycho’s internal attribution logic and external monitoring or storage systems.
-
-% By isolating export as a downstream observer, Tycho preserves a clear boundary between attribution semantics and external consumption, ensuring that analytical correctness is independent of export behaviour.
-
-% \subsection{Execution-Time Boundaries of Responsibility}
-
-% \subsubsection{What the Timing Engine Guarantees}
-
-% The timing engine provides execution-time guarantees related exclusively to scheduling and triggering. It guarantees that collection and analysis triggers are issued according to the configured execution plan and that these triggers are generated consistently within the global execution context.
-
-% The timing engine does not guarantee that triggered actions result in observable samples, nor does it guarantee alignment or completeness of collected data. It does not inspect, validate, or interpret the outcomes of triggered actions, and it does not adapt its behaviour based on downstream state or results.
-
-% By confining its guarantees to triggering semantics only, the timing engine establishes a stable temporal coordination layer while remaining strictly separated from observation, interpretation, and attribution responsibilities.
-
-
-% \subsubsection{What Collectors Guarantee}
-
-% Collectors provide a narrow set of hard execution-time guarantees that define the boundary between observation and interpretation. Each emitted sample represents a faithful observation of the underlying source at the moment of collection. Samples are complete, self-contained, and not duplicated. Timestamps attached by collectors are monotonic and consistent within the global execution context.
-
-% Beyond these properties, collectors make no semantic guarantees. They do not guarantee temporal alignment with other collectors, completeness of coverage within an analysis window, or any ordering relationship between samples beyond their timestamps. Collectors do not attach workload identity, do not infer higher-level meaning, and do not participate in attribution or correctness enforcement.
-
-% In particular, collectors do not guarantee that a sample will be usable for a given analysis window, nor that all relevant activity is observed. Responsibility for handling missing data, misalignment, and partial visibility lies strictly downstream. This contract ensures that collectors remain simple and domain-local, while all interpretative responsibility is centralized elsewhere in the system.
-
-
-% \subsubsection{What the Analysis Engine Guarantees}
-
-% The analysis engine provides the system’s core semantic guarantees. It is solely responsible for fusing observations across domains, applying attribution models, and enforcing architectural invariants. In particular, conservation is treated as an absolute invariant within each analysis window: all attributed quantities are internally consistent with the observed inputs and their modeled decomposition.
-
-% Attribution is performed on a best-effort basis under the constraints imposed by the available data. The analysis engine guarantees self-consistency of its outputs, not correspondence to ground truth. When observations are incomplete or optional domains are unavailable, the engine produces the most complete attribution that can be derived without violating invariants. Residual handling and domain-specific fallbacks are part of this responsibility.
-
-% The analysis engine consumes materialized inputs and operates strictly read-only on upstream data. It does not correct or reinterpret observations, and it does not retroactively revise prior results. Each analysis window yields a single logical attribution result, potentially composed of multiple metrics, reflecting the maximal consistent interpretation achievable for that window.
-
-% \subsubsection{Non-Responsibilities and Separation Constraints}
-
-% Several responsibilities are intentionally excluded from all runtime actors to preserve explicit boundaries and avoid hidden coupling. In particular, analytical components do not control collection schedules, do not influence when observations are taken, and do not adapt upstream behaviour based on analytical outcomes. Scheduling authority remains confined to the timing engine, and observation authority remains confined to collectors.
-
-% Conversely, collection and calibration components do not perform interpretation. They do not infer meaning from observations, apply models, or participate in attribution decisions. No component retroactively alters collected data or revises previously emitted results. Once an observation has been emitted, it is immutable from the perspective of all downstream stages.
-
-% Tycho is strictly observational. It does not attempt to intervene in system behaviour, optimise workloads, or provide feedback for control. This separation ensures that each subsystem operates within a narrow, well-defined contract and that system behaviour remains transparent, composable, and auditable at runtime.
-
-% \subsection{End-to-End Dataflow at Runtime}
-
-% During steady-state operation, Tycho executes as a continuous loop of observation, interpretation, and exposure. Collectors acquire raw observations independently and emit samples into a shared buffering layer without coordination or awareness of downstream use. In parallel, the metadata subsystem maintains a periodically refreshed snapshot of workload identity and hierarchy.
-
-% At each analysis cycle, the analysis engine retrieves materialized inputs from the buffering layer and consults the current metadata snapshot and calibration parameters. It interprets the available observations, performs cross-domain fusion and attribution, and produces a single logical result for the window. Analysis proceeds based on the data that is available at evaluation time, without assuming completeness or uniform coverage across domains.
-
-% Once attribution completes, the resulting outputs are observed by the export subsystem and exposed to external consumers. Export operates strictly downstream and does not influence upstream execution. This dataflow remains decoupled at all stages: observation, interpretation, and exposure interact only through explicit data handoff, ensuring that asynchronous operation and independent subsystem evolution do not compromise attribution semantics.
-
-
-
 \chapter{Implementation}
 \label{chap:implementation}
 
@@ -695,7 +566,6 @@ metrics collected at each level.
 \label{tab:gpu-process-metrics}
 \end{table}
 
-
 \section{Metadata and Identity Infrastructure}
 \label{sec:impl_metadata}
 
@@ -1166,7 +1036,6 @@ These non-guarantees are deliberate and reflect the prioritization of correctnes
 Together, these consequences establish a stable execution contract for attribution.
 They enable later analysis stages to operate on materialized, window-scoped quantities with well-defined temporal and dependency semantics, while ensuring that increasing analytical sophistication does not compromise determinism, auditability, or adherence to the architectural model.
 
-
 \subsection{Stage 1: Component Metric Construction}
 % This is where *_corrected metrics belong (implementation of architectural Stage 1).
 
@@ -1462,7 +1331,6 @@ $\code{source}\in\{\code{redfish\_raw},\code{redfish\_corrected}\}$.
 \label{tab:redfish-exported-metrics}
 \end{table}
 
-
 \subsection{Stage 2: System-Level Energy Model and Residual}
 \label{subsec:impl_stage2_residual}
 
@@ -1527,7 +1395,6 @@ $\code{kind}=\text{total}$.
 \label{tab:residual-exported-metrics}
 \end{table}
 
-
 \subsection{Stage 3: Idle and Dynamic Energy Semantics}
 % Realization of architectural idle and dynamic energy definitions.
 % This stage decomposes per-component energy without workload attribution.
@@ -1561,6 +1428,8 @@ The realised split guarantees per-window energy conservation and produces a cons
 Dynamic energy is defined purely as the residual, ensuring that subsequent attribution stages operate on a well-bounded remainder without requiring access to the idle model internals.
 The approach tolerates missing or delayed observations and degrades to zero-idle attribution rather than emitting inconsistent metrics.
 
+While the CPU attribution path is comparatively compact, this reflects the availability of continuous, architecturally exposed counters and execution-derived proxies; GPU attribution necessarily incurs additional complexity due to backend-controlled publication semantics, implicit sampling phases, and heterogeneous telemetry guarantees.
+
 \paragraph{Exported Metrics}
 The exported metrics are summarized in Table~\ref{tab:rapl-idle-dynamic-exported-metrics}.
 
@@ -1590,7 +1459,6 @@ $\code{source}=\code{rapl}$.
 \caption{Exported RAPL idle and dynamic metrics.}
 \label{tab:rapl-idle-dynamic-exported-metrics}
 \end{table}
-
 
 \subsubsection{Residual Idle and Dynamic Decomposition}
 
@@ -1665,8 +1533,6 @@ $\code{source}\in\{\code{redfish\_raw},\code{redfish\_corrected}\}$.
 \label{tab:residual-idle-exported-metrics}
 \end{table}
 
-
-
 \subsubsection{GPU Idle and Dynamic Decomposition}
 \label{sec:impl_gpu_idle_dynamic}
 
@@ -1735,11 +1601,6 @@ $\code{source}=\code{nvml\_corrected}$.
 \caption{Exported GPU idle and dynamic decomposition metrics.}
 \label{tab:gpu-idle-dynamic-exported-metrics}
 \end{table}
-
-
-
-
-
 
 \subsection{Stage 4: Workload Attribution and Aggregation}
 % Realization of architectural workload attribution.
@@ -2100,8 +1961,6 @@ labels \code{gpu\_uuid}, \code{namespace}, \code{pod}, and \code{container} iden
 \label{tab:gpu-idle-attrib-exported-metrics}
 \end{table}
 
-
-
 \subsection{Prometheus Exporter Implementation}
 
 \paragraph{Architectural Context}
@@ -2124,6 +1983,51 @@ Multiple sinks may coexist, allowing Prometheus export and auxiliary sinks such 
 \paragraph{Implementation Consequences}
 The exporter preserves analysis correctness by construction, as it neither modifies nor reinterprets metric values.
 All temporal guarantees are inherited directly from the analysis engine, while exposition remains strictly observational and replaceable.
+By remaining strictly passive and state-free with respect to attribution, the exporter preserves the analysis invariants of determinism, non-retrospective execution, and window-scoped finality established throughout the implementation.
+
+\section{Summary}
+
+This chapter described how Tycho’s architectural abstractions are realized as a
+deterministic, execution-time system under discretization, partial observability,
+and asynchronous measurement.
+The implementation enforces correctness properties through execution structure
+rather than adaptive control, ensuring that attribution semantics are explicit,
+auditable, and reproducible.
+
+At runtime, Tycho is organized as a set of long-lived subsystems with strictly
+separated responsibilities.
+Temporal coordination, observation, identity acquisition, calibration, analysis,
+and export are decoupled by construction, and no subsystem compensates implicitly
+for the behavior of another.
+A global monotonic timebase, explicit analysis windows, and single-pass execution
+ensure that each analysis cycle yields a final, window-scoped interpretation of
+the available evidence.
+
+Metric construction and attribution are realized as a staged pipeline.
+Early stages construct component-level energy and utilization signals while
+preserving monotonicity and conservation.
+Subsequent stages decompose these signals into idle and dynamic components and
+allocate dynamic energy to workloads using execution-derived proxies.
+Workload resolution is conservative and explicitly bounded, with unresolved
+activity degrading monotonically into the distinguished \code{__system__} class
+rather than being redistributed.
+
+Across all stages, the implementation prioritizes conservative behavior under
+uncertainty.
+Missing or delayed observations do not trigger backfilling or reinterpretation of
+prior windows.
+Instead, degradation is explicit, localized, and bounded, preserving the
+interpretability of all emitted metrics.
+Cumulative energy counters remain monotonic, per-window conservation is enforced
+exactly, and all stateful behavior is confined to explicit, metric-owned memory.
+
+Together, these implementation choices realize the architectural model faithfully
+while remaining robust under real execution conditions.
+They establish a stable and well-defined foundation for the evaluation of
+measurement accuracy, attribution behavior, and system overhead in the following
+chapters.
+
+
 
 
 \section{Correctness, Robustness, and Degradation Behavior}
