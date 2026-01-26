@@ -12,6 +12,12 @@ import parse_subruns
 from tests.tests_idle import run_idle_test
 from tests.tests_cpu_discrimination import run_cpu_discrimination_test
 
+from tests.tests_workload_energy import (
+    run_cpu_busy_vs_noop_idle_share_test,
+    run_gpu_concurrent_2pods_test,
+    run_gpu_concurrent_3pods_test,
+)
+
 
 def log(msg: str) -> None:
     now = datetime.utcnow().strftime("%H:%M:%S")
@@ -30,6 +36,14 @@ def main() -> None:
         tests.append(run_idle_test)
     if "cpu_discrimination" in config.TESTS_TO_RUN:
         tests.append(run_cpu_discrimination_test)
+
+    if "cpu_busy_vs_noop_idle_share" in config.TESTS_TO_RUN:
+        tests.append(run_cpu_busy_vs_noop_idle_share_test)
+    if "gpu_concurrent_2pods" in config.TESTS_TO_RUN:
+        tests.append(run_gpu_concurrent_2pods_test)
+    if "gpu_concurrent_3pods" in config.TESTS_TO_RUN:
+        tests.append(run_gpu_concurrent_3pods_test)
+
 
     if not tests:
         log("No tests selected. Set config.TESTS_TO_RUN.")
@@ -87,6 +101,34 @@ def main() -> None:
             windows_df.to_parquet(win_out, index=False)
             log(f"Wrote: {win_out} ({len(windows_df)} windows, phases={len(targets)})")
 
+        # 1c) Build workload_set windows for new independent tests
+        workload_windows_df = None
+        workload_targets: List[Tuple[str, int]] = []
+
+        if "cpu_busy_vs_noop_idle_share" in config.TESTS_TO_RUN:
+            workload_targets.append(("cpu_busy_vs_noop_idle_share", 2))
+        if "gpu_concurrent_2pods" in config.TESTS_TO_RUN:
+            workload_targets.append(("gpu_concurrent_2pods", 2))
+        if "gpu_concurrent_3pods" in config.TESTS_TO_RUN:
+            workload_targets.append(("gpu_concurrent_3pods", 3))
+
+        if workload_targets:
+            all_w = []
+            for phase_name, min_w in workload_targets:
+                log(f"Building workload_set windows (target phase='{phase_name}', min_workloads={min_w})...")
+                wdf = parse_subruns.build_workload_set_windows(
+                    run_key=run_key,
+                    run_dir=run_dir,
+                    target_phase=phase_name,
+                    min_workloads_per_rep=min_w,
+                )
+                all_w.append(wdf)
+
+            workload_windows_df = pd.concat(all_w, ignore_index=True)
+            wout = out_run_dir / "workload_set_windows.parquet"
+            workload_windows_df.to_parquet(wout, index=False)
+            log(f"Wrote: {wout} ({len(workload_windows_df)} windows, phases={len(workload_targets)})")
+
 
         # 2) Determine required metrics
         required: dict[str, str] = {}
@@ -109,6 +151,12 @@ def main() -> None:
             if windows_df is None:
                 raise RuntimeError("cpu_discrimination selected but windows_df is None")
             frames.append(windows_df[["run_key", "rep", "phase", "start_utc", "end_utc"]].copy())
+
+        if workload_targets:
+            if workload_windows_df is None:
+                raise RuntimeError("workload tests selected but workload_windows_df is None")
+            frames.append(workload_windows_df[["run_key", "rep", "phase", "start_utc", "end_utc"]].copy())
+
 
         if not frames:
             raise RuntimeError("No extraction windows selected.")

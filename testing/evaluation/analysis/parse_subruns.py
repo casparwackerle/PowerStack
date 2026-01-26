@@ -251,3 +251,111 @@ def build_cpu_discrimination_windows(
 
     log(f"[cpu_discrimination] matched reps={df['rep'].nunique()} rows={len(df)}")
     return df.sort_values(["rep", "workload"], kind="stable").reset_index(drop=True)
+
+
+def build_workload_set_windows(
+    run_key: str,
+    run_dir: Path,
+    target_phase: str,
+    min_workloads_per_rep: int = 2,
+) -> pd.DataFrame:
+    """
+    Generic window builder for workload_set phases (cpu_busy_vs_noop_idle_share, gpu_concurrent_2pods, gpu_concurrent_3pods, ...)
+
+    Same matching strategy as CPU discrimination:
+      - scan master events.log for launches within target_phase, capturing (rep, workload, launch_ts)
+      - parse all subrun_*/events.log to get (workload, pod, start_utc, end_utc)
+      - for each launch, match the nearest subrun with same workload by start time within tolerance
+
+    Output rows:
+      (run_key, rep, phase, start_utc, end_utc, workload, pod, parent_phase, events_path)
+    where phase is normalized as: "{target_phase}__{workload}" (lowercase).
+    """
+    from main import log
+
+    master_events = run_dir / "events.log"
+    if not master_events.exists():
+        raise FileNotFoundError(f"Missing master events.log: {master_events}")
+
+    launches = _parse_master_launches_for_phase(master_events, target_phase)
+    if not launches:
+        raise RuntimeError(f"Found 0 subrunner launches for '{target_phase}' in {master_events}")
+
+    # Parse all subruns
+    subruns: List[Dict[str, Any]] = []
+    for d in _find_subrun_dirs(run_dir):
+        ev = d / "events.log"
+        parsed = _parse_single_subrun_events(ev)
+        if parsed:
+            subruns.append(parsed)
+
+    if not subruns:
+        raise RuntimeError(f"No parseable subrun_*/events.log found under {run_dir}")
+
+    sub = pd.DataFrame(subruns)
+    sub["start_utc"] = pd.to_datetime(sub["start_utc"], utc=True)
+    sub["end_utc"] = pd.to_datetime(sub["end_utc"], utc=True)
+
+    tol_s = int(getattr(config, "CPU_DISCRIM_MATCH_TOL_SEC", 6))
+
+    rows: List[Dict[str, Any]] = []
+    used_events: set[str] = set()
+
+    reps_in_master = sorted({int(x["rep"]) for x in launches})
+    log(f"[workload_set] target_phase='{target_phase}' reps_in_master={reps_in_master[:6]}{' ...' if len(reps_in_master)>6 else ''}")
+
+    for L in launches:
+        rep = int(L["rep"])
+        w = str(L["workload"])
+        launch_ts = pd.to_datetime(L["launch_ts"], utc=True)
+
+        cand = sub[sub["workload"] == w].copy()
+        if cand.empty:
+            continue
+
+        cand["dt_s"] = (cand["start_utc"] - launch_ts).abs().dt.total_seconds()
+        cand = cand.sort_values(["dt_s", "start_utc"], kind="stable")
+
+        best = cand.iloc[0]
+        if float(best["dt_s"]) > tol_s:
+            continue
+
+        ev_path = str(best["events_path"])
+        if ev_path in used_events:
+            continue
+        used_events.add(ev_path)
+
+        phase = f"{target_phase}__{w}".lower()
+        rows.append(
+            {
+                "run_key": run_key,
+                "rep": rep,
+                "phase": phase,
+                "start_utc": best["start_utc"],
+                "end_utc": best["end_utc"],
+                "workload": w,
+                "pod": str(best["pod"]),
+                "status": str(best.get("status", "ok")),
+                "events_path": ev_path,
+                "parent_phase": target_phase,
+            }
+        )
+
+    df = pd.DataFrame(rows)
+    if df.empty:
+        raise RuntimeError(
+            f"Matched 0 subruns for '{target_phase}'. "
+            f"Try increasing CPU_DISCRIM_MATCH_TOL_SEC (currently {tol_s})."
+        )
+
+    # Validate minimum workloads per rep (2 for cpu_busy_vs_noop and gpu_2pods, 3 for gpu_3pods)
+    g = df.groupby("rep")["workload"].nunique()
+    bad = g[g < int(min_workloads_per_rep)]
+    if not bad.empty:
+        ex = df[df["rep"].isin(bad.index)].sort_values(["rep", "workload"]).head(20).to_string(index=False)
+        raise RuntimeError(
+            f"Some reps have <{min_workloads_per_rep} matched workloads for '{target_phase}'.\nExamples:\n{ex}"
+        )
+
+    log(f"[workload_set] matched reps={df['rep'].nunique()} rows={len(df)}")
+    return df.sort_values(["rep", "workload"], kind="stable").reset_index(drop=True)

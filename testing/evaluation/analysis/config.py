@@ -34,7 +34,13 @@ SELECTED_RUN_KEYS = [
 TESTS_TO_RUN = [
     # "idle",
     "cpu_discrimination",
+
+    # New independent tests
+    "cpu_busy_vs_noop_idle_share",
+    "gpu_concurrent_2pods",
+    "gpu_concurrent_3pods",
 ]
+
 
 
 # ---------------------------------------------------------------------
@@ -69,6 +75,8 @@ CPU_DISCRIM_TARGET_PHASES = [
     "cpu_discrimination_concurrent",
 ]
 
+CPU_DOMAINS = ["core", "pkg", "uncore", "dram"]
+
 # How far subrun timestamps may drift relative to master phase window
 CPU_DISCRIM_MATCH_TOL_SEC = 6
 
@@ -100,11 +108,42 @@ TYCHO_METRICS = {
     # core domain only, workload-attributed counters
     # NOTE: no pod filter here. We filter by pod label in the test.
     # ------------------------
+    # CPU workload RAPL energy per domain (idle/dynamic)
+    # CPU workload RAPL energy per domain (idle/dynamic)
     "workload_rapl_core_idle_energy_mj": (
         f'tycho_workload_rapl_energy_mj{{instance="{PROM_INSTANCE}",domain="core",kind="idle",source="rapl"}}'
     ),
     "workload_rapl_core_dynamic_energy_mj": (
         f'tycho_workload_rapl_energy_mj{{instance="{PROM_INSTANCE}",domain="core",kind="dynamic",source="rapl"}}'
+    ),
+
+    "workload_rapl_pkg_idle_energy_mj": (
+        f'tycho_workload_rapl_energy_mj{{instance="{PROM_INSTANCE}",domain="pkg",kind="idle",source="rapl"}}'
+    ),
+    "workload_rapl_pkg_dynamic_energy_mj": (
+        f'tycho_workload_rapl_energy_mj{{instance="{PROM_INSTANCE}",domain="pkg",kind="dynamic",source="rapl"}}'
+    ),
+
+    "workload_rapl_uncore_idle_energy_mj": (
+        f'tycho_workload_rapl_energy_mj{{instance="{PROM_INSTANCE}",domain="uncore",kind="idle",source="rapl"}}'
+    ),
+    "workload_rapl_uncore_dynamic_energy_mj": (
+        f'tycho_workload_rapl_energy_mj{{instance="{PROM_INSTANCE}",domain="uncore",kind="dynamic",source="rapl"}}'
+    ),
+
+    "workload_rapl_dram_idle_energy_mj": (
+        f'tycho_workload_rapl_energy_mj{{instance="{PROM_INSTANCE}",domain="dram",kind="idle",source="rapl"}}'
+    ),
+    "workload_rapl_dram_dynamic_energy_mj": (
+        f'tycho_workload_rapl_energy_mj{{instance="{PROM_INSTANCE}",domain="dram",kind="dynamic",source="rapl"}}'
+    ),
+
+    # GPU workload energy (idle/dynamic), same labels as before (pod/container/node/kind)
+    "workload_gpu_idle_energy_mj": (
+        f'tycho_workload_gpu_energy_mj{{instance="{PROM_INSTANCE}",kind="idle"}}'
+    ),
+    "workload_gpu_dynamic_energy_mj": (
+        f'tycho_workload_gpu_energy_mj{{instance="{PROM_INSTANCE}",kind="dynamic"}}'
     ),
 }
 
