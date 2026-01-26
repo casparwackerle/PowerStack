@@ -125,7 +125,8 @@ This decoupling avoids artificial temporal alignment and preserves each domain�
 \subsection{Window Construction and Analysis Triggering}
 \label{subsec:window_construction}
 
-Analysis proceeds in fixed-duration windows defined solely by periodic triggers from the timing engine. If the triggers occur at monotonic times \(T_0, T_1, T_2, \dots\), window \(W_i\) is the half-open interval \([T_i, T_{i+1})\). Window duration is nominally constant but may drift slightly, which is acceptable for attribution.
+Analysis proceeds in fixed-duration windows defined solely by periodic triggers from the timing engine. If the triggers occur at monotonic times \(T_0, T_1, T_2, \dots\), window \(W_i\) is the half-open interval \([T_i, T_{i+1})\). Window duration is nominally constant but may drift slightly, which is acceptable for attribution. In the current configuration, the analysis window duration is 3\,s. This value reflects a trade-off between temporal resolution and the stability of delay-aligned reconstruction, and is treated as a configuration parameter rather than a fixed architectural constant.
+
 
 When a window closes, the analysis engine performs two conceptual phases:
 
@@ -243,6 +244,22 @@ Figures~\ref{vt1_fig:tycho_timingDiagram} and \ref{vt1_fig:kepler_timingDiagram}
 \section{Metric Sources as Temporal Actors}
 \label{sec:metric_sources}
 This section characterizes all metric sources as temporal actors that emit observations under distinct timing, latency, and reliability constraints. Rather than treating collectors as passive data providers, it formalizes their role as asynchronous producers whose outputs define the raw temporal structure available to the analysis pipeline. The following subsections describe the observable properties, guarantees, and limitations of each source, establishing the bounds within which subsequent metric construction and attribution operate.
+
+Figure~\ref{fig:tycho_collection_overview} provides a consolidated architectural overview of Tycho’s metric collection subsystem.
+It illustrates the independent operation of domain-specific collectors, their interaction with sensor interfaces, and the explicit buffering boundary that separates collection from analysis.
+The diagram intentionally abstracts the internal structure of the analysis pipeline and focuses instead on the temporal and structural properties of metric sources, which define the raw observational constraints under which all subsequent metric construction and attribution operate.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.95\textwidth}
+        \includegraphics[width=\textwidth]{Figures/drawio/tycho_activityDiagram.png}
+        \caption{Tycho metric collection architecture}
+        \label{fig:tycho_collection_overview_inner}
+    \end{subfigure}
+    \caption[Tycho metric collection architecture overview]{Architectural overview of Tycho’s metric collection subsystem, showing the timing engine, independently scheduled collectors, sensor interfaces, and bounded buffers that form the sole input to the analysis pipeline.}
+    \label{fig:tycho_collection_overview}
+\end{figure}
+
 
 \subsection{eBPF and Software Counters}
 \label{subsec:ebpf_temporal}
