@@ -1,0 +1,426 @@
+% ======================================================================
+\chapter{Evaluation and Synthesis}
+\label{chap:evaluation-synthesis}
+
+\section{Purpose and Structure of the Evaluation}
+\label{sec:evaluation-purpose-structure}
+
+This chapter provides an interpretive synthesis of the results established in
+the preceding experimental evaluation. It does not introduce new experiments,
+data, metrics, or figures. Instead, it evaluates the observed behavior of the
+system at a global level, with the aim of assessing what the empirical findings
+imply about Tycho as a measurement approach and as a research instrument.
+
+The focus of this chapter is therefore not on individual workloads or test
+cases, but on recurring patterns, system-level properties, and the consequences
+of the design decisions explored throughout the thesis. Evaluation is conducted
+at the level of measurement semantics, attribution behavior, and interpretability
+under realistic constraints imposed by external telemetry and system
+heterogeneity.
+
+To provide structure to this assessment, the chapter is organized around the
+research questions introduced earlier in the thesis. These questions are used
+as a guiding framework for synthesizing the empirical and qualitative evidence,
+rather than as independent hypotheses or isolated evaluation targets. Each
+question is discussed analytically and answered explicitly, with attention to
+the assumptions and boundary conditions under which the conclusions hold.
+
+This chapter thus serves as an intermediate layer between the presentation of
+empirical evidence and the concluding discussion. While the experimental
+evaluation establishes what was observed, the following sections articulate how
+these observations should be interpreted, what limitations they reveal, and
+what can be concluded about the scope and validity of the proposed measurement
+approach.
+
+
+% ----------------------------------------------------------------------
+\section{Global Summary of Empirical Findings}
+\label{sec:eval-summary-global}
+
+% PURPOSE:
+% - Establish a shared mental model before answering RQs
+% - Summarize recurring patterns, not individual tests
+% - No figures, no test descriptions, no references to specific plots
+
+Across the evaluated scenarios, several consistent patterns emerged that
+characterize Tycho’s behavior as a measurement system.
+
+% PLACEHOLDER:
+% Summarize high-level observations such as:
+% - Stability and repeatability under steady workloads
+% - Robust localization of dynamic energy under bursty execution
+% - Consistent attribution under concurrent workloads
+% - Conservation properties across attribution boundaries
+% - External telemetry latency as the dominant limiting factor
+
+These observations form the empirical basis for the following evaluation and
+are not tied to individual experiments, but to recurring system-level behavior
+across the experimental space explored in this thesis.
+
+% ----------------------------------------------------------------------
+ \section{Research Question 1: Guarantees and Feasibility of Accuracy-First Measurement}
+\label{sec:eval-rq1}
+
+\begin{quote}
+What properties can an accuracy-first energy measurement system realistically guarantee when attributing energy consumption to workloads in Kubernetes environments with heterogeneous and delayed telemetry sources?
+\end{quote}
+
+\subsection*{Interpretation}
+
+In the context of workload-level energy attribution, the term \emph{guarantee}
+does not refer to numerical accuracy bounds or ground-truth recovery. Instead,
+it denotes semantic and structural properties that are enforced by system design
+and that hold independently of workload behavior, as long as stated assumptions
+about input telemetry are respected. An accuracy-first measurement system is
+therefore evaluated not by how closely its outputs approximate an unknown true
+value, but by which invariants it preserves, which failure modes it exposes
+explicitly, and how its outputs relate to its inputs under imperfect
+observability.
+
+Within this interpretation, Tycho’s guarantees arise from construction rather
+than inference. The system enforces closed energy accounting within its modeled
+scope, ensuring that all observed system energy is either attributed to explicit
+workloads or represented as residual energy. Attribution decisions are derived
+from measured quantities wherever possible and from explicitly modeled relations
+otherwise, avoiding silent redistribution or implicit smoothing. Temporal
+coherence is established by accounting for source-specific observation delays
+during analysis, ensuring that correlations across heterogeneous metrics reflect
+real system behavior rather than artifacts of misaligned timelines.
+
+Accuracy-first design in this sense does not imply correctness under all
+conditions. Instead, it prioritizes explicitness about what can and cannot be
+guaranteed. When telemetry is coarse, delayed, or internally inconsistent, these
+limitations are surfaced in the attribution outputs rather than masked by
+heuristic correction. As a result, Tycho’s guarantees are best understood as
+properties of interpretability, consistency, and bounded meaning, rather than as
+claims about absolute precision.
+
+\subsection*{Boundary Conditions}
+
+The guarantees described above are conditional on the quality and granularity of
+the available telemetry. In particular, system-level energy sources with low
+temporal resolution and variable delay constrain the strength of attribution at
+fine time scales. While Tycho explicitly models such behavior and mitigates its
+effects through temporal alignment and multi-source fusion, it cannot fully
+compensate for missing, delayed, or internally unstable measurements. In these
+cases, attribution results may exhibit increased residual energy or reduced
+temporal specificity, reflecting limitations of the upstream data rather than
+failures of the attribution logic.
+
+Similarly, Tycho’s guarantees apply within a Kubernetes-aware attribution scope
+and do not extend to cross-node effects, scheduler behavior, or cluster-wide
+fairness properties. Non-negativity and plausibility of derived metrics are not
+enforced unconditionally, but violations are explicitly exposed when they arise,
+allowing implausible values to be interpreted as indicators of telemetry or
+modeling limits. This design choice favors transparency over cosmetic validity
+and ensures that weakening assumptions result in degraded interpretability
+rather than misleading confidence.
+
+\subsection*{Answer to Research Question 1}
+
+\begin{quote}
+An accuracy-first energy measurement system can realistically guarantee
+structural and semantic properties of attribution rather than numerical accuracy
+in the absolute sense. Under stated assumptions about telemetry quality and
+timing, Tycho guarantees closed energy accounting within its modeled scope,
+explicit representation of unattributed energy, and temporally coherent
+attribution based on modeled source delays. These guarantees are enforced by
+construction and degrade explicitly when upstream measurements become coarse,
+delayed, or inconsistent. Accuracy-first measurement therefore does not eliminate
+estimation, but ensures that its limits are visible, bounded, and interpretable
+rather than implicit.
+\end{quote}
+
+\section{Research Question 2: Interpretability and Explanatory Power of Semantics-Driven Attribution}
+\label{sec:eval-rq2}
+
+\begin{quote}
+How does an explicit, semantics-driven attribution methodology influence the interpretability and explanatory power of workload-level energy measurements compared to implicit or estimation-oriented approaches?
+\end{quote}
+
+\subsection*{Interpretation}
+
+In this research question, interpretability refers to the scientific
+interpretability of workload-level energy measurements, that is, the extent to
+which reported values have well-defined semantics, obey declared invariants, and
+can be meaningfully reasoned about in relation to system behavior. Explanatory
+power denotes the ability of a measurement system to support causal reasoning,
+such as explaining differences between workload behaviors or relating observed
+energy consumption patterns to changes in system activity. Both notions depend
+less on numerical precision than on semantic clarity, internal consistency, and
+the explicit treatment of uncertainty.
+
+A semantics-driven attribution methodology emphasizes explicit meaning over
+presentation-oriented continuity. In Tycho, this is realized through explicit
+idle and dynamic energy decomposition, closed accounting with residual energy,
+delay-aware temporal alignment, and the absence of silent smoothing or implicit
+gap filling. Each reported metric corresponds to a declared conceptual quantity,
+and deviations from expected behavior are preserved rather than heuristically
+suppressed. As a result, attribution outputs can be interpreted as constrained
+measurement statements rather than as interpolated estimates optimized for
+visual continuity or completeness.
+
+Compared to implicit or estimation-oriented approaches, which often rely on
+hidden redistribution, smoothing, or model-driven gap filling, explicit
+semantics shift the role of attribution from producing a single best-looking
+signal to exposing the structure and limits of what can be inferred from the
+available data. This shift enhances explanatory power by allowing observed
+patterns to be analyzed in terms of conservation, temporal coherence, and
+cross-metric consistency. Differences between workloads or system states can be
+examined through stable sanity patterns, such as consistent decomposition
+behavior or agreement between component-level and system-level observations,
+rather than inferred indirectly from smoothed aggregates.
+
+\subsection*{Boundary Conditions}
+
+The interpretability benefits of explicit, semantics-driven attribution are
+bounded by the quality of the underlying telemetry and by the scope of the
+modeled system. When measurements are coarse, delayed, or incomplete, explicit
+semantics do not eliminate uncertainty but instead make it visible through
+residuals, reduced temporal specificity, or weakened cross-metric agreement.
+While this behavior supports scientific reasoning, it may be less suitable in
+contexts where uninterrupted or visually smooth signals are prioritized over
+semantic transparency.
+
+Furthermore, semantics-driven attribution entails higher system complexity and
+overhead, as well as stronger requirements on the execution environment. Access
+to low-level telemetry, elevated privileges, and bare-metal deployment are often
+necessary to preserve semantic fidelity. These requirements limit applicability
+in virtualized or tightly constrained production environments, but are typically
+acceptable in experimental and research settings where interpretability and
+explanatory power are primary objectives.
+
+\subsection*{Answer to Research Question 2}
+
+\begin{quote}
+An explicit, semantics-driven attribution methodology increases the
+interpretability and explanatory power of workload-level energy measurements by
+ensuring that reported values correspond to well-defined conceptual quantities
+and obey explicit invariants. By avoiding silent smoothing and implicit gap
+filling, such an approach enables causal reasoning about workload and system
+behavior, supports consistency checks across metrics, and makes uncertainty and
+measurement limits visible rather than implicit. These benefits come at the cost
+of increased complexity and stricter deployment requirements, but provide
+substantially stronger semantic foundations for scientific analysis than
+implicit or estimation-oriented attribution approaches.
+\end{quote}
+
+
+% ----------------------------------------------------------------------
+\section{Research Question 3: Contexts and Trade-offs of Accuracy-First Energy Measurement}
+\label{sec:eval-rq3}
+
+\begin{quote}
+In which experimental and research contexts does high-fidelity, accuracy-first energy measurement justify its complexity and overhead, and where do simpler approaches remain preferable?
+\end{quote}
+
+\subsection*{Interpretation}
+
+This research question addresses the appropriateness of accuracy-first energy
+measurement rather than its correctness or interpretability. The core issue is
+not whether such a system can produce meaningful results, but under which
+conditions the additional complexity, deployment requirements, and analytical
+overhead are justified by the insights gained. This distinction is particularly
+important for systems such as Tycho, whose design explicitly prioritizes
+measurement fidelity and semantic clarity over ease of use or minimal system
+intrusion.
+
+A useful separation can be drawn between the justification of developing an
+accuracy-first measurement system and the justification of running it in a given
+environment. From a development perspective, the added complexity of Tycho’s
+architecture enables substantially finer-grained and more informative energy
+analysis than approaches that rely on coarse aggregation or estimation-heavy
+models. For research questions that require detailed understanding of workload
+behavior, causal relationships, or the interaction between system components,
+this complexity is justified by the quality and explanatory depth of the
+resulting measurements.
+
+From an operational perspective, the justification depends on measurement intent.
+Tycho is not designed as a general-purpose observability or monitoring tool.
+Instead, it is optimized for question-driven analysis, where measurement is
+performed to investigate specific hypotheses or optimization problems rather
+than to provide continuous, presentation-oriented system metrics. In such
+contexts, the additional granularity and explicit semantics provided by
+accuracy-first measurement enable insights that simpler approaches cannot
+support.
+
+\subsection*{Boundary Conditions}
+
+The applicability of accuracy-first measurement is constrained by practical and
+environmental factors. Tycho relies on access to low-level telemetry sources,
+including kernel instrumentation and hardware interfaces, which typically
+require elevated privileges and bare-metal deployment. These requirements limit
+its suitability in virtualized or tightly controlled production environments,
+where such access is often unavailable or undesirable.
+
+While Tycho’s runtime overhead remains within the range of existing observability
+tooling, its analytical complexity and deployment assumptions make it less
+attractive for scenarios where coarse trends, aggregate estimates, or billing-
+oriented measurements are sufficient. In such cases, simpler attribution
+approaches may provide adequate information with lower operational burden and
+fewer infrastructure constraints.
+
+Deployment complexity has been intentionally addressed through automation, and
+Tycho can be deployed reproducibly using a single, fully automated Ansible-based
+workflow provided by the PowerStack framework~\parencite{PowerStack}. This
+streamlining reduces operational friction but does not alter the fundamental
+scope and requirements of accuracy-first measurement.
+
+\subsection*{Answer to Research Question 3}
+
+\begin{quote}
+High-fidelity, accuracy-first energy measurement is primarily justified in
+experimental and research contexts where detailed, semantically grounded insight
+into workload and system behavior is required. In such settings, the additional
+complexity and deployment requirements enable forms of analysis and explanation
+that simpler approaches cannot support. For continuous observability or
+operational monitoring tasks that prioritize low overhead and broad applicability
+over interpretability, simpler attribution methods often remain preferable.
+Accuracy-first measurement therefore represents a targeted instrument for
+question-driven analysis rather than a universal solution for energy monitoring.
+\end{quote}
+
+% ----------------------------------------------------------------------
+\section{Positioning of Tycho Within the Measurement Landscape}
+\label{sec:evaluation-positioning}
+
+This section positions Tycho conceptually within the broader landscape of
+workload-level energy analysis systems. The goal is not to compare individual
+tools or approaches, but to clarify along which dimensions Tycho should be
+evaluated and which design priorities shape its behavior and outputs.
+
+\subsection{Measurement and Estimation Boundaries}
+
+Workload-level energy attribution unavoidably involves estimation. While total
+system energy consumption can be measured directly, attributing portions of
+that energy to individual workloads, containers, or execution states requires
+inference based on partial observability, delayed telemetry, and modeling
+assumptions. Tycho does not attempt to eliminate this estimative component.
+Instead, it seeks to constrain it as tightly as possible and to make it explicit
+where and why estimation is required.
+
+Two guiding principles inform this stance. First, Tycho prioritizes the
+collection of high-quality, directly observable input data wherever feasible,
+favoring measured quantities over derived signals. Second, given the resulting
+data, Tycho aims to extract the maximum amount of interpretable information
+without introducing unexamined assumptions or implicit smoothing. Throughout
+the system, design choices reflect a preference for accounting-based reasoning
+over predictive reconstruction.
+
+As a consequence, Tycho cannot compensate for missing or incorrect telemetry.
+Rather than masking data limitations through interpolation or heuristic
+completion, the system exposes their effects directly in the attribution
+results. This positioning emphasizes transparency and bounded interpretation
+over completeness.
+
+\subsection{Interpretability Versus Smoothing and Convenience}
+
+Tycho explicitly favors interpretability over convenience-oriented signal
+processing. Attribution outputs are constructed to preserve semantic meaning,
+even when this results in residual categories, conservative bounds, or
+non-smooth time series. Such artifacts are treated as informative rather than
+undesirable, as they reflect the structure and limitations of the underlying
+data.
+
+This design choice stands in contrast to approaches that prioritize visually
+continuous or intuitively smooth outputs. In Tycho, smoothing and aggregation
+are applied only where they can be justified in terms of attribution semantics,
+and never as a default mechanism for improving presentation quality. The intent
+is to ensure that observed structure in the output corresponds directly to
+observable structure in the system.
+
+\subsection{Research Instrumentation Versus Operational Monitoring}
+
+Tycho is designed primarily as a research instrument. Its architecture
+prioritizes traceability, explicit semantics, and controllable assumptions over
+ease of deployment or minimal operational overhead. This positioning reflects
+the system’s intended use in experimental analysis, validation of measurement
+models, and investigation of workload energy behavior.
+
+As a result, Tycho makes design choices that would be atypical for purely
+operational monitoring systems, including explicit handling of residual energy
+and conservative treatment of uncertainty. These choices are evaluated in this
+chapter in terms of their analytical consequences rather than their suitability
+for production environments.
+
+\subsection{Explicit Semantics and Assumption Visibility}
+
+Across its components, Tycho emphasizes explicit semantic definitions over
+implicit assumptions. Attribution rules, timing relationships, and aggregation
+decisions are encoded directly in the analysis logic rather than embedded
+implicitly in processing pipelines. This approach allows assumptions to be
+examined, challenged, and revised as part of the evaluation process.
+
+By making these semantics explicit, Tycho supports critical interpretation of
+its outputs and avoids conflating measurement uncertainty with modeling
+convenience. This property is central to its role as an evaluative and
+explanatory system rather than a black-box estimator.
+
+
+% ----------------------------------------------------------------------
+\section{Scientific and Technical Contributions}
+\label{sec:eval-contributions}
+
+This thesis contributes Tycho, an accuracy-first system for container-level
+energy measurement and attribution in Kubernetes environments. Tycho is designed
+to prioritize measurement fidelity, semantic transparency, and conservative
+accounting over simplicity and convenience, explicitly accepting the complexity
+required to extract higher-quality information from heterogeneous and imperfect
+telemetry. The system ingests data from multiple hardware and software sources,
+including eBPF-based utilization metrics, CPU energy counters, GPU power and
+energy telemetry, and system-level energy interfaces, as well as operating
+system and Kubernetes metadata.
+
+These inputs are transformed into a coherent set of energy and utilization
+metrics that describe system-level and container-level behavior across major
+server components. Tycho produces component-resolved energy metrics for CPU,
+memory, GPU, and system domains, with explicit separation into idle and dynamic
+contributions, and exposes these measurements through a Prometheus-compatible
+interface. Energy not attributable to explicitly modeled components is retained
+as a residual term, enabling closed accounting and transparent interpretation
+under incomplete observability.
+
+To support meaningful attribution in multitasking environments, Tycho emphasizes
+temporal fidelity and adaptive interpretation of telemetry. The system operates
+on fine-grained measurement data, accommodates heterogeneous timing and latency
+characteristics, and adjusts internal modeling parameters based on observed
+behavior rather than fixed assumptions. As a result, Tycho enables component-
+level energy attribution for Kubernetes workloads with explicit confidence
+boundaries that reflect the quality and limitations of the underlying data.
+
+The remainder of this section enumerates the specific scientific and technical
+contributions that jointly realize this system.
+
+\begin{enumerate}
+    \item \textbf{Historically buffered, high-frequency metric retention for workload-level energy attribution.}
+    Tycho introduces the retention of fine-grained, high-frequency raw measurement data in bounded historical buffers rather than relying solely on start--end deltas over fixed analysis windows. Metrics are collected at source-appropriate intervals (tens to hundreds of milliseconds) and retained beyond the duration of a single analysis window, yielding a temporally rich measurement history. This design enables post hoc alignment, correlation, and re-aggregation of heterogeneous energy and utilization signals, and allows short-lived or sequential workloads within the same window to be distinguished based on their energy characteristics. By providing substantially more informational context to attribution and fusion models, historical buffering forms the basis for finer-grained and more discriminative workload energy analysis than window-delta-based approaches.
+
+    \item \textbf{Independent, asynchronously timed metric collectors with source-specific polling frequencies.}
+    Tycho introduces a collection architecture in which each telemetry source is polled independently at a frequency suited to its measurement characteristics, rather than enforcing a global sampling clock. Quasi-instantaneous metrics such as RAPL and eBPF are sampled at high frequency, while sources with internal update mechanisms, such as NVML and Redfish, are polled in a manner that maximizes information content while minimizing redundant queries. This design yields independent discrete time series per metric source, preserving their native temporal structure and avoiding artificial synchronization. By extracting the highest feasible granularity from each source and deferring temporal reconciliation to the analysis stage, this approach enables richer cross-metric correlation and places analytical interpretation, rather than collection-time alignment, at the center of the attribution process.
+
+    \item \textbf{Explicit modeling of metric delay in temporal alignment and attribution.}
+    Tycho introduces explicit consideration of metric-specific observation delay into the temporal alignment and analysis model. When combining telemetry sources that react to workload changes at different speeds, ignoring such delays leads to misalignment and inconsistent interpretation. Tycho addresses this by incorporating delay directly into timeline comparison and attribution logic, aligning metrics based on inferred real-world behavior rather than raw observation time. The system further supports automatic delay calibration for selected sources and accounts for both stable and variable delay characteristics, enabling robust alignment even when telemetry latency is non-constant.
+
+    \item \textbf{Phase-aligned GPU metric polling for improved temporal accuracy at low overhead.}
+    Tycho introduces a phase-aligned polling strategy for GPU telemetry that accounts for the internal publish cycles of GPU metrics. Because GPU power and energy metrics are generated according to device-internal timing, naïve polling can retrieve values that are already stale, while hyperpolling incurs significant overhead. Tycho estimates the publication phase of GPU metrics and aligns polling operations accordingly, ensuring that samples are collected close to their actual generation time. This self-healing alignment strategy improves temporal accuracy of GPU energy observations without incurring the cost and energy overhead associated with aggressive polling.
+
+    \item \textbf{Composite GPU energy modeling from heterogeneous NVML power and energy metrics.}
+    Tycho introduces a composite GPU energy modeling approach that combines multiple NVML telemetry signals describing power and energy consumption, including instant power samples, averaged power, and cumulative energy counters. Rather than relying on a single coarse-grained metric, each signal is interpreted according to its native semantics and integrated into a unified energy model. By fusing these complementary measurements, Tycho constructs a temporally finer-grained GPU energy representation than any individual raw metric provides. This higher-resolution model aligns naturally with other high-frequency system metrics and enables more accurate workload-level GPU energy attribution.
+
+    \item \textbf{System-level energy refinement through fine-grained multi-source fusion of Redfish telemetry.}
+    Tycho introduces a modeling approach that refines coarse system-level Redfish energy telemetry using higher-frequency subsystem measurements, including eBPF utilization, RAPL energy, and GPU power data. While Redfish metrics provide a ground-truth aggregate at low temporal resolution and with variable delay, Tycho treats fine-grained subsystem signals as proxies that capture how system energy responds to workload activity. By leveraging retained historical measurement data, the model fills temporal gaps between Redfish samples and continuously adjusts its parameters based on observed behavior, allowing it to adapt to changing system conditions and configurations. The resulting model accommodates variable telemetry delay and produces a temporally finer system energy representation suitable for workload-level attribution. 
+\end{enumerate}
+
+% ----------------------------------------------------------------------
+\section{Chapter Summary}
+\label{sec:eval-chapter-summary}
+
+% PURPOSE:
+% - Close the evaluation chapter
+% - Prepare the transition to the Conclusion and Outlook
+
+This chapter evaluated Tycho as an accuracy-first energy measurement system by
+synthesizing experimental observations and qualitative validation. The research
+questions were answered explicitly, clarifying the guarantees, interpretability,
+and applicability of Tycho’s approach. The following chapter concludes the
+thesis and outlines directions for future work.

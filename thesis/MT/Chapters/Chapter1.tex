@@ -2,41 +2,135 @@
 \chapter{Introduction}
 \label{ch:introduction}
 
-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-REVISE ENTIRE CHAPTER LATER
-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-
 \section{Motivation}
 \label{sec:intro_motivation}
 
-Energy consumption in data centers continues to rise as demand for compute-intensive and latency-sensitive services increases. Modern cloud platforms host diverse workloads such as machine learning inference, analytics pipelines, and high-density microservices, all of which collectively contribute to a growing global electricity footprint. Container orchestration frameworks amplify these trends by enabling dense consolidation of workloads across shared servers. While this improves resource efficiency, it also introduces abstraction layers that obscure the relationship between workload behaviour and physical energy use.
+Energy consumption in data centers continues to rise as demand for
+compute-intensive and latency-sensitive services increases. Modern cloud
+platforms host a wide range of workloads, including machine learning inference,
+data analytics pipelines, and high-density microservices, all of which
+contribute to a growing global electricity footprint. Container orchestration
+frameworks intensify these trends by enabling dense consolidation of workloads
+across shared servers. While this improves resource utilization, it also
+introduces additional abstraction layers that obscure the relationship between
+workload behaviour and physical energy consumption.
 
-As interest in sustainable cloud operations intensifies, there is increasing demand for precise, workload-level energy visibility. Fine-grained and reproducible energy measurements are essential for research domains such as performance engineering, scheduling, autoscaling, and the design of energy-aware systems. Existing tools provide valuable approximations but prioritise portability and low operational overhead, and therefore do not target the upper bounds of measurement fidelity. Research environments, by contrast, require methodologies that prioritise accuracy, control, and verifiability over deployability.
+As interest in sustainable cloud operation grows, so does the demand for
+workload-level energy visibility. Fine-grained and reproducible energy
+measurements are essential for research areas such as performance engineering,
+scheduling, autoscaling, and the design of energy-aware systems. Many existing
+tools provide valuable approximations, but prioritize portability, low
+operational overhead, and broad applicability. As a result, they are not
+designed to explore the upper bounds of measurement fidelity required in
+controlled experimental settings.
 
-This thesis is motivated by the need for an accuracy-focused measurement approach that supports rigorous experimental work on containerised systems. Rather than proposing new optimisation mechanisms, this work concentrates on establishing a reliable methodological foundation for observing and analysing workload-induced energy consumption in controlled settings.
+This thesis is motivated by the need for a measurement approach that explicitly
+prioritizes accuracy, reproducibility, and analytical rigor. Rather than
+proposing new optimization mechanisms or operational tooling, the focus lies on
+establishing a reliable methodological foundation for observing and analysing
+workload-induced energy consumption in containerized environments. The goal is
+to support research that seeks to understand energy behaviour in detail, under
+conditions where measurement quality takes precedence over convenience or ease
+of deployment.
 
 \section{Problem Context}
 \label{sec:intro_context}
 
-Modern multi-tenant servers host many short-lived and highly dynamic workloads that execute concurrently and compete for shared hardware resources. On such systems, the aggregate power draw represents the combined activity of numerous interacting subsystems, while the contributions of individual workloads remain deeply entangled. Containerisation further complicates this picture: processes belong to containers, containers belong to pods, and pods may change state rapidly under orchestration. These abstractions improve system management but obscure how computational activity translates into power consumption.
+Modern multi-tenant servers execute many concurrent workloads whose lifetimes,
+resource demands, and execution phases vary continuously over time. On such
+systems, the observed power draw represents the combined activity of multiple
+hardware subsystems operating simultaneously, while the individual contributions
+of workloads remain tightly interwoven. Even at the level of a single server,
+this aggregation obscures how specific computational activity translates into
+energy consumption.
 
-At the same time, servers expose a heterogeneous collection of telemetry sources. Each source reflects different aspects of hardware behaviour, updates at its own cadence, and provides only a partial view of system activity. Because workload state changes and telemetry updates occur independently, they do not naturally align in time. The resulting temporal misalignment limits the reliability of workload-level energy attribution and leads to uncertainty in short-duration or phase-sensitive analyses.
+Containerization adds further layers of abstraction. Processes are grouped into
+containers, containers are managed as pods, and pods are dynamically scheduled,
+rescheduled, or terminated by the orchestration layer. These abstractions
+simplify deployment and resource management, but they decouple workload identity
+from the underlying hardware on which computation occurs. As a result, workload
+behaviour and physical energy use are no longer directly observable within a
+shared execution environment.
 
-Kubernetes introduces additional challenges. Workloads may start and terminate within milliseconds, metadata may appear with delays, and lifecycle events may interleave in complex ways. Existing tools often rely on coarse sampling windows or heuristic models that mask these inconsistencies. While sufficient for operational monitoring, such abstractions constrain the achievable accuracy in research settings. An accuracy-oriented approach requires explicit treatment of timing, metadata consistency, and correlation across heterogeneous measurement sources.
+At the same time, servers expose a heterogeneous collection of telemetry sources.
+Each source reflects a different aspect of hardware behaviour, updates at its
+own cadence, and provides only a partial view of system activity. Telemetry
+interfaces differ in temporal resolution, delay characteristics, and semantic
+meaning, and typically lack a shared notion of time. Because workload state
+changes and telemetry updates occur independently, their observations do not
+naturally align.
+
+Kubernetes further amplifies these challenges. Workloads may start, terminate,
+or change state within milliseconds, while metadata describing these events may
+appear with delay or be updated asynchronously. Lifecycle events can interleave
+in complex ways across nodes and control-plane components. Existing approaches
+often rely on coarse aggregation windows or heuristic attribution models to cope
+with this complexity. While such abstractions are sufficient for operational
+monitoring, they constrain the achievable fidelity of workload-level energy
+analysis in experimental and research settings.
+
+Taken together, these factors define a problem context in which workload-level
+energy attribution is fundamentally challenged by concurrency, abstraction, and
+temporal misalignment. Any measurement approach that aims to reason about energy
+consumption at fine granularity must therefore confront these conditions
+explicitly.
 
 \section{Position Within Previous Research}
 \label{sec:intro_prevwork}
 
-This thesis builds upon two earlier stages of work. The implementation-focused VT1 project developed an initial measurement pipeline and explored practical aspects of collecting hardware and system-level metrics in a Kubernetes environment. The subsequent VT2 project examined the state of the art in server-level energy measurement, validated the behaviour of commonly used telemetry sources, and identified methodological and technical limitations in existing tools such as Kepler. Both works are included in the appendix as supporting material.
+This thesis builds upon two earlier specialization projects conducted in the
+context of the same research trajectory. The first project focused on practical
+implementation aspects and developed an initial measurement pipeline for
+collecting hardware- and system-level telemetry in a Kubernetes environment. The
+second project examined the state of the art in server-level energy measurement,
+studied the behaviour and limitations of commonly used telemetry sources, and
+analysed methodological assumptions underlying existing energy attribution
+approaches. Both projects are included as supporting material in
+\hyperref[appendix_vt2]{Appendix~A} and \hyperref[appendix_vt1]{Appendix~B},
+respectively.
 
-The present thesis integrates these earlier insights but does not repeat them. Instead, it synthesises the essential findings from VT2 in a condensed form (\chapref{ch:background}), and introduces the conceptual foundations required to reason about accurate energy attribution (\chapref{ch:concepts}). These chapters provide the background necessary to understand the accuracy-focused architecture developed later in this thesis.
+The present thesis does not reproduce these earlier works. Instead, it
+integrates their essential insights and distils them into a coherent foundation
+for accuracy-oriented energy measurement. Relevant background on existing
+telemetry mechanisms and measurement techniques is consolidated in
+\chapref{ch:background}, while the conceptual principles required to reason
+about workload-level energy attribution are introduced in
+\chapref{ch:concepts}. These chapters provide the necessary context for the
+architecture and methodology developed in the remainder of this thesis.
+
+By building on empirical observations and conceptual analysis from the
+specialization projects, this work advances beyond exploratory evaluation and
+focuses on the systematic design of a measurement approach that explicitly
+addresses timing, attribution semantics, and interpretability in
+container-orchestrated environments.
 
 \section{Problem Statement}
 \label{sec:intro_problem_statement}
 
-Accurately determining how much energy individual workloads consume in a Kubernetes cluster remains a challenging open problem. Clusters host many short-lived and overlapping workloads whose behaviour evolves rapidly, while server-level power telemetry is exposed through heterogeneous interfaces that update asynchronously and lack consistent timestamps. These timing mismatches, combined with the abstraction layers introduced by container orchestration, obscure the relationship between workload activity and physical energy use. Existing approaches provide high-level estimates but cannot deliver the temporal alignment, attribution fidelity, or reproducibility required for rigorous experimental analysis. This thesis therefore addresses the problem of designing a measurement methodology and prototype system capable of producing time-aligned, workload-level energy attribution with sufficient accuracy for research environments.
+Accurately determining how much energy individual workloads consume in a
+Kubernetes cluster remains a challenging open problem. Clusters host many
+short-lived and overlapping workloads whose behaviour evolves rapidly, while
+server-level power telemetry is exposed through heterogeneous interfaces that
+update asynchronously and lack consistent timestamps. These timing mismatches,
+combined with the abstraction layers introduced by container orchestration,
+obscure the relationship between workload activity and physical energy use.
 
-\section{Goals of This Thesis}
+Beyond the inherent difficulty of attribution, existing measurement approaches
+often rely on implicit assumptions about temporal alignment, aggregation, or
+estimation that are not made explicit to the observer. As a result, it becomes
+difficult to determine which aspects of a reported energy measurement reflect
+observed system behaviour and which arise from modelling choices or heuristic
+smoothing.
+
+Existing approaches provide high-level estimates that are sufficient for
+operational monitoring, but they do not offer the temporal alignment,
+attribution fidelity, or semantic transparency required for rigorous
+experimental analysis. This thesis therefore addresses the problem of designing
+a measurement methodology and prototype system capable of producing time-aligned,
+workload-level energy attribution with sufficient accuracy and interpretability
+for research-oriented Kubernetes environments.
+
+\section{Goals of this Thesis}
 \label{sec:intro_goals}
 
 The overarching goal of this thesis is to develop an accuracy-focused approach for measuring energy consumption in Kubernetes-based environments. To achieve this, the work pursues four concrete objectives:
@@ -51,26 +145,71 @@ The overarching goal of this thesis is to develop an accuracy-focused approach f
     \item \textbf{Foundational objective for future work:} Establish the methodological and architectural basis for subsequent validation studies that will evaluate measurement fidelity and explore trade-offs between accuracy, overhead, and operational constraints.
 \end{itemize}
 
+\section{Goals of this Thesis}
+\label{sec:intro_goals}
 
-\section{Research Questions}
-\label{sec:intro_research_questions}
+The overarching goal of this thesis is to develop an accuracy-first approach for
+measuring and attributing energy consumption in Kubernetes-based environments.
+To achieve this, the work pursues four concrete objectives:
 
-\begin{enumerate}
-    \item How reliably can an accuracy-focused measurement approach capture and represent workload-induced variations in energy consumption within dynamic, multi-tenant Kubernetes environments?
-    \item To what extent does a unified timing and attribution methodology improve the consistency and interpretability of workload-level energy measurements compared to existing estimation-oriented approaches?
-    \item In which contexts does high-fidelity energy measurement provide meaningful benefits for research and experimental analysis, and what trade-offs arise between accuracy, overhead, and operational constraints?
-\end{enumerate}
+\begin{itemize}
+    \item \textbf{Methodological objective:} Define a measurement methodology
+    that aligns heterogeneous telemetry sources with dynamic workload behaviour
+    under a unified temporal model, suitable for controlled and reproducible
+    research settings.
+
+    \item \textbf{Architectural objective:} Design an accuracy-first system
+    architecture that explicitly addresses timing, metadata consistency, and
+    correlation across diverse metrics, without relying on implicit assumptions
+    or heuristic abstractions.
+
+    \item \textbf{Prototype objective:} Implement a research prototype that
+    realises this architecture on commodity server hardware and integrates
+    workload metadata, timing information, and server-wide telemetry into a
+    coherent measurement pipeline.
+
+    \item \textbf{Foundational objective for future work:} Establish the
+    methodological and architectural basis for subsequent validation and
+    comparative studies that examine measurement fidelity and explore trade-offs
+    between accuracy, overhead, and operational constraints.
+\end{itemize}
 
 \section{Contributions}
 \label{sec:intro_contributions}
 
-This thesis makes several conceptual and methodological contributions to the study of energy measurement in container-orchestrated environments. First, it introduces an accuracy-focused measurement approach that prioritizes temporal consistency, reproducibility, and the faithful representation of workload behaviour. The work defines a methodology for unifying heterogeneous sources of server telemetry under a shared timing model, enabling coherent interpretation of workload activity and system-level energy use. 
+This thesis makes a central contribution to the study of energy measurement in
+container-orchestrated systems by introducing an accuracy-first approach to
+workload-level energy measurement and attribution. Rather than treating energy
+attribution as an inherently approximate or purely estimation-driven task, the
+work reframes it as a disciplined measurement problem, governed by explicit
+semantics, temporal reasoning, and well-defined assumptions. This shift in
+perspective enables a more principled and interpretable treatment of energy
+consumption in multi-tenant Kubernetes environments.
 
-A second contribution is the development of a prototype system that operationalizes this methodology and provides a concrete platform for exploring the limits of high-fidelity energy measurement in Kubernetes-based environments. The prototype integrates workload metadata, timing information, and server-wide telemetry into a coherent measurement pipeline designed for research and controlled experimentation.
+At a conceptual level, the thesis advances a methodological stance that
+prioritizes transparency and analytical rigor over convenience. The work is
+guided by two principles: extracting the highest-quality raw data feasible from
+available telemetry, and extracting the maximum amount of interpretable
+information from that data without introducing unexamined assumptions. By
+making timing behaviour, attribution semantics, and uncertainty explicit, the
+approach avoids implicit smoothing and opaque inference, allowing observers to
+reason about what is measured, how it is derived, and where its limitations lie.
 
-Third, the thesis establishes a foundation for reliable workload-level attribution by describing a structured process for correlating dynamic workload behaviour with system energy consumption. This provides a basis for analysing short-lived workload phases, transient resource usage patterns, and other phenomena that require fine-grained temporal alignment.
+These ideas are realized concretely through the design and implementation of
+\textit{Tycho}, which serves as a research instrument that embodies this
+methodology. Tycho demonstrates how heterogeneous and imperfect telemetry can be
+integrated into a coherent measurement pipeline by combining fine-grained data
+collection, historical context, and analysis-driven interpretation. The system
+shows that high-fidelity workload-level energy attribution is achievable without
+resorting to heuristic gap-filling or sacrificing semantic clarity, even in the
+presence of asynchronous and delayed measurement sources.
 
-Finally, the work prepares the methodological groundwork for subsequent validation studies by outlining experimental procedures, calibration strategies, and evaluation principles suited to accuracy-oriented measurement. Together, these contributions advance the methodological state of the art and offer a practical reference point for future research on energy transparency in modern cloud infrastructures.
+By unifying methodological insight with a functioning prototype, this thesis
+establishes a foundation for rigorous experimental investigation of energy
+behaviour in Kubernetes-based systems. The contributions extend beyond the
+specific implementation and provide a reference point for future research that
+seeks to reason about energy consumption with explicit semantics, controlled
+assumptions, and scientific discipline.
 
 \section{Scope and Boundaries}
 \label{sec:intro_scope}
@@ -87,12 +226,87 @@ The prototype developed in this thesis is named \textit{Tycho}, a reference to t
 \section{Methodological Approach}
 \label{sec:intro_methodology}
 
-% PLACEHOLDER: to be filled with a high-level description of the methodological 
-% approach. The focus will be on conceptual design, prototype implementation, and 
-% controlled calibration and validation studies, without technical detail.
+The methodological approach of this thesis is grounded in the view that
+workload-level energy attribution constitutes a measurement problem rather than
+a purely modeling or estimation task. The work proceeds from an analysis of the
+epistemic constraints imposed by modern, multi-tenant systems and their
+telemetry interfaces, and treats these constraints as first-class design
+inputs. Conceptual modeling, architectural structure, and system implementation
+are developed in close coordination, with the explicit goal of preserving
+measurement semantics across abstraction layers.
+
+The research follows an iterative, evidence-driven process. Conceptual design
+choices are continuously confronted with empirical observations obtained from
+prototype implementations, and revised when they introduce implicit assumptions
+or obscure interpretability. Calibration and validation are treated as integral
+components of the methodology, informing both architectural decisions and the
+interpretation of measurement outcomes. This iterative refinement ensures that
+the resulting system reflects observed system behaviour rather than idealized
+assumptions about timing, attribution, or workload structure.
+
+Throughout the work, uncertainty is not eliminated but made explicit. The
+methodology favours transparency over numerical completeness and resists
+introducing inferred precision beyond what the underlying telemetry can
+support. By maintaining a clear separation between observation, interpretation,
+and attribution, the approach enables principled reasoning about energy
+consumption while retaining traceability from reported measurements back to
+their sources.
 
 \section{Thesis Structure}
 \label{sec:intro_structure}
 
-% PLACEHOLDER: to be filled with a short roadmap describing the structure 
-% of Chapters 2–8 in a concise, high-level manner.
+This thesis is structured to progress from conceptual foundations to system
+realization and, finally, to evaluation and synthesis.
+
+\chapref{ch:background} provides background and related research on server-level
+energy measurement and workload attribution. It summarizes key findings from
+prior specialization work and consolidates relevant concepts and observations
+that inform the design decisions made in later chapters. A more detailed
+treatment of these earlier investigations is included in
+\hyperref[appendix_vt2]{Appendix~A}.
+
+\chapref{ch:concepts} introduces the conceptual foundations of workload-level
+energy attribution. It formalizes core notions such as energy attribution,
+idle--dynamic separation, and the relationship between workload behaviour and
+system-level energy consumption. The chapter also derives a set of system
+requirements that guide the architectural design developed subsequently.
+
+\chapref{ch:architecture} presents the system architecture of Tycho at a
+theoretical level. It describes the temporal model, attribution logic, and
+analysis structure that underpin the accuracy-first measurement approach,
+including formal definitions and mathematical relationships where appropriate.
+
+\chapref{chap:implementation} details the concrete realization of this
+architecture. It describes how the conceptual and architectural elements are
+mapped onto a functioning system and how telemetry sources, metadata, and
+analysis components are integrated into a coherent measurement pipeline.
+
+\chapref{chap:experimental-evaluation} evaluates Tycho through a series of
+controlled experiments. The focus lies on assessing internal consistency,
+temporal alignment, and physical interpretability of the produced measurements,
+rather than on comparative performance or optimization outcomes.
+
+\chapref{chap:evaluation-synthesis} synthesizes the empirical observations and
+addresses the research questions posed in this thesis. It interprets the
+experimental findings at a system level and positions Tycho within the broader
+measurement landscape.
+
+Finally, \chapref{chap:conclusion-perspectives} concludes the thesis by
+summarizing the contributions, reflecting on limitations, and outlining
+directions for future research.
+
+\subsection{Use of AI Tools}
+
+During the preparation of this thesis, AI-based language models were used as
+auxiliary tools to support writing and implementation tasks. In particular,
+ChatGPT (OpenAI, 2025) was used extensively to assist with code generation,
+refactoring, and debugging during system implementation, as well as with
+language refinement and LaTeX formatting during the writing process. All AI-
+assisted outputs were reviewed, adapted, and integrated by the author.
+
+AI tools were not used for literature research, conceptual development,
+architectural design, methodology, or
+scientific conclusions. All core ideas, system concepts, analytical reasoning,
+and design decisions presented in this thesis originate from the author. No
+integrated IDE-based AI tools were employed; AI assistance was limited to
+interaction with standalone language models.

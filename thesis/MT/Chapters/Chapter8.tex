@@ -1,0 +1,147 @@
+\chapter{Conclusion and Perspectives}
+\label{chap:conclusion-perspectives}
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+This thesis set out to examine whether workload-level energy consumption can be
+meaningfully measured and attributed in modern Kubernetes environments, despite
+heterogeneous hardware, delayed telemetry, and limited observability. Rather than
+approaching this problem through prediction or coarse estimation, the work
+adopted an accuracy-first perspective, emphasizing explicit accounting,
+interpretability, and principled treatment of uncertainty.
+
+Through the design and realization of Tycho, this thesis shows that such an
+approach is not only conceptually sound, but practically achievable. While
+energy measurement in complex systems remains inherently constrained by the
+quality and structure of available telemetry, the results demonstrate that
+careful system design can substantially improve the coherence, transparency,
+and explanatory value of workload-level energy observations.
+
+By framing energy attribution as a disciplined measurement problem rather than
+an exercise in inference, this work reframes what can reasonably be expected
+from energy analysis in containerized systems. The thesis thus establishes a
+foundation for treating energy as an explicit and interpretable system property,
+opening the door to more principled investigation of energy behavior in
+Kubernetes-based environments.
+
+\section{Summary of Contributions}
+\label{sec:conclusion-contributions}
+
+The central contribution of this thesis is the conception, realization, and
+systematic examination of Tycho, an accuracy-first system for workload-level
+energy measurement and attribution in Kubernetes environments. Tycho was
+designed explicitly as a research instrument, prioritizing semantic clarity,
+temporal coherence, and explicit treatment of uncertainty over ease of use or
+minimal system requirements.
+
+Beyond the concrete system itself, this work advances a methodological position
+on energy measurement in complex, multitasking systems. It demonstrates that
+treating energy attribution as a constrained accounting problem, rather than as
+an implicit estimation task, enables more interpretable and scientifically
+meaningful observations. By enforcing explicit semantics, closed energy
+accounting, and delay-aware temporal interpretation, the thesis establishes a
+framework in which limitations of telemetry are surfaced rather than obscured.
+
+At the systems level, the thesis shows that heterogeneous and imperfect energy
+telemetry can be integrated into a coherent measurement pipeline without
+resorting to opaque smoothing or heuristic gap-filling. The implementation of
+Tycho illustrates how fine-grained data collection, historical context, and
+analysis-driven interpretation can be combined to support workload-level energy
+analysis under realistic observability constraints.
+
+Taken together, these contributions demonstrate that accuracy-first energy
+measurement is both feasible and valuable as a foundation for research into
+energy behavior of containerized workloads. The thesis provides not only a
+working system, but also a principled perspective on how energy should be
+measured, interpreted, and reasoned about in modern distributed computing
+environments.
+
+\section{Perspectives and Future Work}
+\label{sec:conclusion-future-work}
+
+Several directions for future work emerge naturally from the design decisions,
+limitations, and scope of this thesis. These perspectives do not represent
+missing components of the proposed system, but rather extensions that become
+relevant once accuracy-first energy measurement is established as a viable and
+useful research instrument.
+
+\paragraph{Improved and Alternative Telemetry Sources.}
+A central limitation of system-level energy attribution at fine temporal
+granularity arises from the characteristics of widely available telemetry
+interfaces, in particular coarse resolution and variable delay. While such
+interfaces were intentionally used in this thesis to ensure broad deployability
+without hardware modifications, future research could explore the integration of
+external power measurement devices to obtain higher-quality system energy data.
+External meters can provide temporally finer and more stable measurements of
+total system power, improving both system-level attribution and the fidelity of
+residual energy estimation. Although this approach departs from the constraint of
+unmodified server operation, it represents a straightforward extension from an
+architectural perspective and has been successfully applied in related research.
+Tycho’s design is compatible with such telemetry and would directly benefit from
+higher-quality system-level measurements.
+
+\paragraph{Residual Energy Decomposition and Additional Components.}
+Tycho deliberately aggregates energy consumption of server components that
+cannot currently be measured with sufficient accuracy or granularity into a
+residual category. This reflects a principled design choice rather than an
+incomplete implementation, as no standardized interfaces currently provide
+measurement quality comparable to CPU, memory, or GPU telemetry for components
+such as network interfaces, storage devices, or cooling systems. Future work
+could investigate the controlled use of proxy metrics to model subsets of
+residual energy, accepting reduced semantic guarantees where appropriate. In
+addition, the emergence of standardized, fine-grained energy interfaces for
+additional components would allow Tycho to extend its attribution scope without
+violating its accuracy-first principles.
+
+\paragraph{Quantitative Validation and Comparative Evaluation.}
+While this thesis focuses on structural correctness, interpretability, and
+qualitative behavior, a comprehensive quantitative validation of workload-level
+energy attribution remains an open challenge. Such validation would require
+ground-truth measurements across multiple server components simultaneously,
+which is difficult to achieve with existing instrumentation. Future work could
+pursue partial or staged validation strategies, as well as controlled comparisons
+with alternative attribution approaches, to further characterize the accuracy
+bounds and limitations of Tycho. Although such efforts would be substantial, they
+would provide valuable insight into the strengths and weaknesses of
+accuracy-first attribution under different operating conditions.
+
+\paragraph{Integration into Energy-Aware Scheduling and Placement Research.}
+Tycho is fundamentally designed as a measurement instrument for research on
+workload behavior and resource management in Kubernetes environments. One natural
+direction for future work is its use in studies of energy-aware scheduling,
+workload placement, and cluster optimization, where fine-grained and
+semantically interpretable energy measurements are required to evaluate
+scheduling decisions. Rather than prescribing specific control mechanisms or
+optimization strategies, Tycho provides the measurement foundation upon which
+such research can build. Feedback and requirements emerging from its adoption in
+scheduler and placement studies are likely to inform future extensions of the
+system and its measurement capabilities.
+
+\section{Final Remarks}
+\label{sec:conclusion-final-remarks}
+
+Tycho is not intended as a universal solution for operational energy monitoring
+in production environments. Its design deliberately prioritizes semantic clarity,
+temporal fidelity, and explicit treatment of uncertainty over simplicity and
+minimal deployment requirements. As a result, Tycho is best understood as a
+research instrument rather than a turnkey observability tool.
+
+Within this intended scope, the work presented in this thesis demonstrates that
+accuracy-first energy measurement is both feasible and informative, even under
+the constraints of heterogeneous hardware and imperfect telemetry. By enforcing
+explicit semantics, closed accounting, and transparent handling of residual
+uncertainty, Tycho enables a form of workload-level energy analysis that supports
+reasoned interpretation rather than implicit inference. This shift from
+estimation-oriented reporting toward semantically grounded measurement changes
+not only what can be observed, but also how energy behavior in complex systems
+can be understood.
+
+More broadly, this thesis argues that energy should be treated as a first-class
+system property, subject to the same rigor in measurement, interpretation, and
+validation as performance or resource utilization. As energy efficiency becomes
+an increasingly important concern in distributed systems research, approaches
+that favor explicitness and interpretability over convenience will be essential
+for producing reliable and actionable insights. Tycho contributes one such
+approach, providing a foundation for future research that seeks to reason about
+energy consumption with clarity, restraint, and scientific discipline.

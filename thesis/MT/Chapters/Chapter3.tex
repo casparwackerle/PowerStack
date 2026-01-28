@@ -6,7 +6,7 @@ Energy attribution explains how workloads contribute to the power consumed by a 
 \section{Nature and Purpose of Power Attribution}
 \label{sec:nature_purpose}
 
-Power attribution is a modelling activity. Hardware reports only aggregate power or energy, and attribution constructs an explanation that distributes this aggregate across the workloads running on the node. The model is necessarily reactive because measurements become available only after the underlying activity has occurred. Attribution therefore explains past energy behaviour rather than providing realtime insight, although the resulting information can support optimisation and accountability.
+Power attribution is a modelling activity. Hardware reports only aggregate power or energy, and attribution constructs an explanation that distributes this aggregate across the workloads running on the node. The model is necessarily reactive because measurements become available only after the underlying activity has occurred. Attribution therefore explains past energy behaviour rather than providing realtime insight, although the resulting information can support offline optimisation, analysis, and accountability.
 
 Attribution is useful because it reveals how different workloads contribute to dynamic power consumption. This enables comparisons between workloads, supports evaluation of deployment or scheduling strategies, and provides interpretable information for higher level policy decisions.
 
@@ -35,17 +35,17 @@ Hardware exposes only aggregate power or energy for the node or for coarse hardw
 \subsection{Domain Decomposition}
 \label{subsec:principle_domains}
 
-Total system power is composed of contributions from several hardware domains, such as compute, memory, accelerators, storage, and platform circuitry. These domains respond differently to workload behaviour, and their relative impact varies across systems. Attribution must therefore reason at the domain level before assigning energy to workloads. Without such decomposition, the resulting assignments would combine unrelated forms of activity and obscure the link between workload characteristics and observed power.
+Total system power is composed of contributions from several hardware domains, such as compute, memory, accelerators, storage, and platform circuitry. These domains respond differently to workload behaviour, and their relative impact varies across systems. Attribution must therefore reason at the domain level where meaningful domain separation is available before assigning energy to workloads. Without such decomposition, the resulting assignments would combine unrelated forms of activity and obscure the link between workload characteristics and observed power.
 
 \subsection{Conservation}
 \label{subsec:principle_conservation}
 
-Node-level energy is a fixed quantity within any observation window. An attribution model must assign energy to workloads in a way that is consistent with this total. The sum of all assigned energy, including any explicitly modelled background components, must equal the measured dynamic energy. Violations of conservation indicate that the model is incomplete or internally inconsistent.
+Node-level energy is a fixed quantity within any observation window. An attribution model must assign energy to workloads in a way that is consistent with this total. The sum of all assigned energy, including any explicitly modelled background or residual components, must equal the measured energy within the observation window. Violations of conservation indicate that the model is incomplete or internally inconsistent.
 
 \subsection{Static--Dynamic Separation}
 \label{subsec:principle_static_dynamic}
 
-System power consists of a baseline component that persists regardless of workload activity and a dynamic component induced by the workloads. Attribution concerns only the dynamic portion, so the baseline must be treated explicitly rather than absorbed into workload assignments. Any remaining unexplained energy must appear as a residual component and must not be redistributed silently across workloads.
+System power consists of a baseline component that persists regardless of workload activity and a dynamic component induced by the workloads. Attribution concerns only the dynamic portion, so the baseline must be treated explicitly rather than absorbed into workload assignments. Any remaining unexplained energy must appear explicitly as a residual component and must not be redistributed silently across workloads.
 
 \subsection{Uncertainty and Non-Uniqueness}
 \label{subsec:principle_nonuniqueness}
@@ -121,7 +121,7 @@ Model-based or hybrid attribution combines several activity signals into an expl
 \subsection{Causal or Explanatory Attribution}
 \label{subsec:causal_attribution}
 
-Causal or explanatory attribution attempts to relate changes in workload activity to changes in power consumption. It seeks to model relationships between metrics and energy rather than applying proportionality directly. This approach can capture more nuanced behaviour, but its accuracy depends on metric fidelity and on the stability of the relationship between activity and power. Limited observability and shared subsystem interactions restrict the strength of causal inferences.
+Causal or explanatory attribution attempts to relate changes in workload activity to changes in power consumption. It seeks to model relationships between metrics and energy rather than applying proportionality directly. This approach can capture more nuanced behaviour, but its accuracy depends on metric fidelity and on the stability of the relationship between activity and power. Limited observability and shared subsystem interactions restrict the strength of causal inferences. In practice, such approaches remain constrained by shared hardware behaviour and measurement semantics, and cannot establish causal attribution in a strict physical sense.
 
 \subsection*{Link to System Requirements}
 
@@ -152,7 +152,7 @@ The challenges identified above arise from shared hardware behaviour, asynchrono
 \subsection{Requirement: Temporal Coherence}
 \label{subsec:req_temporal}
 
-The system \textit{must} maintain coherent temporal structure across all telemetry sources. Measurements that arrive with differing delays, cadences, or timestamp semantics \textit{shall} be placed on a consistent time axis and related correctly to the boundaries of the observation window. The system \textit{should} tolerate irregular update patterns without introducing artefacts, and it \textit{may} employ temporal reconstruction provided that ordering and conservation are preserved.
+The system \textit{must} maintain coherent temporal structure across all telemetry sources. Measurements that arrive with differing delays, cadences, or timestamp semantics \textit{shall} be placed on a consistent time axis and related correctly to the boundaries of the observation window. The system \textit{should} tolerate irregular update patterns without introducing artefacts, and it \textit{may} employ employ explicit temporal alignment or interpretation strategies, provided that ordering and conservation are preserved.
 
 \subsection{Requirement: Domain-Level Consistency}
 \label{subsec:req_domain_consistency}

@@ -27,17 +27,22 @@ SELECTED_RUN_KEYS = [
     "TYCHO_BUSY",
 ]
 
+GPU_UUID_NAMES = {
+    "GPU-1c3975de-070b-1827-b372-fab61b25635d": "NVIDIA RTX 4000 Ada",
+    "GPU-6f16a00c-b60b-a0c0-abab-a1beed8807f2": "NVIDIA Tesla T4",
+}
+
 
 # ---------------------------------------------------------------------
 # Which tests to execute
 # ---------------------------------------------------------------------
 TESTS_TO_RUN = [
     # "idle",
-    "cpu_discrimination",
+    # "cpu_discrimination",
 
     # New independent tests
-    "cpu_busy_vs_noop_idle_share",
-    "gpu_concurrent_2pods",
+    #"cpu_busy_vs_noop_idle_share",
+    # "gpu_concurrent_2pods",
     "gpu_concurrent_3pods",
 ]
 
