@@ -185,7 +185,7 @@ class CpuDiscriminationTest:
 
         plt.title(title)
         plt.xlabel("Test Repetition")
-        plt.ylabel("mean total CPU power (W) derived from energy counters")
+        plt.ylabel("mean dynamic CPU power (W)")
 
         # Tick labels stay on integer reps (centered), even though points are dodged.
         plt.xticks(reps)
@@ -217,10 +217,20 @@ class CpuDiscriminationTest:
         series_df: pd.DataFrame,
         out_dir: Path,
     ) -> None:
-        # Minimal logging hook (only a couple lines)
+        """
+        CPU discrimination evaluation.
+
+        - Reads prebuilt subrun windows (cpu_discrimination_windows.parquet).
+        - Computes mean/std of *dynamic-only* CPU power (derived from dynamic energy counter).
+        """
+        from datetime import datetime
+        from typing import List
+
         from main import log
 
-        # CPU discrimination windows were written by main.py as cpu_discrimination_windows.parquet
+        # -----------------------------
+        # Inputs
+        # -----------------------------
         win_path = out_dir / "cpu_discrimination_windows.parquet"
         if not win_path.exists():
             raise RuntimeError(f"Missing windows file: {win_path}. Did main.py build subrun windows?")
@@ -236,12 +246,16 @@ class CpuDiscriminationTest:
         settle = getattr(config, "CPU_DISCRIM_SETTLE_SEC", 10)
         guard = getattr(config, "CPU_DISCRIM_GUARD_SEC", 10)
 
-        idle_metric = "workload_rapl_core_idle_energy_mj"
+        # Dynamic-only metric
         dyn_metric = "workload_rapl_core_dynamic_energy_mj"
+
+
 
         rows: List[dict] = []
 
-        # Workload name is stored in windows["workload"], phase name encodes it too.
+        # -----------------------------
+        # Per-window analysis (dynamic-only)
+        # -----------------------------
         for _, w in windows.iterrows():
             rep = int(w["rep"])
             workload = str(w["workload"])
@@ -253,7 +267,6 @@ class CpuDiscriminationTest:
             if t_end <= t_start:
                 continue
 
-            # Slice extracted series to this rep+phase and trimmed time window
             s = series_df[
                 (series_df["rep"] == rep)
                 & (series_df["phase"] == phase)
@@ -264,39 +277,15 @@ class CpuDiscriminationTest:
             if s.empty:
                 continue
 
-            # Build summed counter series per pod for idle/dynamic
-            idle_ctr = CpuDiscriminationTest._sum_pod_counter_series(s, idle_metric, pod)
             dyn_ctr = CpuDiscriminationTest._sum_pod_counter_series(s, dyn_metric, pod)
-
-            if idle_ctr.empty or dyn_ctr.empty:
+            if dyn_ctr.empty:
                 continue
 
-            # Convert to per-interval power samples
-            idle_pw = CpuDiscriminationTest._counter_to_interval_power_W(idle_ctr)
             dyn_pw = CpuDiscriminationTest._counter_to_interval_power_W(dyn_ctr)
-
-            if idle_pw.empty or dyn_pw.empty:
+            if dyn_pw.empty:
                 continue
 
-            # Align by nearest timestamps and sum to total
-            a = idle_pw.sort_values("ts").rename(columns={"p_W": "p_idle_W"})
-            b = dyn_pw.sort_values("ts").rename(columns={"p_W": "p_dyn_W"})
-
-            merged = pd.merge_asof(
-                a,
-                b,
-                on="ts",
-                direction="nearest",
-                tolerance=pd.to_timedelta(2.0, unit="s"),
-            ).dropna(subset=["p_idle_W", "p_dyn_W"])
-
-            if merged.empty:
-                continue
-
-            merged["p_W"] = merged["p_idle_W"].astype(float) + merged["p_dyn_W"].astype(float)
-            total_pw = merged[["ts", "p_W"]].copy()
-
-            mean_p, std_p, n = CpuDiscriminationTest._power_stats(total_pw)
+            mean_p, std_p, n = CpuDiscriminationTest._power_stats(dyn_pw)
 
             rows.append(
                 {
@@ -307,6 +296,7 @@ class CpuDiscriminationTest:
                     "phase": phase,
                     "start_utc": t_start,
                     "end_utc": t_end,
+                    # Keep existing column names so plotting helpers still work
                     "mean_p_W": mean_p,
                     "std_p_W": std_p,
                     "n_samples": n,
@@ -323,35 +313,39 @@ class CpuDiscriminationTest:
                 "Likely causes: pod label mismatch, missing workload metrics, or extraction windows misbuilt."
             )
 
-        # Minimal sanity: require 2 workloads per rep
+
+        # -----------------------------
+        # Sanity
+        # -----------------------------
         g = res.groupby("rep")["workload"].nunique()
         bad = g[g < 2]
         if not bad.empty:
             log(f"[cpu_discrimination] WARNING: some reps have <2 workloads after filtering: {bad.to_dict()}")
 
+        # -----------------------------
+        # Plot
+        # -----------------------------
         figs_dir = out_dir / "figs" / "cpu_discrimination"
         figs_dir.mkdir(parents=True, exist_ok=True)
 
-        # One plot per parent master phase if available, otherwise a single combined plot.
         if "parent_phase" in res.columns:
             groups = res.groupby("parent_phase", sort=True)
         else:
             groups = [("all", res)]
 
-        for parent_phase, g in groups:
+        for parent_phase, gg in groups:
             safe = str(parent_phase).replace("/", "_")
             server_state = CpuDiscriminationTest._server_state_from_run_key(run_key)
             ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-            
-            CpuDiscriminationTest._plot_scatter_two_rows(
-                g,
-                out_path=figs_dir / f"scatter_mean_total_power_core__{safe}__{ts}.png",
-                title = (
-                    f"RAPL core energy consumption of different workload types "
-                    f"on an {server_state} server"
-                )
-            )
 
+            CpuDiscriminationTest._plot_scatter_two_rows(
+                gg,
+                out_path=figs_dir / f"scatter_mean_dynamic_power_core__{safe}__{ts}.png",
+                title=(
+                    f"RAPL core dynamic power of different workload types "
+                    f"on an {server_state} server"
+                ),
+            )
 
         log(f"[cpu_discrimination] wrote {out_parquet}")
         log(f"[cpu_discrimination] figures in: {figs_dir}")
