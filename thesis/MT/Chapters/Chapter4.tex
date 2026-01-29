@@ -893,6 +893,16 @@ This discipline renders the pipeline compositional.
 Later attribution logic operates on materialized, window-scoped quantities rather than ad hoc joins over raw histories.
 Stages are semantic boundaries, not runtime entities, and exist to make dependency structure explicit when partial observability yields incomplete but internally consistent results.
 
+Figure~\ref{fig:analysis-stage-pipeline} summarizes the conceptual staging of the analysis pipeline within a single attribution cycle, illustrating the ordering constraints, data dependencies, and source materialization underlying window-scoped attribution.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\textwidth]{Figures/drawio/tycho_analysis_stages.png}
+  \caption{Conceptual staging of the analysis pipeline for a single attribution window.}
+  \label{fig:analysis-stage-pipeline}
+\end{figure}
+
+
 \subsubsection{Best-Effort Semantics Under Partial Observability}
 \label{sec:arch_analysis_orchestration_best_effort}
 The analysis architecture is accuracy-first but not completeness-first.

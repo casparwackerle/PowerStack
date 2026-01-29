@@ -40,7 +40,7 @@ Interaction between these subsystems follows a strictly unidirectional pattern. 
 
 This interaction model deliberately excludes feedback paths, implicit coordination, and retroactive modification of observations. Once emitted, samples are immutable; once a window is analysed, its results are final. These constraints ensure that attribution semantics remain explicit, reproducible, and independent of scheduling or export behaviour.
 
-The remainder of this chapter elaborates on how each subsystem realises its assigned responsibility in practice, addressing temporal realisation, collection mechanics, identity handling, calibration, attribution, and robustness in turn (\S~\ref{sec:impl_temporal}–\S~\ref{sec:impl_tradeoffs}).
+The remainder of this chapter elaborates on how each subsystem realises its assigned responsibility in practice, addressing temporal realisation, collection mechanics, identity handling, calibration, attribution, and robustness in turn.
 
 \section{Temporal Infrastructure and Window Realization}
 \label{sec:impl_temporal}
@@ -529,7 +529,7 @@ metrics collected at each level.
 \bottomrule
 \end{tabular}
 \captionsetup{width=12.6cm}
-\caption{Device- and MIG-level metrics collected by the GPU subsystem.}
+\caption{Device-level metrics collected by the GPU subsystem.}
 \label{tab:gpu-device-metrics}
 \end{table}
 

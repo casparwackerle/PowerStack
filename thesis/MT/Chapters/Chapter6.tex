@@ -145,11 +145,11 @@ This subsection describes the execution model, test environment, and scenario st
 \subsubsection{Test Setup and Execution Environment}
 
 All experiments were performed on a dedicated compute node acting as the system under test (SUT).
-The node was a DALCO-integrated server (product \texttt{G494-ZU0-AAP1-000}, MegaRAC SP-X BMC) equipped with an AMD EPYC~9554 (64 cores), 192\,GB DDR5 memory, dual NVMe storage devices, and two GPUs (NVIDIA RTX~4000 Ada and NVIDIA T4).
+The node was a DALCO-integrated server (product \code{G494-ZU0-\newline AAP1-000}, MegaRAC SP-X BMC) equipped with an AMD EPYC~9554 (64 cores), 192\,GB DDR5 memory, dual NVMe storage devices, and two GPUs (NVIDIA RTX~4000 Ada and NVIDIA T4).
 The SUT executed only the monitoring stack, workload pods, and the Tycho exporter, ensuring that observed signals reflect workload and system behavior rather than Kubernetes control-plane activity.
 
-The operating system was Ubuntu~22.04~LTS with a Linux~6.8 kernel (\texttt{6.8.0-90-generic}, \texttt{PREEMPT\_DYNAMIC}) on \texttt{x86\_64}.
-GPU support was provided by the NVIDIA proprietary driver (\texttt{580.95.05}) with CUDA~13.0.
+The operating system was Ubuntu~22.04~LTS with a Linux~6.8 kernel (\code{6.8.0-90-\newline generic}, \code{PREEMPT\_DYNAMIC}) on \code{x86\_64}.
+GPU support was provided by the NVIDIA proprietary driver (\code{580.95.05}) with CUDA~13.0.
 Kubernetes was deployed directly on the servers using PowerStack~\cite{PowerStack}.
 To minimize measurement interference, the Kubernetes control plane ran on a separate node, and the SUT operated exclusively as a worker.
 Full root access was available and required for eBPF-based instrumentation.
@@ -188,7 +188,7 @@ The following catalog enumerates the executed scenarios and serves as the refere
   \item \textbf{CPU warm-up ramp.}
   Transitional phase used exclusively for preconditioning.
   \begin{itemize}
-    \item Workload: \texttt{stress-ng} CPU ramp (\texttt{matrixprod})
+    \item Workload: \code{stress-ng} CPU ramp (\code{matrixprod})
     \item Duration: 60\,s
     \item Structure: stepped load increase
     \item Purpose: stabilization of subsequent CPU measurements
@@ -198,7 +198,7 @@ The following catalog enumerates the executed scenarios and serves as the refere
   \item \textbf{CPU steady baseline (matrix multiplication).}
   Reference case for steady-state CPU dynamic energy attribution.
   \begin{itemize}
-    \item Workload: \texttt{stress-ng} CPU (\texttt{matrixprod})
+    \item Workload: \code{stress-ng} CPU (\code{matrixprod})
     \item Duration: 120\,s
     \item CPU request: 16\,000\,mCPU
     \item Concurrency: single pod
@@ -208,7 +208,7 @@ The following catalog enumerates the executed scenarios and serves as the refere
   \item \textbf{CPU burst train.}
   Periodic on/off CPU activity to probe temporal aggregation and duty-cycle behavior.
   \begin{itemize}
-    \item Workload: \texttt{stress-ng} CPU burst (\texttt{matrixprod})
+    \item Workload: \code{stress-ng} CPU burst (\code{matrixprod})
     \item Duration: 180\,s
     \item Structure: 9\,s on / 9\,s off
     \item CPU request: 16\,000\,mCPU
@@ -218,7 +218,7 @@ The following catalog enumerates the executed scenarios and serves as the refere
   \item \textbf{CPU jitter train.}
   Irregular CPU burst timing to assess robustness under non-uniform activity.
   \begin{itemize}
-    \item Workload: \texttt{stress-ng} CPU jitter (\texttt{matrixprod})
+    \item Workload: \code{stress-ng} CPU jitter (\code{matrixprod})
     \item Duration: 180\,s
     \item Structure: random gaps between 3\,s and 15\,s
     \item CPU request: 16\,000\,mCPU
@@ -228,7 +228,7 @@ The following catalog enumerates the executed scenarios and serves as the refere
   \item \textbf{CPU discrimination (concurrent, heterogeneous pair I).}
   Concurrent execution of computationally distinct CPU workloads.
   \begin{itemize}
-    \item Workloads: \texttt{stress-ng} \texttt{int128} and \texttt{fft}
+    \item Workloads: \code{stress-ng} \code{int128} and \code{fft}
     \item Duration: 180\,s
     \item CPU request: 8\,000\,mCPU per workload
     \item Concurrency: two pods
@@ -238,7 +238,7 @@ The following catalog enumerates the executed scenarios and serves as the refere
   \item \textbf{CPU discrimination (concurrent, heterogeneous pair II).}
   Alternative discrimination scenario with different computational characteristics.
   \begin{itemize}
-    \item Workloads: \texttt{stress-ng} \texttt{bitops} and \texttt{matrixprod}
+    \item Workloads: \code{stress-ng} \code{bitops} and \code{matrixprod}
     \item Duration: 180\,s
     \item CPU request: 8\,000\,mCPU per workload
     \item Concurrency: two pods
@@ -248,7 +248,7 @@ The following catalog enumerates the executed scenarios and serves as the refere
   \item \textbf{CPU idle-allocation fairness (busy vs.\ noop).}
   Co-scheduled active and inactive workloads to probe idle energy assignment semantics.
   \begin{itemize}
-    \item Workloads: active \texttt{stress-ng} CPU (\texttt{bitops}) and idle sleep pod
+    \item Workloads: active \code{stress-ng} CPU (\code{bitops}) and idle sleep pod
     \item Duration: 180\,s
     \item CPU request: 8\,000\,mCPU per workload
     \item Purpose: idle energy sharing behavior
@@ -308,19 +308,29 @@ The following catalog enumerates the executed scenarios and serves as the refere
   \end{itemize}
 \end{enumerate}
 
+\paragraph{Visualization Conventions and Variability}
+All scatter plots in this section depict per-repetition mean workload power over the corresponding steady-state execution window.
+Vertical error bars represent within-run variability of the attributed power signal across the underlying aggregation intervals.
+
+Under background system load, CPU time is subject to scheduling contention and time-sliced execution.
+As a result, instantaneous dynamic power attribution may fluctuate substantially between aggregation intervals even within a single repetition.
+Large error bars in busy-system scenarios are therefore expected and reflect genuine execution variability under contention rather than measurement noise or attribution instability.
+In contrast, idle-attributed components exhibit minimal variability and remain stable across repetitions.
+
 \subsection{CPU Idle-Allocation Fairness (Busy vs.\ Noop)}
 \label{sec:test-cpu-idle-fairness}
 
 \paragraph{Objective}
-This scenario probes Tycho’s idle CPU energy attribution semantics under concurrent workloads with identical resource declarations, contrasting an active workload with an idle one.
+This scenario probes Tycho’s idle CPU energy attribution semantics under concurrent workloads with identical resource declarations, contrasting an active CPU-bound workload with an idle (noop) workload.
 
 \paragraph{Observed Behavior}
-Figures~\ref{fig:cpu-idle-fairness-idle} and~\ref{fig:cpu-idle-fairness-busy} show the workload-level CPU package power attributed to an active and a noop pod under idle and busy system conditions, respectively.
+Figures~\ref{fig:cpu-idle-fairness-idle} and~\ref{fig:cpu-idle-fairness-busy} show the workload-level CPU package-domain power attributed to an active and a noop pod under idle and busy system conditions, respectively.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=\linewidth]{Figures/diagrams/scatter_cpu_busy_vs_noop_idle_share_pkg_idle_node.png}
-  \caption{Idle-node execution: RAPL PKG workload power attributed to a busy and a noop pod.
+  \caption[CPU idle-allocation fairness (idle node)]%
+  {Idle-node execution: RAPL PKG workload power attributed to a busy and a noop pod.
   Dynamic power is attributed exclusively to the active workload, while idle power is evenly shared between both pods across repetitions.}
   \label{fig:cpu-idle-fairness-idle}
 \end{figure}
@@ -328,18 +338,20 @@ Figures~\ref{fig:cpu-idle-fairness-idle} and~\ref{fig:cpu-idle-fairness-busy} sh
 \begin{figure}[H]
   \centering
   \includegraphics[width=\linewidth]{Figures/diagrams/scatter_cpu_busy_vs_noop_idle_share_pkg_busy_node.png}
-  \caption{Busy-node execution: RAPL PKG workload power under background load.
-  Idle power attribution remains unchanged, while dynamic power attributed to the active workload is reduced due to contention.}
+  \caption[CPU idle-allocation fairness (busy node)]%
+  {Busy-node execution: RAPL PKG workload power under background system load.
+  Idle power attribution remains unchanged, while dynamic power attributed to the active workload is reduced and exhibits increased variance due to contention.}
   \label{fig:cpu-idle-fairness-busy}
 \end{figure}
 
-In both executions, the active workload is consistently attributed substantial dynamic CPU energy, while the noop workload exhibits no measurable dynamic component.
-In contrast, idle CPU package energy is attributed nearly equally to both workloads despite their markedly different execution behavior.
-Under background load, only the dynamic component attributed to the active workload is reduced.
+Across both system states, the active workload is consistently attributed substantial dynamic CPU energy, while the noop workload exhibits no measurable dynamic component.
+Dynamic energy attributed to the active workload is higher on the idle system and decreases under background load, accompanied by increased variability due to contention effects.
+In contrast, idle CPU package energy is attributed nearly equally to both workloads and remains approximately constant regardless of whether the system is idle or busy, or whether a workload is actively executing or idle.
 
 \paragraph{Interpretation}
-The observed behavior indicates that idle CPU energy is attributed based on declared resources rather than instantaneous execution intensity.
-Dynamic attribution remains sensitive to effective CPU availability, while idle allocation remains invariant under differing runtime behavior and background system load.
+The observed behavior indicates that Tycho attributes idle CPU energy based on declared resources rather than instantaneous execution intensity.
+Dynamic energy attribution remains sensitive to effective CPU availability and contention, while idle allocation is invariant under differing workload behavior and background system load.
+Together, these results demonstrate fair and workload-agnostic idle energy distribution alongside execution-sensitive dynamic attribution.
 
 \paragraph{Limitations}
 This scenario does not assess absolute attribution accuracy, asymmetric resource requests, or fine-grained temporal effects outside steady-state execution.
@@ -348,37 +360,40 @@ This scenario does not assess absolute attribution accuracy, asymmetric resource
 \label{sec:test-cpu-discrimination-heterogeneous}
 
 \paragraph{Objective}
-This scenario examines whether Tycho can consistently distinguish energy consumption between heterogeneous CPU-bound workloads executing concurrently under identical resource declarations.
+This scenario examines whether Tycho can consistently distinguish \emph{dynamic} CPU energy consumption between heterogeneous CPU-bound workloads executing concurrently under identical resource declarations.
 
 \paragraph{Observed Behavior}
-Figures~\ref{fig:cpu-discrimination-heterogeneous-idle} and~\ref{fig:cpu-discrimination-heterogeneous-busy} show the workload-level CPU core-domain power attributed to four heterogeneous workloads under idle and busy system conditions, respectively.
+Figures~\ref{fig:cpu-discrimination-heterogeneous-idle} and~\ref{fig:cpu-discrimination-heterogeneous-busy} show the workload-level \emph{dynamic} CPU core-domain power attributed to four heterogeneous workloads under idle and busy system conditions, respectively.
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=\linewidth]{Figures/diagrams/scatter_mean_total_power_core_all_idle_node.png}
-  \caption{Idle-node execution: RAPL core-domain workload power attributed to four heterogeneous CPU workloads with identical resource requests.
-  Distinct workload-dependent energy consumption levels are consistently observable across repetitions.}
+  \includegraphics[width=\linewidth]{Figures/diagrams/scatter_mean_dynamic_power_core_all_idle_node.png}
+  \caption[CPU discrimination under heterogeneous workloads (idle node)]%
+  {Idle-node execution: RAPL core-domain \emph{dynamic} workload power attributed to four heterogeneous CPU workloads with identical resource requests.
+  Distinct workload-dependent power consumption levels are consistently observable across repetitions.}
   \label{fig:cpu-discrimination-heterogeneous-idle}
 \end{figure}
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=\linewidth]{Figures/diagrams/scatter_mean_total_power_core_all_busy_node.png}
-  \caption{Busy-node execution: RAPL core-domain workload power under background load.
+  \includegraphics[width=\linewidth]{Figures/diagrams/scatter_mean_dynamic_power_core_all_busy_node.png}
+  \caption[CPU discrimination under heterogeneous workloads (busy node)]%
+  {Busy-node execution: RAPL core-domain \emph{dynamic} workload power under background system load.
   Variance increases due to contention, while the relative separation between workload types remains clearly visible.}
   \label{fig:cpu-discrimination-heterogeneous-busy}
 \end{figure}
 
-Across repetitions on the idle system, each workload exhibits a clearly distinguishable energy consumption profile.
+Across repetitions on the idle system, each workload exhibits a clearly distinguishable dynamic power profile.
 The relative ordering between workload types remains stable, with substantial separation between their attributed power levels.
-Under background system load, the overall variance of the attributed energy increases, but the qualitative separation between workloads persists.
+Under background system load, the overall variance of the attributed dynamic power increases, but the qualitative separation between workloads persists.
 
 \paragraph{Interpretation}
-The observed behavior indicates that Tycho preserves workload-specific energy attribution characteristics under concurrent execution.
+The observed behavior indicates that Tycho preserves workload-specific \emph{dynamic} energy attribution characteristics under concurrent execution.
 While contention affects absolute magnitude and variability, it does not eliminate relative differentiation between computational patterns with distinct execution characteristics.
 
 \paragraph{Limitations}
 This scenario does not assess absolute attribution accuracy, short-lived execution phases, or sensitivity to differing CPU request sizes, nor does it explore interactions with non-CPU resources.
+
 
 \subsection{GPU Workload Separation under Concurrent Execution}
 \label{sec:test-gpu-concurrent-discrimination}
@@ -392,7 +407,8 @@ Figure~\ref{fig:gpu-concurrent-discrimination} shows the workload-level GPU powe
 \begin{figure}[H]
   \centering
   \includegraphics[width=\linewidth]{Figures/diagrams/scatter_gpu_concurrent_2pods.png}
-  \caption{Concurrent GPU workloads executing on two physical GPUs.
+  \caption[GPU workload separation under concurrent execution]%
+  {Concurrent GPU workloads executing on two physical GPUs.
   The higher-performance device consistently exhibits higher power consumption across repetitions.
   Observed attribution remains stable under background CPU load.}
   \label{fig:gpu-concurrent-discrimination}
@@ -421,7 +437,8 @@ Figure~\ref{fig:gpu-concurrent-oversubscription} shows the workload-level GPU po
 \begin{figure}[H]
   \centering
   \includegraphics[width=\linewidth]{Figures/diagrams/scatter_gpu_concurrent_3pods.png}
-  \caption{Three concurrent GPU workloads executing on two physical GPUs.
+  \caption[GPU workload behavior under oversubscription]%
+  {Three concurrent GPU workloads executing on two physical GPUs.
   Single-workload execution exhibits stable power with low variance, while co-located workloads share GPU power and show increased variability due to time-multiplexed execution.
   Total device power remains approximately constant across configurations.}
   \label{fig:gpu-concurrent-oversubscription}

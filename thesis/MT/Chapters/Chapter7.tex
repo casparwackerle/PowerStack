@@ -1,4 +1,3 @@
-% ======================================================================
 \chapter{Evaluation and Synthesis}
 \label{chap:evaluation-synthesis}
 
@@ -58,14 +57,14 @@ are not tied to individual experiments, but to recurring system-level behavior
 across the experimental space explored in this thesis.
 
 % ----------------------------------------------------------------------
- \section{Research Question 1: Guarantees and Feasibility of Accuracy-First Measurement}
+ \section{Research Question 1: Guarantees and Feasibility}
 \label{sec:eval-rq1}
 
 \begin{quote}
 What properties can an accuracy-first energy measurement system realistically guarantee when attributing energy consumption to workloads in Kubernetes environments with heterogeneous and delayed telemetry sources?
 \end{quote}
 
-\subsection*{Interpretation}
+\subsection{Interpretation}
 
 In the context of workload-level energy attribution, the term \emph{guarantee}
 does not refer to numerical accuracy bounds or ground-truth recovery. Instead,
@@ -95,7 +94,7 @@ heuristic correction. As a result, Tycho’s guarantees are best understood as
 properties of interpretability, consistency, and bounded meaning, rather than as
 claims about absolute precision.
 
-\subsection*{Boundary Conditions}
+\subsection{Boundary Conditions}
 
 The guarantees described above are conditional on the quality and granularity of
 the available telemetry. In particular, system-level energy sources with low
@@ -116,7 +115,7 @@ modeling limits. This design choice favors transparency over cosmetic validity
 and ensures that weakening assumptions result in degraded interpretability
 rather than misleading confidence.
 
-\subsection*{Answer to Research Question 1}
+\subsection{Answer to Research Question 1}
 
 \begin{quote}
 An accuracy-first energy measurement system can realistically guarantee
@@ -131,14 +130,14 @@ estimation, but ensures that its limits are visible, bounded, and interpretable
 rather than implicit.
 \end{quote}
 
-\section{Research Question 2: Interpretability and Explanatory Power of Semantics-Driven Attribution}
+\section{Research Question 2: Interpretability and Explanatory Power}
 \label{sec:eval-rq2}
 
 \begin{quote}
 How does an explicit, semantics-driven attribution methodology influence the interpretability and explanatory power of workload-level energy measurements compared to implicit or estimation-oriented approaches?
 \end{quote}
 
-\subsection*{Interpretation}
+\subsection{Interpretation}
 
 In this research question, interpretability refers to the scientific
 interpretability of workload-level energy measurements, that is, the extent to
@@ -171,7 +170,7 @@ examined through stable sanity patterns, such as consistent decomposition
 behavior or agreement between component-level and system-level observations,
 rather than inferred indirectly from smoothed aggregates.
 
-\subsection*{Boundary Conditions}
+\subsection{Boundary Conditions}
 
 The interpretability benefits of explicit, semantics-driven attribution are
 bounded by the quality of the underlying telemetry and by the scope of the
@@ -190,7 +189,7 @@ in virtualized or tightly constrained production environments, but are typically
 acceptable in experimental and research settings where interpretability and
 explanatory power are primary objectives.
 
-\subsection*{Answer to Research Question 2}
+\subsection{Answer to Research Question 2}
 
 \begin{quote}
 An explicit, semantics-driven attribution methodology increases the
@@ -207,14 +206,14 @@ implicit or estimation-oriented attribution approaches.
 
 
 % ----------------------------------------------------------------------
-\section{Research Question 3: Contexts and Trade-offs of Accuracy-First Energy Measurement}
+\section{Research Question 3: Contexts and Trade-offs}
 \label{sec:eval-rq3}
 
 \begin{quote}
 In which experimental and research contexts does high-fidelity, accuracy-first energy measurement justify its complexity and overhead, and where do simpler approaches remain preferable?
 \end{quote}
 
-\subsection*{Interpretation}
+\subsection{Interpretation}
 
 This research question addresses the appropriateness of accuracy-first energy
 measurement rather than its correctness or interpretability. The core issue is
@@ -244,7 +243,7 @@ contexts, the additional granularity and explicit semantics provided by
 accuracy-first measurement enable insights that simpler approaches cannot
 support.
 
-\subsection*{Boundary Conditions}
+\subsection{Boundary Conditions}
 
 The applicability of accuracy-first measurement is constrained by practical and
 environmental factors. Tycho relies on access to low-level telemetry sources,
@@ -266,7 +265,7 @@ workflow provided by the PowerStack framework~\parencite{PowerStack}. This
 streamlining reduces operational friction but does not alter the fundamental
 scope and requirements of accuracy-first measurement.
 
-\subsection*{Answer to Research Question 3}
+\subsection{Answer to Research Question 3}
 
 \begin{quote}
 High-fidelity, accuracy-first energy measurement is primarily justified in

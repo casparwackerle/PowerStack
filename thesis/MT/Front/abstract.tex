@@ -4,10 +4,12 @@
 % ABSTRACT PAGE
 %----------------------------------------------------------------------------------------
 \begin{abstract}
-    \addchaptertocentry{\abstractname} % Add the abstract to the table of contents
-    Abstract
+\addchaptertocentry{\abstractname} % Add the abstract to the table of contents
+Accurately attributing energy consumption to individual workloads in containerized environments is challenging due to shared hardware resources, limited observability, and asynchronous, heterogeneous telemetry. This thesis presents \emph{Tycho}, a novel, accuracy-first system for container-level power attribution that departs from window-delta-based approaches by retaining high-frequency measurement data in bounded historical buffers and deferring temporal reconciliation to analysis time. Independent metric collectors operate at source-appropriate frequencies, preserving native temporal structure and enabling post hoc alignment and correlation across diverse energy and utilization signals.
 
-    The accompanying source code for this thesis, including all deployment and automation scripts, is available in the \textbf{PowerStack}\parencite{PowerStack} repository on GitHub.
+Building on an extensive review of existing power measurement and attribution approaches, the thesis develops a principled framework that explicitly models observation delay, enforces energy conservation by construction, and treats idle and residual energy as first-class outcomes. Tycho integrates CPU, GPU, and system-level energy signals, including composite GPU energy modelling from heterogeneous telemetry and delay-aware refinement of coarse system energy measurements using fine-grained subsystem proxies. The system is evaluated qualitatively and quantitatively on representative and concurrent workloads, demonstrating accurate and temporally coherent attribution behaviour across diverse execution scenarios without implying a unique ground truth.
+
+Tycho is released as an open-source contribution to support reproducibility and further research in energy-aware systems \parencite{TychoRepo}. Experimental deployment and evaluation are supported by PowerStack, an auxiliary framework for fully automated installation and test environment setup \parencite{PowerStack}.
 
 \end{abstract}
     
