@@ -361,6 +361,7 @@ This scenario does not assess absolute attribution accuracy, asymmetric resource
 
 \paragraph{Objective}
 This scenario examines whether Tycho can consistently distinguish \emph{dynamic} CPU energy consumption between heterogeneous CPU-bound workloads executing concurrently under identical resource declarations.
+Beyond absolute attribution, the experiment further investigates whether normalization by instruction count exposes residual, workload-dependent energy characteristics.
 
 \paragraph{Observed Behavior}
 Figures~\ref{fig:cpu-discrimination-heterogeneous-idle} and~\ref{fig:cpu-discrimination-heterogeneous-busy} show the workload-level \emph{dynamic} CPU core-domain power attributed to four heterogeneous workloads under idle and busy system conditions, respectively.
@@ -384,16 +385,52 @@ Figures~\ref{fig:cpu-discrimination-heterogeneous-idle} and~\ref{fig:cpu-discrim
 \end{figure}
 
 Across repetitions on the idle system, each workload exhibits a clearly distinguishable dynamic power profile.
-The relative ordering between workload types remains stable, with substantial separation between their attributed power levels.
-Under background system load, the overall variance of the attributed dynamic power increases, but the qualitative separation between workloads persists.
+The relative ordering between workload types remains stable, with BitOps consistently consuming the highest dynamic power, followed by FFT and \code{int128}, while \code{MatrixProd} exhibits the lowest power consumption.
+Under background system load, the overall variance of the attributed dynamic power increases due to contention and scheduling interference, yet the qualitative separation between workloads persists.
 
 \paragraph{Interpretation}
-The observed behavior indicates that Tycho preserves workload-specific \emph{dynamic} energy attribution characteristics under concurrent execution.
-While contention affects absolute magnitude and variability, it does not eliminate relative differentiation between computational patterns with distinct execution characteristics.
+The absolute dynamic power differences primarily reflect differences in instruction throughput and execution-unit utilization.
+Simple integer workloads such as BitOps sustain high instruction retirement rates with minimal dependency on memory or complex control flow, resulting in high dynamic power.
+In contrast, workloads such as \code{MatrixProd} are more strongly influenced by memory access patterns and data dependencies, leading to reduced execution-unit utilization and lower sustained dynamic power.
+The persistence of this ordering under concurrent execution indicates that Tycho preserves workload-specific dynamic attribution characteristics despite contention.
+
+To isolate whether these differences are intrinsic to the workloads or predominantly driven by instruction volume, the same experiment is repeated with dynamic energy normalized by the number of retired instructions.
+Figures~\ref{fig:cpu-discrimination-heterogeneous-idle-normalized} and~\ref{fig:cpu-discrimination-heterogeneous-busy-normalized} present the resulting \emph{dynamic energy per instruction} for idle and busy system conditions, respectively.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{Figures/diagrams/scatter_mean_dynamic_power_core_all_idle_node_normalized.png}
+  \caption[CPU energy per instruction under heterogeneous workloads (idle node)]%
+  {Idle-node execution: RAPL core-domain \emph{dynamic} CPU energy normalized by instruction count.
+  Values are shown as per-repetition means, with an aggregated mean and 95\% confidence interval across repetitions.}
+  \label{fig:cpu-discrimination-heterogeneous-idle-normalized}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{Figures/diagrams/scatter_mean_dynamic_power_core_all_busy_node_normalized.png}
+  \caption[CPU energy per instruction under heterogeneous workloads (busy node)]%
+  {Busy-node execution: Dynamic CPU energy per instruction under background system load.
+  While variance increases due to contention, workload-dependent differences remain observable.}
+  \label{fig:cpu-discrimination-heterogeneous-busy-normalized}
+\end{figure}
+
+Normalization substantially reduces the separation between workloads, demonstrating that a large fraction of the absolute dynamic energy differences is explained by differing instruction counts.
+This behavior serves as a consistency check for instruction-level attribution and confirms that higher-power workloads primarily consume more energy because they retire more instructions.
+
+Crucially, the normalized results do not collapse to a single constant.
+Instead, statistically significant differences in energy per instruction remain observable, particularly on the idle system.
+For idle execution, FFT and \code{int128} exhibit consistently higher energy per instruction than BitOps and \code{MatrixProd}, despite comparable instruction counts.
+
+A plausible explanation lies in differences in instruction mix and microarchitectural utilization.
+FFT workloads typically involve floating-point and vectorized arithmetic, activating execution units that are more energy-intensive than simple integer ALUs.
+Similarly, \code{int128} operations are often decomposed into multiple micro-operations and wide datapath activity on 64-bit architectures, increasing backend utilization per retired instruction.
+In contrast, BitOps primarily exercise simple integer pipelines, while \code{MatrixProd} frequently encounters memory-related stalls that limit execution-unit activity per instruction.
+These effects are more clearly expressed on the idle system, where higher operating frequencies and reduced contention expose microarchitectural differences between workloads.
 
 \paragraph{Limitations}
-This scenario does not assess absolute attribution accuracy, short-lived execution phases, or sensitivity to differing CPU request sizes, nor does it explore interactions with non-CPU resources.
-
+This scenario does not establish causal energy costs of individual instruction types, nor does it generalize across microarchitectures or frequency configurations.
+The experiment focuses exclusively on CPU core-domain energy and does not explore interactions with memory, uncore components, or heterogeneous accelerators.
 
 \subsection{GPU Workload Separation under Concurrent Execution}
 \label{sec:test-gpu-concurrent-discrimination}
@@ -455,6 +492,56 @@ Increased variability reflects time-multiplexed execution rather than attributio
 
 \paragraph{Limitations}
 This scenario does not examine finer-grained GPU scheduling behavior, short-lived kernels, memory-bound workloads, or oversubscription levels beyond two concurrent workloads per device.
+
+\subsection{Component Power Response to Sudden Load Transitions}
+\label{sec:test-sudden-load-transitions}
+
+\paragraph{Objective}
+This scenario illustrates Tycho’s component-level power attribution behavior during abrupt and intense load transitions on an otherwise idle node.
+The goal is to expose transient effects and metric source limitations rather than to establish statistically representative behavior.
+
+\paragraph{Observed Behavior}
+Figure~\ref{fig:sudden-load-transitions} shows two exemplary time series of component power during a sudden onset of CPU and GPU stress, respectively.
+Each plot represents a single execution and is intended to illustrate characteristic behavior observed across multiple runs.
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[t]{0.49\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{Figures/diagrams/line_sudden_cpu_stress.png}
+    \caption{Sudden CPU stress}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[t]{0.49\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{Figures/diagrams/line_sudden_gpu_stress.png}
+    \caption{Sudden GPU stress}
+  \end{subfigure}
+  \caption[Component power during sudden load transitions]%
+  {Component-level power attribution during abrupt CPU and GPU load on an idle node.}
+  \label{fig:sudden-load-transitions}
+\end{figure}
+
+In both cases, the system exhibits a stable idle baseline prior to load application.
+When CPU or GPU stress is applied abruptly, the corresponding component metric responds immediately, while the system-level power reported via Redfish increases with a noticeable delay.
+During this transition period, the residual power term exhibits a pronounced temporary dip, despite no plausible reduction in the energy consumption of residual components.
+
+This pattern is consistently observable for both CPU- and GPU-dominated load transitions.
+Once the system-level metric converges to the higher load state, the residual component recovers and stabilizes.
+
+\paragraph{Interpretation}
+The observed transient behavior reflects fundamental latency differences between metric sources.
+CPU and GPU component metrics react rapidly to workload changes, while Redfish-based system power responds more slowly due to its coarse temporal characteristics, as discussed in earlier chapters.
+During this interval, Tycho attributes the rapidly increasing component power before the delayed system power increase is fully observed, resulting in a temporary residual imbalance.
+
+This effect does not indicate an attribution error or implementation fault.
+Tycho deliberately avoids fabricating or extrapolating system-level energy beyond its tightly scoped modeling mechanisms.
+Instead, it reports observed values as provided by the underlying measurement sources, preserving physical transparency even when temporary inconsistencies arise.
+To make such situations explicit, Tycho emits a window plausibility indicator that marks windows affected by implausible intermediate attribution states.
+
+\paragraph{Limitations}
+These examples are anecdotal and not statistically representative.
+The scenario does not isolate individual contributors to delayed system power response, such as thermal inertia or fan activation thresholds, and does not attempt to distinguish metric latency from genuine physical response delays.
 
 \section{Summary of Evaluation Findings}
 \label{sec:eval-summary}

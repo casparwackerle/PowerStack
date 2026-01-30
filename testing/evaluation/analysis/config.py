@@ -38,12 +38,12 @@ GPU_UUID_NAMES = {
 # ---------------------------------------------------------------------
 TESTS_TO_RUN = [
     # "idle",
-    # "cpu_discrimination",
+    "cpu_discrimination",
 
     # New independent tests
-    #"cpu_busy_vs_noop_idle_share",
+    # "cpu_busy_vs_noop_idle_share",
     # "gpu_concurrent_2pods",
-    "gpu_concurrent_3pods",
+    # "gpu_concurrent_3pods",
 ]
 
 
@@ -83,7 +83,7 @@ CPU_DISCRIM_TARGET_PHASES = [
 CPU_DOMAINS = ["core", "pkg", "uncore", "dram"]
 
 # How far subrun timestamps may drift relative to master phase window
-CPU_DISCRIM_MATCH_TOL_SEC = 6
+CPU_DISCRIM_MATCH_TOL_SEC = 15
 
 # ---------------------------------------------------------------------
 # Tycho metric mapping
@@ -149,6 +149,10 @@ TYCHO_METRICS = {
     ),
     "workload_gpu_dynamic_energy_mj": (
         f'tycho_workload_gpu_energy_mj{{instance="{PROM_INSTANCE}",kind="dynamic"}}'
+    ),
+    # CPU discrimination: workload instruction counter (monotonic)
+    "workload_cpu_instructions_total": (
+        f'tycho_workload_bpf_cpu_instructions_total{{instance="{PROM_INSTANCE}"}}'
     ),
 }
 
