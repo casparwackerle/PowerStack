@@ -35,12 +35,37 @@ alertmanager:
 grafana:
   enabled: true
   adminPassword: {{ ansible_vault.grafanaAdminPassword }}
-  persistence:
-    enabled: true
-    existingClaim: {{ pvc_name }}-grafana
   grafana.ini:
     dashboards:
       min_refresh_interval: 1s
+    server:
+      domain: newnan.zhaw.ch
+      root_url: "http://newnan.zhaw.ch:30003/"
+    rendering:
+      server_url: http://localhost:8081/render
+      callback_url: http://localhost:3000/
+
+  # Disable the separate renderer deployment if your chart supports it.
+  # If not supported, you can leave it running; Grafana will use localhost anyway.
+  imageRenderer:
+    enabled: false
+
+  extraContainers: |
+    - name: grafana-image-renderer-sidecar
+      image: grafana/grafana-image-renderer:latest
+      ports:
+        - name: renderer
+          containerPort: 8081
+      env:
+        - name: HTTP_HOST
+          value: "0.0.0.0"
+        - name: HTTP_PORT
+          value: "8081"
+
+
+  persistence:
+    enabled: true
+    existingClaim: {{ pvc_name }}-grafana
 
 prometheus:
   enabled: true

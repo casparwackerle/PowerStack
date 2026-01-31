@@ -8,7 +8,7 @@ This chapter evaluates Tycho as an accuracy-focused energy measurement and attri
 The objective is not to establish ground-truth energy values, but to assess whether Tycho’s outputs are internally consistent, temporally coherent, and physically interpretable given the characteristics of its input signals.
 
 Tycho integrates heterogeneous measurement sources spanning hardware, firmware, kernel, and container layers, each with distinct temporal resolution, latency, and semantic scope.
-Accordingly, many relevant correctness properties are structural rather than scalar, concerning conservation, attribution completeness, stability under repeated execution, and coherent cross-layer behavior rather than numerical agreement with an external reference.
+Accordingly, many relevant correctness properties are structural rather than scalar, concerning conservation, attribution completeness, stability under repeated execution, and coherent cross-layer behavior, rather than numerical agreement with an external reference.
 
 Two complementary evidence types are used, ordered by dependency.
 
@@ -24,116 +24,95 @@ Where repetitions are evaluated quantitatively, they serve only to illustrate st
 
 Together, these two evidence tiers support an evaluation focused on interpretability, consistency, and robustness within the limits imposed by the available measurement signals.
 
-
 \section{Qualitative Validation and Consistency Assessment}
 \label{sec:qualitative-validation}
 
-This section establishes internal correctness and semantic coherence of Tycho through invariant-driven qualitative validation, providing the foundation on which the targeted experimental analyses in the following section rely.
-
-\subsection{Invariant-Driven Qualitative Validation Methodology}
+\subsection{Invariant-Driven Validation Strategy}
 \label{sec:validation-methodology}
 
 Qualitative validation in this work is defined as the systematic verification of structural correctness properties that must hold independently of workload choice, operating regime, or numerical calibration.
-Rather than evaluating individual output values against an external reference, validation focuses on invariants whose violation would render attribution results uninterpretable, irrespective of apparent numerical plausibility.
+Rather than evaluating output values against an external reference, validation focuses on invariants whose violation would render attribution results physically uninterpretable, irrespective of apparent numerical plausibility.
 
 Validation was performed continuously and at feature granularity throughout development.
-Each newly introduced mechanism was exercised until its behavior aligned with design intent across the relevant operating regimes before subsequent features were added.
-This process relied on direct inspection of intermediate system state, including structured logs and analysis traces, live dashboards, and selectively enabled debug metrics exposing internal buffers, windows, and attribution state.
-Targeted host- and Kubernetes-level stress scenarios were used to provoke boundary conditions under which structural failures would be expected to surface.
+Each newly introduced mechanism was exercised under adversarial and boundary conditions until its behavior conformed to design intent across relevant operating regimes.
+This process relied on sustained inspection of raw input signals, intermediate analysis state, and exported attribution results, allowing violations to surface immediately rather than being inferred post hoc from aggregate outputs.
 
 The validation strategy was explicitly invariant-driven.
-Core properties monitored across all executions included conservation of energy across attribution boundaries, monotonicity of counters, completeness of attribution, stable separation of idle, dynamic, and residual components, and coherent behavior under repeated, steady, bursty, and concurrent workloads.
-These invariants impose global constraints on system behavior and provide strong failure detectability: violations propagate across layers and time windows and manifest as observable inconsistencies between raw inputs, intermediate representations, and exported metrics.
+Core invariants monitored across all executions included conservation of energy across attribution boundaries, completeness of attribution, monotonicity of cumulative counters, temporal coherence of analysis windows under asynchronous updates, and stability of attribution under repeated, steady, bursty, and concurrent workloads.
+These invariants impose global constraints on system behavior; violations propagate across layers and time windows and manifest as observable inconsistencies between independent representations of system state.
 
-No artifact-oriented quantitative validation dataset was produced for this tier.
-This is a consequence of the validation objective rather than a limitation of testing effort.
-Correctness was established through sustained, adversarial inspection under diverse execution conditions, where invariant violations would be immediately visible.
-Accordingly, this validation tier establishes internal correctness and semantic coherence of Tycho’s attribution pipeline, but does not claim numerical accuracy with respect to an external ground truth.
+No quantitative artifact was produced for this validation tier, as correctness was established through sustained invariant verification rather than post hoc analysis.
+This approach establishes internal correctness and semantic coherence of the attribution pipeline, providing the necessary foundation for the targeted experimental analyses presented in the following section.
 
-\subsection{Layer-Specific Validation Focus}
+\subsection{Invariant Witnesses Across the Attribution Pipeline}
 \label{sec:validation-layers}
 
-Qualitative validation was applied across all major layers of the Tycho pipeline, with layer-specific checks designed to surface structural failures at their point of origin while preserving end-to-end interpretability.
+Qualitative validation was applied across the full attribution pipeline, with each major subsystem acting as a witness for specific structural invariants.
+Rather than validating components in isolation, the focus was on identifying how violations of metric integrity, temporal coherence, attribution semantics, or observability would necessarily propagate into detectable end-to-end inconsistencies.
 
-\subsubsection{Signal Ingestion and Metric Integrity}
+\subsubsection{Metric Integrity and Identity Preservation}
 \label{sec:validation-ingestion}
 
-Validation of signal ingestion focused on excluding classes of errors that would compromise the semantic integrity of downstream attribution.
-Given the heterogeneity of Tycho’s input signals, correctness at this layer is primarily concerned with continuity, plausibility, and stable interpretation over time rather than with numerical agreement across sources.
+Validation of metric ingestion focused on preserving the invariants of monotonicity, continuity, and stable identity mapping across devices and workloads.
+Violations at this stage would manifest as counter regressions, unexplained discontinuities, inconsistent unit scaling, or instability in device and workload labeling, all of which would immediately compromise downstream attribution.
 
-The principal ingestion risks considered were missing or irregular samples, counter discontinuities, inconsistent units or scaling, unstable identity mapping across devices or workloads, and silent gaps that could propagate undetected into higher-level metrics.
-Validation therefore emphasized monotonicity of cumulative counters, absence of unexplained discontinuities, stable labeling and device identity resolution across successive observations, and predictable behavior under steady, bursty, and concurrent activity.
+All cumulative energy counters exhibited strictly monotonic behavior over sustained execution.
+Signal continuity was preserved across steady, bursty, and concurrent workloads, and no silent gaps or unexplained discontinuities were observed.
+Device identities and workload labels remained stable across successive observations, preventing cross-device or cross-workload energy leakage.
+Independent signal sources were routinely inspected jointly to ensure qualitative plausibility, confirming that activity in one domain did not induce unexplained effects in unrelated components or devices.
 
-Independent signal sources were routinely cross-checked for qualitative plausibility.
-CPU, GPU, and system-level metrics were inspected jointly to ensure that observed activity patterns were mutually consistent and that energy attribution in one domain did not exhibit unexplained coupling to unrelated activity in another.
-Sustained agreement in qualitative behavior across independent sources provided confidence that ingestion pipelines preserved intended semantics.
+System-level power measurements obtained via Redfish were observed to exhibit variable reporting latency relative to CPU and GPU counters.
+This behavior was treated as a characterized property of the source rather than an ingestion defect.
+Importantly, delayed updates remained coherent and monotonic and did not introduce semantic contradictions that would undermine attribution integrity.
 
-Known limitations of individual sources were explicitly accounted for during validation.
-In particular, system-level power metrics obtained via Redfish were observed to exhibit variable reporting latency relative to CPU and GPU counters.
-This behavior was treated as an expected characteristic of the source rather than as an ingestion defect.
-Validation confirmed that such latency manifested as delayed but coherent updates, without introducing discontinuities, counter violations, or semantic contradictions that would undermine subsequent analysis.
-
-\subsubsection{Temporal Coherence and Delay Handling}
+\subsubsection{Temporal Coherence under Asynchronous Signals}
 \label{sec:validation-temporal}
 
-Temporal validation focused on ensuring coherent analysis behavior in the presence of heterogeneous timing characteristics, asynchronous updates, and source-specific latency.
-Given that Tycho does not enforce strict timestamp alignment at ingestion, correctness at this layer depends on stable window materialization, preserved causal ordering, and predictable interpretation of delayed signals during analysis.
+Temporal coherence was assessed with a focus on preserving causal ordering and stable window semantics in the presence of heterogeneous sampling rates, asynchronous updates, and source-specific latency.
+Because Tycho does not enforce strict timestamp alignment at ingestion, correctness depends on coherent window materialization and predictable interpretation of delayed observations during analysis.
 
-Validation targeted failure modes such as temporal misalignment between sources, unstable or inconsistent window boundaries, sensitivity to short-term jitter, and systematic bias introduced by delayed updates.
-Intermediate timing state, analysis windows, and derived metrics were inspected under controlled transitions between idle, steady, bursty, and concurrent workloads, as well as during long-running executions where accumulated drift or buffer exhaustion would become observable.
+Invariant violations at this stage would manifest as negative or oscillatory attribution, unstable residual behavior, or inconsistent transitions between workload phases.
+Such effects were actively sought by inspecting intermediate timing state, analysis windows, and derived metrics under controlled transitions between idle, steady, bursty, and concurrent workloads, as well as during long-running executions where accumulated drift or buffer exhaustion would become observable.
 
-Variable latency of system-level power metrics was a central consideration.
-Rather than attempting to minimize or mask such delay, validation emphasized robustness of temporal fusion, confirming that late-arriving samples were incorporated consistently without violating conservation, monotonicity, or attribution completeness.
-Pathological temporal behavior would manifest as negative attribution, unstable residuals, or inconsistent phase transitions; no such effects were observed outside explicitly characterized boundary conditions.
+System-level power metrics obtained via Redfish exhibited delayed response relative to CPU and GPU component counters.
+Validation instead confirmed that delayed samples were incorporated consistently without violating conservation, monotonicity, or attribution completeness.
+Observed lag and smoothing effects in derived metrics therefore reflect expected source characteristics and aggregation granularity rather than temporal inconsistencies in the analysis pipeline.
 
-Observed lag and smoothing effects in derived metrics were therefore interpreted as expected consequences of source characteristics and aggregation granularity rather than as temporal failures.
-Under all tested execution regimes, temporal handling preserved stable, interpretable behavior across interacting metric streams.
-
-\subsubsection{Attribution Semantics and Conservation}
+\subsubsection{Attribution Semantics and Energy Conservation}
 \label{sec:validation-attribution}
 
 Validation of attribution semantics centered on enforcing conservation of energy as a non-negotiable invariant.
-For every analysis window, all observed energy must be accounted for exactly once, either through explicit workload attribution or as transparently exposed residual or system-level energy, up to numerical tolerance.
-Any silent loss, duplication, or implicit discarding of energy would immediately undermine interpretability and was therefore treated as a structural failure.
+For every analysis window, all observed energy must be accounted for exactly once, either through explicit workload attribution or as transparently exposed residual or system-level energy, within numerical tolerance.
+Any silent loss, duplication, or implicit discarding of energy would immediately invalidate interpretability and was therefore treated as a structural failure.
 
-Validation focused on confirming stable separation and interaction of idle, dynamic, and residual components across execution regimes.
-Attribution behavior was inspected under steady, bursty, and concurrent workloads to ensure that conservation and attribution completeness held independently of scheduling dynamics, workload overlap, or resource contention.
-Violations would manifest as unexplained discrepancies between aggregate and attributed energy or as unstable residual behavior and were actively monitored throughout development and testing.
+Attribution behavior was inspected under steady, bursty, and concurrent workloads to confirm stable separation and interaction of idle, dynamic, and residual components.
+Invariant violations at this stage would manifest as unexplained discrepancies between aggregate and attributed energy or as unstable, sign-inconsistent, or phase-dependent residual behavior.
+No such effects were observed across sustained execution.
 
 Boundary cases were explicitly identified and characterized.
-In particular, extreme latency of certain system-level power signals can induce transient distortions in residual attribution.
+In particular, extreme latency of system-level power signals can induce transient distortions in residual attribution during rapid load transitions.
 These effects are attributable to input signal characteristics rather than to attribution semantics and remain bounded and detectable.
 Their presence does not violate conservation and does not compromise interpretability when properly contextualized.
 
-\subsubsection{End-to-End Observability and Sanity Checks}
+\subsubsection{End-to-End Observability and Violation Detectability}
 \label{sec:validation-observability}
 
-End-to-end observability served as a primary validation instrument throughout development.
-Tycho was continuously inspected as a live system across multiple abstraction levels, including raw input metrics, intermediate analysis state, and exported outputs, enabling direct cross-checks between independently derived views of system behavior.
+End-to-end observability served as a primary mechanism for detecting invariant violations throughout development.
+Tycho was continuously inspected across multiple abstraction levels, including raw input metrics, intermediate analysis state, and exported attribution outputs, enabling direct cross-checks between independently derived views of system behavior.
 
-Validation emphasized a small set of canonical sanity patterns that must hold for any interpretable attribution system.
+Validation focused on a small set of canonical sanity patterns that must hold for any interpretable attribution system.
 These included predictable responses to workload start and termination, stability under steady-state execution, symmetry under equivalent workload configurations, and absence of unexplained oscillations or phase-dependent artifacts.
-Departures from these patterns would indicate semantic or temporal inconsistencies and were actively sought during exploratory and adversarial testing.
+Violations of structural invariants would necessarily manifest as contradictions between these views and were therefore actively sought during exploratory and adversarial testing.
 
 Tycho’s debug mode, which selectively exposes internal buffers, windows, and attribution state, enabled targeted inspection of intermediate behavior during runtime.
-This capability allowed rapid localization of potential issues and ensured that observed high-level behavior was grounded in coherent internal state rather than emergent artifacts.
-
 Across sustained observation under diverse workload regimes, raw metrics, intermediate analysis state, and exported outputs converged toward consistent qualitative behavior.
 No unexplained or contradictory patterns were observed, providing strong assurance of end-to-end semantic coherence.
 
-\subsection{Summary of Qualitative Assurance}
-\label{sec:validation-summary}
-
-The qualitative validation described above establishes high confidence in Tycho’s internal correctness and semantic coherence.
-Across sustained and adversarial inspection of all major subsystems, no violations of fundamental invariants, unexplained inconsistencies, or contradictory behaviors were observed.
-This assurance provides the foundation for the targeted experimental analyses that follow, which illustrate Tycho’s behavior and limitations under concrete workload scenarios rather than re-establishing correctness.
-
-% ----------------------------------------------------------------------
 \section{Targeted Experimental Evaluation}
 \label{sec:tier2-tests}
 
 This section presents a set of targeted, end-to-end experiments designed to illustrate Tycho’s behavior under structured and repeatable workload conditions.
-The experiments do not serve to verify correctness, which is established through qualitative validation, but to expose observable behavior, strengths, and boundary conditions in concrete scenarios.
+The experiments do not serve to verify correctness, which is established through qualitative validation, but to expose observable behavior, strengths, and boundary conditions under concrete workload scenarios.
 Accordingly, the analyses are descriptive and interpretive, and no claims of formal correctness or statistical significance are made.
 
 \subsection{Overview of Executed Test Scenarios}
@@ -146,7 +125,7 @@ This subsection describes the execution model, test environment, and scenario st
 
 All experiments were performed on a dedicated compute node acting as the system under test (SUT).
 The node was a DALCO-integrated server (product \code{G494-ZU0-\newline AAP1-000}, MegaRAC SP-X BMC) equipped with an AMD EPYC~9554 (64 cores), 192\,GB DDR5 memory, dual NVMe storage devices, and two GPUs (NVIDIA RTX~4000 Ada and NVIDIA T4).
-The SUT executed only the monitoring stack, workload pods, and the Tycho exporter, ensuring that observed signals reflect workload and system behavior rather than Kubernetes control-plane activity.
+The SUT executed only the monitoring stack, workload pods, and the Tycho exporter, ensuring that observed signals reflect workload and system behavior rather than control-plane activity.
 
 The operating system was Ubuntu~22.04~LTS with a Linux~6.8 kernel (\code{6.8.0-90-\newline generic}, \code{PREEMPT\_DYNAMIC}) on \code{x86\_64}.
 GPU support was provided by the NVIDIA proprietary driver (\code{580.95.05}) with CUDA~13.0.
@@ -163,8 +142,7 @@ These domains provide stable counters and sufficient dynamic range for illustrat
 \subsubsection{Test Plan Structure and Scenario Catalog}
 
 All experiments were executed from a single declarative test plan that defines workload structure, execution order, repetition count, and timing parameters.
-An Ansible-based automation workflow materializes the plan, provisions an isolated Kubernetes testing namespace, and orchestrates execution end-to-end without manual intervention.
-This approach ensures reproducibility across runs while allowing workload structure to be modified independently of deployment mechanics.
+An Ansible-based automation workflow materializes the plan, provisions an isolated Kubernetes testing namespace, and orchestrates execution end-to-end without manual intervention, ensuring reproducibility across runs.
 
 Unless stated otherwise, all scenarios were executed with 30 repetitions and analyzed at a fixed aggregation granularity of 3\,s.
 Each repetition executes the complete scenario sequence in a deterministic order, yielding a consistent temporal structure across runs.
@@ -175,140 +153,67 @@ For analysis, only steady-state execution intervals are considered; warm-up phas
 
 The following catalog enumerates the executed scenarios and serves as the reference structure for the targeted analyses presented in the subsequent subsections.
 
-
 \begin{enumerate}
   \item \textbf{Idle baseline (start).}
-  Establishes the initial noise floor and short-term stability of idle attribution.
-  \begin{itemize}
-    \item Duration: 180\,s
-    \item Workloads: none (sleep only)
-    \item Purpose: idle variance estimation, initial drift detection
-  \end{itemize}
+  Duration: 180\,s; workloads: none (sleep only).
+  Purpose: idle variance estimation and initial drift detection.
 
   \item \textbf{CPU warm-up ramp.}
-  Transitional phase used exclusively for preconditioning.
-  \begin{itemize}
-    \item Workload: \code{stress-ng} CPU ramp (\code{matrixprod})
-    \item Duration: 60\,s
-    \item Structure: stepped load increase
-    \item Purpose: stabilization of subsequent CPU measurements
-    \item Note: excluded from quantitative analysis
-  \end{itemize}
+  Workload: \code{stress-ng} CPU (\code{matrixprod}); duration: 60\,s; structure: stepped load increase.
+  Purpose: preconditioning and stabilization of subsequent CPU measurements.
+  Note: excluded from quantitative analysis.
 
   \item \textbf{CPU steady baseline (matrix multiplication).}
-  Reference case for steady-state CPU dynamic energy attribution.
-  \begin{itemize}
-    \item Workload: \code{stress-ng} CPU (\code{matrixprod})
-    \item Duration: 120\,s
-    \item CPU request: 16\,000\,mCPU
-    \item Concurrency: single pod
-    \item Purpose: steady-state stability and repeatability
-  \end{itemize}
+  Workload: \code{stress-ng} CPU (\code{matrixprod}); duration: 120\,s; CPU request: 16\,000\,mCPU; concurrency: single pod.
+  Purpose: steady-state stability and repeatability reference.
 
   \item \textbf{CPU burst train.}
-  Periodic on/off CPU activity to probe temporal aggregation and duty-cycle behavior.
-  \begin{itemize}
-    \item Workload: \code{stress-ng} CPU burst (\code{matrixprod})
-    \item Duration: 180\,s
-    \item Structure: 9\,s on / 9\,s off
-    \item CPU request: 16\,000\,mCPU
-    \item Purpose: burst attribution fidelity and temporal smearing
-  \end{itemize}
+  Workload: \code{stress-ng} CPU burst (\code{matrixprod}); duration: 180\,s; structure: 9\,s on / 9\,s off; CPU request: 16\,000\,mCPU.
+  Purpose: burst attribution fidelity and temporal smearing assessment.
 
   \item \textbf{CPU jitter train.}
-  Irregular CPU burst timing to assess robustness under non-uniform activity.
-  \begin{itemize}
-    \item Workload: \code{stress-ng} CPU jitter (\code{matrixprod})
-    \item Duration: 180\,s
-    \item Structure: random gaps between 3\,s and 15\,s
-    \item CPU request: 16\,000\,mCPU
-    \item Purpose: attribution stability under irregular timing
-  \end{itemize}
+  Workload: \code{stress-ng} CPU jitter (\code{matrixprod}); duration: 180\,s; structure: random gaps between 3\,s and 15\,s; CPU request: 16\,000\,mCPU.
+  Purpose: attribution robustness under irregular activity.
 
   \item \textbf{CPU discrimination (concurrent, heterogeneous pair I).}
-  Concurrent execution of computationally distinct CPU workloads.
-  \begin{itemize}
-    \item Workloads: \code{stress-ng} \code{int128} and \code{fft}
-    \item Duration: 180\,s
-    \item CPU request: 8\,000\,mCPU per workload
-    \item Concurrency: two pods
-    \item Purpose: workload-level energy differentiation
-  \end{itemize}
+  Workloads: \code{stress-ng} \code{int128} and \code{fft}; duration: 180\,s; CPU request: 8\,000\,mCPU per workload; concurrency: two pods.
+  Purpose: workload-level dynamic energy differentiation.
 
   \item \textbf{CPU discrimination (concurrent, heterogeneous pair II).}
-  Alternative discrimination scenario with different computational characteristics.
-  \begin{itemize}
-    \item Workloads: \code{stress-ng} \code{bitops} and \code{matrixprod}
-    \item Duration: 180\,s
-    \item CPU request: 8\,000\,mCPU per workload
-    \item Concurrency: two pods
-    \item Purpose: method-dependent energy signatures
-  \end{itemize}
+  Workloads: \code{stress-ng} \code{bitops} and \code{matrixprod}; duration: 180\,s; CPU request: 8\,000\,mCPU per workload; concurrency: two pods.
+  Purpose: discrimination across method-dependent CPU characteristics.
 
   \item \textbf{CPU idle-allocation fairness (busy vs.\ noop).}
-  Co-scheduled active and inactive workloads to probe idle energy assignment semantics.
-  \begin{itemize}
-    \item Workloads: active \code{stress-ng} CPU (\code{bitops}) and idle sleep pod
-    \item Duration: 180\,s
-    \item CPU request: 8\,000\,mCPU per workload
-    \item Purpose: idle energy sharing behavior
-  \end{itemize}
+  Workloads: active \code{stress-ng} CPU (\code{bitops}) and idle sleep pod; duration: 180\,s; CPU request: 8\,000\,mCPU per workload.
+  Purpose: idle energy sharing semantics under co-scheduling.
 
   \item \textbf{GPU idle baseline.}
-  Baseline measurement of GPU idle energy in the absence of GPU workloads.
-  \begin{itemize}
-    \item Duration: 120\,s
-    \item Workloads: none (GPU idle)
-    \item Purpose: GPU idle stability and cross-domain isolation
-  \end{itemize}
+  Duration: 120\,s; workloads: none (GPU idle).
+  Purpose: GPU idle stability and cross-domain isolation.
 
   \item \textbf{GPU steady baseline.}
-  Reference case for steady-state GPU dynamic energy attribution.
-  \begin{itemize}
-    \item Workload: steady GPU burn
-    \item Duration: 180\,s
-    \item GPU request: 1 device
-    \item Purpose: stability and repeatability of GPU attribution
-  \end{itemize}
+  Workload: steady GPU burn; duration: 180\,s; GPU request: one device.
+  Purpose: steady-state GPU attribution stability and repeatability.
 
   \item \textbf{GPU burst train.}
-  Periodic GPU activity to probe temporal aggregation limits.
-  \begin{itemize}
-    \item Workload: GPU burst burn
-    \item Duration: 240\,s
-    \item Structure: 3\,s on / 3\,s off
-    \item GPU request: 1 device
-    \item Purpose: burst visibility under coarse aggregation
-  \end{itemize}
+  Workload: GPU burst burn; duration: 240\,s; structure: 3\,s on / 3\,s off; GPU request: one device.
+  Purpose: temporal aggregation limits for GPU attribution.
 
   \item \textbf{GPU concurrency (two workloads).}
-  Concurrent GPU workloads to assess proportional energy splitting.
-  \begin{itemize}
-    \item Workloads: two identical steady GPU burns
-    \item Duration: 180\,s
-    \item GPU request: 1 device per workload
-    \item Purpose: two-way GPU energy attribution
-  \end{itemize}
+  Workloads: two identical steady GPU burns; duration: 180\,s; GPU request: one device per workload.
+  Purpose: two-way proportional GPU energy splitting.
 
   \item \textbf{GPU concurrency (three workloads).}
-  Higher-concurrency GPU scenario to probe scaling and slicing robustness.
-  \begin{itemize}
-    \item Workloads: three identical steady GPU burns
-    \item Duration: 180\,s
-    \item GPU request: 1 device per workload
-    \item Purpose: multi-workload GPU attribution consistency
-  \end{itemize}
+  Workloads: three identical steady GPU burns; duration: 180\,s; GPU request: one device per workload.
+  Purpose: scaling and slicing robustness under higher concurrency.
 
   \item \textbf{Idle baseline (end).}
-  Re-establishes idle conditions after all workload phases.
-  \begin{itemize}
-    \item Duration: 180\,s
-    \item Workloads: none (sleep only)
-    \item Purpose: end-of-run drift and stability check
-  \end{itemize}
+  Duration: 180\,s; workloads: none (sleep only).
+  Purpose: post-run drift and stability verification.
 \end{enumerate}
 
-\paragraph{Visualization Conventions and Variability}
+
+\paragraph{Visualization Conventions and Variability.}
 All scatter plots in this section depict per-repetition mean workload power over the corresponding steady-state execution window.
 Vertical error bars represent within-run variability of the attributed power signal across the underlying aggregation intervals.
 
@@ -320,11 +225,11 @@ In contrast, idle-attributed components exhibit minimal variability and remain s
 \subsection{CPU Idle-Allocation Fairness (Busy vs.\ Noop)}
 \label{sec:test-cpu-idle-fairness}
 
-\paragraph{Objective}
+\paragraph{Objective.}
 This scenario probes Tycho’s idle CPU energy attribution semantics under concurrent workloads with identical resource declarations, contrasting an active CPU-bound workload with an idle (noop) workload.
 
-\paragraph{Observed Behavior}
-Figures~\ref{fig:cpu-idle-fairness-idle} and~\ref{fig:cpu-idle-fairness-busy} show the workload-level CPU package-domain power attributed to an active and a noop pod under idle and busy system conditions, respectively.
+\paragraph{Observed Behavior.}
+Figures~\ref{fig:cpu-idle-fairness-idle} and~\ref{fig:cpu-idle-fairness-busy} summarize the observed workload-level CPU package-domain power attributed to an active and a noop pod under idle and busy system conditions, respectively.
 
 \begin{figure}[H]
   \centering
@@ -348,23 +253,21 @@ Across both system states, the active workload is consistently attributed substa
 Dynamic energy attributed to the active workload is higher on the idle system and decreases under background load, accompanied by increased variability due to contention effects.
 In contrast, idle CPU package energy is attributed nearly equally to both workloads and remains approximately constant regardless of whether the system is idle or busy, or whether a workload is actively executing or idle.
 
-\paragraph{Interpretation}
-The observed behavior indicates that Tycho attributes idle CPU energy based on declared resources rather than instantaneous execution intensity.
-Dynamic energy attribution remains sensitive to effective CPU availability and contention, while idle allocation is invariant under differing workload behavior and background system load.
-Together, these results demonstrate fair and workload-agnostic idle energy distribution alongside execution-sensitive dynamic attribution.
+\paragraph{Interpretation.}
+The results indicate that Tycho allocates idle CPU energy strictly based on declared resources, while dynamic energy attribution remains sensitive to effective execution and contention.
 
-\paragraph{Limitations}
+\paragraph{Limitations.}
 This scenario does not assess absolute attribution accuracy, asymmetric resource requests, or fine-grained temporal effects outside steady-state execution.
 
 \subsection{CPU Discrimination under Heterogeneous Concurrent Workloads}
 \label{sec:test-cpu-discrimination-heterogeneous}
 
-\paragraph{Objective}
+\paragraph{Objective.}
 This scenario examines whether Tycho can consistently distinguish \emph{dynamic} CPU energy consumption between heterogeneous CPU-bound workloads executing concurrently under identical resource declarations.
 Beyond absolute attribution, the experiment further investigates whether normalization by instruction count exposes residual, workload-dependent energy characteristics.
 
-\paragraph{Observed Behavior}
-Figures~\ref{fig:cpu-discrimination-heterogeneous-idle} and~\ref{fig:cpu-discrimination-heterogeneous-busy} show the workload-level \emph{dynamic} CPU core-domain power attributed to four heterogeneous workloads under idle and busy system conditions, respectively.
+\paragraph{Observed Behavior.}
+Figures~\ref{fig:cpu-discrimination-heterogeneous-idle} and~\ref{fig:cpu-discrimination-heterogeneous-busy} summarize the observed workload-level \emph{dynamic} CPU core-domain power attributed to four heterogeneous workloads under idle and busy system conditions, respectively.
 
 \begin{figure}[H]
   \centering
@@ -384,13 +287,13 @@ Figures~\ref{fig:cpu-discrimination-heterogeneous-idle} and~\ref{fig:cpu-discrim
   \label{fig:cpu-discrimination-heterogeneous-busy}
 \end{figure}
 
-Across repetitions on the idle system, each workload exhibits a clearly distinguishable dynamic power profile.
-The relative ordering between workload types remains stable, with BitOps consistently consuming the highest dynamic power, followed by FFT and \code{int128}, while \code{MatrixProd} exhibits the lowest power consumption.
+Across repetitions on the idle system, each workload exhibits a clearly distinguishable dynamic power profile as reflected in the distributions shown above.
+The relative ordering between workload types remains stable, with \code{BitOps} consistently consuming the highest dynamic power, followed by \code{FFT} and \code{int128}, while \code{MatrixProd} exhibits the lowest power consumption.
 Under background system load, the overall variance of the attributed dynamic power increases due to contention and scheduling interference, yet the qualitative separation between workloads persists.
 
-\paragraph{Interpretation}
+\paragraph{Interpretation.}
 The absolute dynamic power differences primarily reflect differences in instruction throughput and execution-unit utilization.
-Simple integer workloads such as BitOps sustain high instruction retirement rates with minimal dependency on memory or complex control flow, resulting in high dynamic power.
+Simple integer workloads such as \code{BitOps} sustain high instruction retirement rates with minimal dependency on memory or complex control flow, resulting in high dynamic power.
 In contrast, workloads such as \code{MatrixProd} are more strongly influenced by memory access patterns and data dependencies, leading to reduced execution-unit utilization and lower sustained dynamic power.
 The persistence of this ordering under concurrent execution indicates that Tycho preserves workload-specific dynamic attribution characteristics despite contention.
 
@@ -420,26 +323,26 @@ This behavior serves as a consistency check for instruction-level attribution an
 
 Crucially, the normalized results do not collapse to a single constant.
 Instead, statistically significant differences in energy per instruction remain observable, particularly on the idle system.
-For idle execution, FFT and \code{int128} exhibit consistently higher energy per instruction than BitOps and \code{MatrixProd}, despite comparable instruction counts.
+For idle execution, \code{FFT} and \code{int128} exhibit consistently higher energy per instruction than \code{BitOps} and \code{MatrixProd}, despite comparable instruction counts.
 
 A plausible explanation lies in differences in instruction mix and microarchitectural utilization.
-FFT workloads typically involve floating-point and vectorized arithmetic, activating execution units that are more energy-intensive than simple integer ALUs.
-Similarly, \code{int128} operations are often decomposed into multiple micro-operations and wide datapath activity on 64-bit architectures, increasing backend utilization per retired instruction.
-In contrast, BitOps primarily exercise simple integer pipelines, while \code{MatrixProd} frequently encounters memory-related stalls that limit execution-unit activity per instruction.
-These effects are more clearly expressed on the idle system, where higher operating frequencies and reduced contention expose microarchitectural differences between workloads.
+\code{FFT} and \code{int128} workloads activate more energy-intensive execution units and backend activity per retired instruction than simple integer operations.
+In contrast, \code{BitOps} primarily exercise lightweight integer pipelines, while \code{MatrixProd} is more strongly affected by memory access patterns that limit sustained execution-unit utilization.
+These differences are most clearly expressed on the idle system, where higher operating frequencies and reduced contention expose workload-dependent microarchitectural behavior.
 
-\paragraph{Limitations}
+
+\paragraph{Limitations.}
 This scenario does not establish causal energy costs of individual instruction types, nor does it generalize across microarchitectures or frequency configurations.
 The experiment focuses exclusively on CPU core-domain energy and does not explore interactions with memory, uncore components, or heterogeneous accelerators.
 
 \subsection{GPU Workload Separation under Concurrent Execution}
 \label{sec:test-gpu-concurrent-discrimination}
 
-\paragraph{Objective}
+\paragraph{Objective.}
 This scenario evaluates whether Tycho can attribute GPU energy independently to concurrent workloads executing on different physical devices.
 
-\paragraph{Observed Behavior}
-Figure~\ref{fig:gpu-concurrent-discrimination} shows the workload-level GPU power attributed to two concurrent workloads, each bound to a distinct physical GPU.
+\paragraph{Observed Behavior.}
+Figure~\ref{fig:gpu-concurrent-discrimination} summarizes the observed workload-level GPU power attributed to two concurrent workloads, each bound to a distinct physical GPU.
 
 \begin{figure}[H]
   \centering
@@ -455,21 +358,21 @@ Across all repetitions, the two GPUs exhibit stable and clearly separated energy
 The higher-performance device consistently consumes more power than the lower-tier GPU, with limited variability between runs.
 Background CPU load does not introduce any systematic change in the attributed GPU power for either workload.
 
-\paragraph{Interpretation}
+\paragraph{Interpretation.}
 The observed behavior indicates that GPU energy attribution in Tycho is device-specific and isolated from host CPU activity.
 Concurrent execution on multiple GPUs does not introduce cross-device interference in the attributed energy signals.
 
-\paragraph{Limitations}
+\paragraph{Limitations.}
 This scenario does not examine contention on shared GPU resources, short-lived kernels, or mixed GPU workloads on a single device.
 
 \subsection{GPU Workload Behavior under Oversubscription}
 \label{sec:test-gpu-concurrent-oversubscription}
 
-\paragraph{Objective}
+\paragraph{Objective.}
 This scenario examines GPU energy attribution under oversubscription, where more concurrent workloads are present than available physical GPUs, requiring multiple workloads to share a single device via time-multiplexed execution.
 
-\paragraph{Observed Behavior}
-Figure~\ref{fig:gpu-concurrent-oversubscription} shows the workload-level GPU power attributed to three concurrent workloads executing on two physical GPUs, resulting in one single-workload and one two-workload device configuration.
+\paragraph{Observed Behavior.}
+Figure~\ref{fig:gpu-concurrent-oversubscription} summarizes the observed workload-level GPU power attributed to three concurrent workloads executing on two physical GPUs, resulting in one single-workload and one two-workload device configuration.
 
 \begin{figure}[H]
   \centering
@@ -486,23 +389,22 @@ When two workloads share a GPU, both exhibit similar average power consumption, 
 Workloads co-located on the same GPU show a noticeably higher variance than single-workload execution, consistent with time-multiplexed scheduling.
 These patterns remain stable across repetitions and are unaffected by background CPU load.
 
-\paragraph{Interpretation}
+\paragraph{Interpretation.}
 The observed behavior indicates that Tycho conserves GPU energy under oversubscription and partitions device power across concurrent workloads without duplication or inflation.
 Increased variability reflects time-multiplexed execution rather than attribution instability.
 
-\paragraph{Limitations}
+\paragraph{Limitations.}
 This scenario does not examine finer-grained GPU scheduling behavior, short-lived kernels, memory-bound workloads, or oversubscription levels beyond two concurrent workloads per device.
 
 \subsection{Component Power Response to Sudden Load Transitions}
 \label{sec:test-sudden-load-transitions}
 
-\paragraph{Objective}
+\paragraph{Objective.}
 This scenario illustrates Tycho’s component-level power attribution behavior during abrupt and intense load transitions on an otherwise idle node.
 The goal is to expose transient effects and metric source limitations rather than to establish statistically representative behavior.
 
-\paragraph{Observed Behavior}
-Figure~\ref{fig:sudden-load-transitions} shows two exemplary time series of component power during a sudden onset of CPU and GPU stress, respectively.
-Each plot represents a single execution and is intended to illustrate characteristic behavior observed across multiple runs.
+\paragraph{Observed Behavior.}
+Figure~\ref{fig:sudden-load-transitions} shows two representative time series from individual executions, illustrating characteristic transient behavior rather than averaged trends during a sudden onset of CPU and GPU stress, respectively.
 
 \begin{figure}[H]
   \centering
@@ -529,17 +431,17 @@ During this transition period, the residual power term exhibits a pronounced tem
 This pattern is consistently observable for both CPU- and GPU-dominated load transitions.
 Once the system-level metric converges to the higher load state, the residual component recovers and stabilizes.
 
-\paragraph{Interpretation}
+\paragraph{Interpretation.}
 The observed transient behavior reflects fundamental latency differences between metric sources.
 CPU and GPU component metrics react rapidly to workload changes, while Redfish-based system power responds more slowly due to its coarse temporal characteristics, as discussed in earlier chapters.
-During this interval, Tycho attributes the rapidly increasing component power before the delayed system power increase is fully observed, resulting in a temporary residual imbalance.
+During this interval, Tycho attributes the rapidly increasing component power before the delayed system power increase is fully observed, resulting in a transient residual imbalance.
 
 This effect does not indicate an attribution error or implementation fault.
 Tycho deliberately avoids fabricating or extrapolating system-level energy beyond its tightly scoped modeling mechanisms.
 Instead, it reports observed values as provided by the underlying measurement sources, preserving physical transparency even when temporary inconsistencies arise.
 To make such situations explicit, Tycho emits a window plausibility indicator that marks windows affected by implausible intermediate attribution states.
 
-\paragraph{Limitations}
+\paragraph{Limitations.}
 These examples are anecdotal and not statistically representative.
 The scenario does not isolate individual contributors to delayed system power response, such as thermal inertia or fan activation thresholds, and does not attempt to distinguish metric latency from genuine physical response delays.
 

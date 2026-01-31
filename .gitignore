@@ -7,6 +7,7 @@
 /data-analysis/analysis-scripts/diagrams/*
 /data-analysis/analysis-scripts/diagrams_120s/*
 thesis/*/Figures/diagrams/*
+!thesis/MT/Figures/diagrams/*
 /testing/evaluation/logs/*
 !/testing/evaluation/logs/*/events.log
 /testing/evaluation/.venv
@@ -14,3 +15,4 @@ thesis/*/Figures/diagrams/*
 /testing/evaluation/analysis/out/*/*.parquet
 /testing/evaluation/analysis/tests/__pycache__
 /testing/evaluation/analysis/__pycache__
+/testing/evaluation/analysis/out

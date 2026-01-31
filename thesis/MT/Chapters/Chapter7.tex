@@ -31,32 +31,26 @@ these observations should be interpreted, what limitations they reveal, and
 what can be concluded about the scope and validity of the proposed measurement
 approach.
 
-
-% ----------------------------------------------------------------------
 \section{Global Summary of Empirical Findings}
 \label{sec:eval-summary-global}
 
-% PURPOSE:
-% - Establish a shared mental model before answering RQs
-% - Summarize recurring patterns, not individual tests
-% - No figures, no test descriptions, no references to specific plots
+Across the evaluated scenarios, Tycho exhibits a set of consistent empirical behaviors that characterize its operation as an accuracy-first energy measurement and attribution system. These behaviors recur independently of specific workloads or test configurations and form the empirical basis for the interpretive evaluation presented in the following sections.
 
-Across the evaluated scenarios, several consistent patterns emerged that
-characterize Tycho’s behavior as a measurement system.
+Under steady execution conditions, workload-level and component-level attribution outputs remain stable across repeated executions. Variability between repetitions is limited and behaves predictably, increasing primarily under background system load or scheduling contention. In such cases, fluctuations manifest as increased dispersion within individual runs rather than as systematic drift or instability across runs. Idle-attributed components remain largely invariant across repetitions, while dynamic components reflect effective execution intensity and available resources.
 
-% PLACEHOLDER:
-% Summarize high-level observations such as:
-% - Stability and repeatability under steady workloads
-% - Robust localization of dynamic energy under bursty execution
-% - Consistent attribution under concurrent workloads
-% - Conservation properties across attribution boundaries
-% - External telemetry latency as the dominant limiting factor
+Energy accounting remains closed across all observed scenarios. At each analysis window, system-level energy is either attributed explicitly to workloads and components or retained as a residual term. No silent loss, duplication, or implicit redistribution of energy is observed. When attribution cannot be resolved unambiguously due to limited observability or delayed telemetry, the resulting uncertainty appears explicitly as residual energy rather than being masked by corrective heuristics.
 
-These observations form the empirical basis for the following evaluation and
-are not tied to individual experiments, but to recurring system-level behavior
-across the experimental space explored in this thesis.
+Attribution outputs respond directly to changes in workload structure and execution dynamics. Transitions between idle, steady, bursty, and concurrent execution regimes are reflected in corresponding changes in dynamic energy attribution, variance, and component-level distribution. Concurrent execution leads to proportional sharing of energy where resources are shared, while oversubscription introduces increased variability consistent with time-multiplexed execution. These effects appear consistently across repetitions and system states.
 
-% ----------------------------------------------------------------------
+Dynamic energy attribution remains localized to active workloads and execution contexts. Workloads that do not perform effective computation exhibit negligible dynamic attribution, while active workloads consistently dominate the dynamic component. Idle energy remains decoupled from instantaneous execution behavior and is distributed according to declared resources rather than observed activity, resulting in stable idle attribution even under changing system load.
+
+System-level energy telemetry exhibits coarser temporal resolution and delayed response relative to component-level metrics. These characteristics manifest empirically as transient discrepancies during abrupt workload transitions, particularly in the residual energy term. Such effects are bounded in time and resolve once delayed telemetry converges to the new system state. No compensatory smoothing or retroactive correction is applied, and transient inconsistencies remain visible in the attribution outputs.
+
+Across all scenarios, weakening assumptions about telemetry quality or timing result in visibly degraded attribution specificity rather than silent failure. Reduced temporal resolution, delayed updates, or incomplete observability lead to increased residual attribution or reduced temporal precision, while preserving conservation and internal consistency. As a result, attribution outputs reflect the structure and limits of the underlying measurements rather than an idealized reconstruction of system behavior.
+
+These recurring empirical patterns provide a shared reference point for the subsequent evaluation. They describe how Tycho behaves as a measurement system under realistic conditions and establish the observational context within which the research questions are interpreted and answered.
+On this basis, the following sections interpret these empirical patterns through the lens of the research questions introduced earlier in the thesis.
+
  \section{Research Question 1: Guarantees and Feasibility}
 \label{sec:eval-rq1}
 
@@ -205,7 +199,6 @@ implicit or estimation-oriented attribution approaches.
 \end{quote}
 
 
-% ----------------------------------------------------------------------
 \section{Research Question 3: Contexts and Trade-offs}
 \label{sec:eval-rq3}
 
@@ -279,7 +272,6 @@ Accuracy-first measurement therefore represents a targeted instrument for
 question-driven analysis rather than a universal solution for energy monitoring.
 \end{quote}
 
-% ----------------------------------------------------------------------
 \section{Positioning of Tycho Within the Measurement Landscape}
 \label{sec:evaluation-positioning}
 
@@ -306,11 +298,8 @@ without introducing unexamined assumptions or implicit smoothing. Throughout
 the system, design choices reflect a preference for accounting-based reasoning
 over predictive reconstruction.
 
-As a consequence, Tycho cannot compensate for missing or incorrect telemetry.
-Rather than masking data limitations through interpolation or heuristic
-completion, the system exposes their effects directly in the attribution
-results. This positioning emphasizes transparency and bounded interpretation
-over completeness.
+As a consequence, Tycho does not attempt to compensate for missing or incorrect telemetry.
+Instead, the effects of data limitations are exposed directly in the attribution results, emphasizing transparency and bounded interpretation over completeness.
 
 \subsection{Interpretability Versus Smoothing and Convenience}
 
@@ -355,8 +344,6 @@ its outputs and avoids conflating measurement uncertainty with modeling
 convenience. This property is central to its role as an evaluative and
 explanatory system rather than a black-box estimator.
 
-
-% ----------------------------------------------------------------------
 \section{Scientific and Technical Contributions}
 \label{sec:eval-contributions}
 

@@ -378,8 +378,6 @@ class CpuDiscriminationTest:
 
         - Reads prebuilt subrun windows (cpu_discrimination_windows.parquet).
         - Computes mean/std of *dynamic-only* CPU power (derived from dynamic energy counter).
-        - Optionally "fakes" rows whose dynamic power is effectively zero by copying a random
-        non-adjacent donor sample (config-controlled, easy to disable).
         """
         from datetime import datetime
         from typing import List
@@ -407,17 +405,6 @@ class CpuDiscriminationTest:
         # Dynamic-only metric
         dyn_metric = "workload_rapl_core_dynamic_energy_mj"
         instr_metric = "workload_cpu_instructions_total"
-
-        # Faking controls
-        fake_enable = bool(getattr(config, "CPU_DISCRIM_FAKE_ZERO_DYNAMIC", True))
-        fake_seed = int(getattr(config, "CPU_DISCRIM_FAKE_SEED", 1337))
-        fake_eps_w = float(getattr(config, "CPU_DISCRIM_FAKE_EPS_W", 1e-6))
-        fake_excl = int(getattr(config, "CPU_DISCRIM_FAKE_EXCLUDE_NEIGHBOR", 1))
-        fake_scope = str(getattr(config, "CPU_DISCRIM_FAKE_SCOPE", "workload")).strip().lower()
-        if fake_scope not in ("workload", "any"):
-            fake_scope = "workload"
-
-        rng = np.random.default_rng(fake_seed)
 
         rows: List[dict] = []
 
@@ -477,9 +464,6 @@ class CpuDiscriminationTest:
                     "std_p_W": std_epi,
                     "n_samples": n,
                     # Faking metadata (filled later if needed)
-                    "is_faked": False,
-                    "faked_from_rep": np.nan,
-                    "faked_from_workload": "",
                 }
             )
 
@@ -492,54 +476,6 @@ class CpuDiscriminationTest:
                 "CPU discrimination produced no results. "
                 "Likely causes: pod label mismatch, missing workload metrics, or extraction windows misbuilt."
             )
-
-        # -----------------------------
-        # Optional: fake zero-dynamic rows
-        # -----------------------------
-        if fake_enable:
-            # Define "zero": mean power essentially 0 OR no usable samples
-            is_zero = (res["n_samples"].fillna(0).astype(int) == 0) | (res["mean_p_W"].astype(float) <= fake_eps_w)
-
-            # Donors are rows with meaningful signal
-            is_donor = (res["n_samples"].fillna(0).astype(int) > 0) & (res["mean_p_W"].astype(float) > fake_eps_w)
-
-            zero_idx = res.index[is_zero].tolist()
-            if zero_idx:
-                log(f"[cpu_discrimination] faking enabled: {len(zero_idx)} zero-dynamic rows will be patched (eps={fake_eps_w})")
-
-            for idx in zero_idx:
-                rep = int(res.at[idx, "rep"])
-                workload = str(res.at[idx, "workload"])
-
-                if fake_scope == "workload":
-                    cand = res[is_donor & (res["workload"] == workload)].copy()
-                else:
-                    cand = res[is_donor].copy()
-
-                if cand.empty:
-                    # Nothing to copy from, leave it as-is
-                    continue
-
-                # Exclude adjacent donors: abs(rep - donor_rep) > fake_excl
-                cand["_dist"] = (cand["rep"].astype(int) - rep).abs()
-                cand = cand[cand["_dist"] > fake_excl].copy()
-                if cand.empty:
-                    continue
-
-                donor = cand.sample(n=1, random_state=int(rng.integers(0, 2**32 - 1))).iloc[0]
-
-                res.at[idx, "mean_p_W"] = float(donor["mean_p_W"])
-                res.at[idx, "std_p_W"] = float(donor["std_p_W"])
-                res.at[idx, "n_samples"] = int(donor["n_samples"])
-                res.at[idx, "is_faked"] = True
-                res.at[idx, "faked_from_rep"] = int(donor["rep"])
-                res.at[idx, "faked_from_workload"] = str(donor["workload"])
-
-            # Write a second parquet so you can always inspect raw vs faked
-            out_parquet_faked = out_dir / "results_cpu_discrimination_faked.parquet"
-            res.to_parquet(out_parquet_faked, index=False)
-            log(f"[cpu_discrimination] wrote (faked) {out_parquet_faked}")
-
         # -----------------------------
         # Sanity
         # -----------------------------
