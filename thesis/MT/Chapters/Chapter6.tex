@@ -22,7 +22,7 @@ These runs provide broad scenario coverage for additional consistency checks and
 The resulting analyses are illustrative rather than verificatory, exposing Tycho’s behavior, capabilities, and boundary conditions under realistic execution.
 Where repetitions are evaluated quantitatively, they serve only to illustrate stability and variability; no claims of statistical significance are made.
 
-Together, these two evidence tiers support an evaluation focused on interpretability, consistency, and robustness within the limits imposed by the available measurement signals.
+Together, these two evidence tiers support an evaluation focused on interpretability, consistency, and robustness within limits imposed by the measurement signals.
 
 \section{Qualitative Validation and Consistency Assessment}
 \label{sec:qualitative-validation}
@@ -69,7 +69,7 @@ Importantly, delayed updates remained coherent and monotonic and did not introdu
 \label{sec:validation-temporal}
 
 Temporal coherence was assessed with a focus on preserving causal ordering and stable window semantics in the presence of heterogeneous sampling rates, asynchronous updates, and source-specific latency.
-Because Tycho does not enforce strict timestamp alignment at ingestion, correctness depends on coherent window materialization and predictable interpretation of delayed observations during analysis.
+Correctness depends on coherent window materialization and predictable interpretation of delayed observations during analysis.
 
 Invariant violations at this stage would manifest as negative or oscillatory attribution, unstable residual behavior, or inconsistent transitions between workload phases.
 Such effects were actively sought by inspecting intermediate timing state, analysis windows, and derived metrics under controlled transitions between idle, steady, bursty, and concurrent workloads, as well as during long-running executions where accumulated drift or buffer exhaustion would become observable.
@@ -220,7 +220,7 @@ Vertical error bars represent within-run variability of the attributed power sig
 Under background system load, CPU time is subject to scheduling contention and time-sliced execution.
 As a result, instantaneous dynamic power attribution may fluctuate substantially between aggregation intervals even within a single repetition.
 Large error bars in busy-system scenarios are therefore expected and reflect genuine execution variability under contention rather than measurement noise or attribution instability.
-In contrast, idle-attributed components exhibit minimal variability and remain stable across repetitions.
+In contrast, idle-attributed components exhibit significantly lower variability and remain stable across repetitions.
 
 \subsection{CPU Idle-Allocation Fairness (Busy vs.\ Noop)}
 \label{sec:test-cpu-idle-fairness}
@@ -297,7 +297,7 @@ Simple integer workloads such as \code{BitOps} sustain high instruction retireme
 In contrast, workloads such as \code{MatrixProd} are more strongly influenced by memory access patterns and data dependencies, leading to reduced execution-unit utilization and lower sustained dynamic power.
 The persistence of this ordering under concurrent execution indicates that Tycho preserves workload-specific dynamic attribution characteristics despite contention.
 
-To isolate whether these differences are intrinsic to the workloads or predominantly driven by instruction volume, the same experiment is repeated with dynamic energy normalized by the number of retired instructions.
+To isolate whether these differences are intrinsic to the workloads or predominantly driven by instruction volume, the same experiment is analyzed with dynamic energy normalized by the number of retired instructions.
 Figures~\ref{fig:cpu-discrimination-heterogeneous-idle-normalized} and~\ref{fig:cpu-discrimination-heterogeneous-busy-normalized} present the resulting \emph{dynamic energy per instruction} for idle and busy system conditions, respectively.
 
 \begin{figure}[H]

@@ -55,7 +55,7 @@ On this basis, the following sections interpret these empirical patterns through
 \label{sec:eval-rq1}
 
 \begin{quote}
-What properties can an accuracy-first energy measurement system realistically guarantee when attributing energy consumption to workloads in Kubernetes environments with heterogeneous and delayed telemetry sources?
+\textit{What properties can an accuracy-first energy measurement system realistically guarantee when attributing energy consumption to workloads in Kubernetes environments with heterogeneous and delayed telemetry sources?}
 \end{quote}
 
 \subsection{Interpretation}
@@ -112,7 +112,7 @@ rather than misleading confidence.
 \subsection{Answer to Research Question 1}
 
 \begin{quote}
-An accuracy-first energy measurement system can realistically guarantee
+\textit{An accuracy-first energy measurement system can realistically guarantee
 structural and semantic properties of attribution rather than numerical accuracy
 in the absolute sense. Under stated assumptions about telemetry quality and
 timing, Tycho guarantees closed energy accounting within its modeled scope,
@@ -121,14 +121,14 @@ attribution based on modeled source delays. These guarantees are enforced by
 construction and degrade explicitly when upstream measurements become coarse,
 delayed, or inconsistent. Accuracy-first measurement therefore does not eliminate
 estimation, but ensures that its limits are visible, bounded, and interpretable
-rather than implicit.
+rather than implicit.}
 \end{quote}
 
 \section{Research Question 2: Interpretability and Explanatory Power}
 \label{sec:eval-rq2}
 
 \begin{quote}
-How does an explicit, semantics-driven attribution methodology influence the interpretability and explanatory power of workload-level energy measurements compared to implicit or estimation-oriented approaches?
+\textit{How does an explicit, semantics-driven attribution methodology influence the interpretability and explanatory power of workload-level energy measurements compared to implicit or estimation-oriented approaches?}
 \end{quote}
 
 \subsection{Interpretation}
@@ -186,7 +186,7 @@ explanatory power are primary objectives.
 \subsection{Answer to Research Question 2}
 
 \begin{quote}
-An explicit, semantics-driven attribution methodology increases the
+\textit{An explicit, semantics-driven attribution methodology increases the
 interpretability and explanatory power of workload-level energy measurements by
 ensuring that reported values correspond to well-defined conceptual quantities
 and obey explicit invariants. By avoiding silent smoothing and implicit gap
@@ -195,7 +195,7 @@ behavior, supports consistency checks across metrics, and makes uncertainty and
 measurement limits visible rather than implicit. These benefits come at the cost
 of increased complexity and stricter deployment requirements, but provide
 substantially stronger semantic foundations for scientific analysis than
-implicit or estimation-oriented attribution approaches.
+implicit or estimation-oriented attribution approaches.}
 \end{quote}
 
 
@@ -203,7 +203,7 @@ implicit or estimation-oriented attribution approaches.
 \label{sec:eval-rq3}
 
 \begin{quote}
-In which experimental and research contexts does high-fidelity, accuracy-first energy measurement justify its complexity and overhead, and where do simpler approaches remain preferable?
+\textit{In which experimental and research contexts does high-fidelity, accuracy-first energy measurement justify its complexity and overhead, and where do simpler approaches remain preferable?}
 \end{quote}
 
 \subsection{Interpretation}
