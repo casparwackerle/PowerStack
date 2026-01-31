@@ -11,7 +11,7 @@ PowerStack is a Kubernetes-based infrastructure automation project designed for 
   - Rancher for cluster management
   - NFS-based Persistent Volumes (PV) for storage
 - **Energy Efficiency Monitoring:**
-  - KEPLER for real-time power consumption metrics
+  - Tycho for real-time power consumption metrics
   - Prometheus for data collection
   - Grafana for visualization
 - **Benchmarking and Stress Testing:**
